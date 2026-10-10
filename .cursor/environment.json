@@ -1,0 +1,6 @@
+{
+  "name": "Fledge Billing",
+  "ports": [3847],
+  "install": "corepack enable && corepack prepare pnpm@9.15.9 --activate && pnpm install --frozen-lockfile && pnpm build",
+  "start": "exec pnpm start"
+}

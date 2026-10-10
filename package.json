@@ -1,0 +1,17 @@
+{
+  "name": "fledge-billing",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "build": "pnpm -r --sort run build",
+    "test": "vitest run",
+    "dev": "pnpm --filter @fledge/app run dev",
+    "start": "pnpm --filter @fledge/app run start",
+    "typecheck": "pnpm -r run typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.9"
+  }
+}

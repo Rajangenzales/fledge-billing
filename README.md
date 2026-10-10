@@ -21,7 +21,25 @@ These documents are the source of truth. Implementation must not silently expand
 
 ## Development status
 
-Planning is complete. The next milestone is **M0: Foundation**. It establishes the repository structure, application shell, environment configuration, logging, error handling, and testing foundation before feature work begins.
+**M0: Foundation** is in progress. The repository includes a TypeScript monorepo application shell, configuration, logging, error handling, and Vitest smoke tests. See [Technology Stack (M0)](./docs/09-technology-stack.md) for stack rationale.
+
+## Quick start
+
+Prerequisites: Node.js 22+ and [pnpm](https://pnpm.io/) 9 (via `corepack enable`).
+
+```bash
+cp .env.example .env   # optional; defaults work offline
+pnpm install
+pnpm test
+pnpm build
+pnpm start             # local HTTP shell — GET http://127.0.0.1:3847/health
+```
+
+One-shot shell status (no HTTP server):
+
+```bash
+node packages/app/dist/cli.js
+```
 
 ## Development principles
 

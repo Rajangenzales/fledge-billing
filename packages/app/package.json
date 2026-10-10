@@ -1,0 +1,19 @@
+{
+  "name": "@fledge/app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "fledge": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/cli.js --serve",
+    "dev": "node --watch dist/cli.js --serve"
+  },
+  "dependencies": {
+    "@fledge/application": "workspace:*",
+    "@fledge/domain": "workspace:*"
+  }
+}
