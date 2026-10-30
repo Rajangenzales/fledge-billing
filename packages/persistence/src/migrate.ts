@@ -35,7 +35,6 @@ const MIGRATION_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
  * Applies pending schema migrations in order.
  * Each migration runs in one transaction together with its version row.
  * A failure rolls that migration back and leaves earlier versions in place.
- * The migration list contains no business tables until a later milestone.
  */
 export function migrate(
   db: SchemaDatabase,

@@ -29,8 +29,8 @@ afterEach(() => {
 });
 
 describe("migrate", () => {
-  it("ships no business tables in this milestone", () => {
-    expect(migrations).toEqual([]);
+  it("ships the State and UT master as the first migration", () => {
+    expect(migrations.map((migration) => migration.name)).toEqual(["state-ut-master"]);
   });
 
   it("leaves an empty database at schema version 0", () => {
