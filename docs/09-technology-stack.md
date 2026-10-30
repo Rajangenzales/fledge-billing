@@ -1,7 +1,7 @@
 # Fledge Billing — Technology Stack (M0)
 
 **Status:** Adopted for foundation milestone  
-**Version:** 0.4
+**Version:** 0.5
 
 ## Decision
 
@@ -45,7 +45,15 @@ Schema changes go through `migrate`. Versions are contiguous integers starting a
 
 Migration `state-ut-master` creates `state_ut` and seeds it from `STATE_UTS` in `@fledge/domain`. Ids are stable `IN-` plus the ISO 3166-2 subdivision code, for example `IN-KL`. `gst_state_code` is the two-digit GST code stored as text.
 
-The seed has 28 active states and 8 active Union Territories. GST code 25, former Daman and Diu, is inactive. GST code 26 is Dadra and Nagar Haveli and Daman and Diu. Codes 97 and 99 are not seeded. `listStateUts` reads the table back in GST-code order. Business and customer tables remain later milestones.
+The seed has 28 active states and 8 active Union Territories. GST code 25, former Daman and Diu, is inactive. GST code 26 is Dadra and Nagar Haveli and Daman and Diu. Codes 97 and 99 are not seeded. `listStateUts` reads the table back in GST-code order.
+
+## Business profile (M1-B)
+
+Migration `business-profile` creates `business` and `business_setting`. `saveBusinessProfile` stores one local business. Legal name, address, and an active State or Union Territory are required. GST registration status and GSTIN stay separate: a registered business needs a GSTIN, and an unregistered business has none.
+
+The GSTIN is 15 characters. The first two digits must match the selected State or Union Territory, position 14 is `Z`, and position 15 is the GSTN modulus-36 check digit. `27AAACR5055K1Z7` is the worked example.
+
+`payment_details` and `invoice_preferences` are the business settings saved with the profile. District stays out of this migration until a district master exists, so the address is not a free-text state or district name. `state_id` references `state_ut`.
 
 ## Tooling
 

@@ -16,3 +16,10 @@ export {
   type StateUt,
   type StateUtType,
 } from "./state-ut.js";
+export {
+  BusinessProfileError,
+  gstinCheckCharacter,
+  validateBusinessInput,
+  type NormalizedBusinessInput,
+  type SaveBusinessProfileInput,
+} from "./business-profile.js";

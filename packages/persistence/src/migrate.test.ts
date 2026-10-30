@@ -30,7 +30,10 @@ afterEach(() => {
 
 describe("migrate", () => {
   it("ships the State and UT master as the first migration", () => {
-    expect(migrations.map((migration) => migration.name)).toEqual(["state-ut-master"]);
+    expect(migrations.map((migration) => migration.name)).toEqual([
+      "state-ut-master",
+      "business-profile",
+    ]);
   });
 
   it("leaves an empty database at schema version 0", () => {
