@@ -23,13 +23,14 @@ export function getShellStatus(config: AppConfig): ShellStatus {
 export function startShellServer(
   config: AppConfig,
   log: Logger,
-): Promise<{ close: () => Promise<void> }> {
+  schemaVersion: number,
+): Promise<{ close: () => Promise<void>; port: number }> {
   const status = getShellStatus(config);
 
   const server = createServer((req, res) => {
     if (req.url === "/health" || req.url === "/") {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, ...status }));
+      res.end(JSON.stringify({ ok: true, ...status, schemaVersion }));
       return;
     }
     res.writeHead(404, { "Content-Type": "application/json" });
@@ -39,11 +40,18 @@ export function startShellServer(
   return new Promise((resolve, reject) => {
     server.on("error", reject);
     server.listen(config.port, "0.0.0.0", () => {
+      const address = server.address();
+      if (address === null || typeof address === "string") {
+        reject(new Error("Application shell did not bind to a TCP port."));
+        return;
+      }
       log.info("Application shell listening", {
-        port: config.port,
+        port: address.port,
         version: APP_VERSION,
+        schemaVersion,
       });
       resolve({
+        port: address.port,
         close: () =>
           new Promise((closeResolve, closeReject) => {
             server.close((err) => (err ? closeReject(err) : closeResolve()));

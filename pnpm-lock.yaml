@@ -26,6 +26,9 @@ importers:
       '@fledge/domain':
         specifier: workspace:*
         version: link:../domain
+      '@fledge/persistence':
+        specifier: workspace:*
+        version: link:../persistence
 
   packages/application:
     dependencies:
@@ -34,6 +37,8 @@ importers:
         version: link:../domain
 
   packages/domain: {}
+
+  packages/persistence: {}
 
 packages:
 

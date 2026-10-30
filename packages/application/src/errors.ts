@@ -22,5 +22,17 @@ export function toUserFacingMessage(error: unknown): string {
   if (error instanceof AppError) {
     return error.userMessage;
   }
+  if (isUserFacing(error)) {
+    return error.userMessage;
+  }
   return "Something went wrong. Check the logs for details.";
+}
+
+function isUserFacing(error: unknown): error is { userMessage: string } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "userMessage" in error &&
+    typeof error.userMessage === "string"
+  );
 }
