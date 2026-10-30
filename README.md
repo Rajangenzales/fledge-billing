@@ -21,7 +21,7 @@ These documents are the source of truth. Implementation must not silently expand
 
 ## Development status
 
-**M0: Foundation** is in progress. The repository includes a TypeScript monorepo application shell, configuration, logging, error handling, an exact money type, a SQLite migration runner, and Vitest tests. See [Technology Stack (M0)](./docs/09-technology-stack.md) for stack, money, and database decisions.
+**M1: Business setup** is in progress. The State and Union Territory master is seeded from the domain list. Foundation work covers the application shell, exact money, and the SQLite migration runner. See [Technology Stack (M0)](./docs/09-technology-stack.md).
 
 ## Quick start
 

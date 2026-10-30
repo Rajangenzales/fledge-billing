@@ -8,3 +8,11 @@ export {
   Ratio,
   roundHalfUp,
 } from "./money.js";
+export {
+  STATE_UTS,
+  activeStateUts,
+  findStateUtByGstStateCode,
+  findStateUtById,
+  type StateUt,
+  type StateUtType,
+} from "./state-ut.js";

@@ -1,7 +1,7 @@
 # Fledge Billing — Technology Stack (M0)
 
 **Status:** Adopted for foundation milestone  
-**Version:** 0.3
+**Version:** 0.4
 
 ## Decision
 
@@ -37,9 +37,15 @@ SQLite is the local database. The driver is Node.js 22 `node:sqlite` (`DatabaseS
 
 `FLEDGE_DATABASE` defaults to `data/fledge.sqlite`. `:memory:` is reserved for tests.
 
-Schema changes go through `migrate`. Versions are contiguous integers starting at 1. The `schema_migration` table stores version, name, and applied time. Startup applies only migrations newer than the installed version, and only when each installed row matches this build's version and name. A database newer than the application is refused. Each migration runs in one transaction with its version row, so a failure rolls that migration back and leaves earlier versions applied. The shipped migration list is empty: business tables begin in a later milestone.
+Schema changes go through `migrate`. Versions are contiguous integers starting at 1. The `schema_migration` table stores version, name, and applied time. Startup applies only migrations newer than the installed version, and only when each installed row matches this build's version and name. A database newer than the application is refused. Each migration runs in one transaction with its version row, so a failure rolls that migration back and leaves earlier versions applied.
 
 `pnpm start` opens the database, migrates, then serves `/health` with `schemaVersion`. The one-shot CLI status command does not create a database file.
+
+## State and UT master (M1-A)
+
+Migration `state-ut-master` creates `state_ut` and seeds it from `STATE_UTS` in `@fledge/domain`. Ids are stable `IN-` plus the ISO 3166-2 subdivision code, for example `IN-KL`. `gst_state_code` is the two-digit GST code stored as text.
+
+The seed has 28 active states and 8 active Union Territories. GST code 25, former Daman and Diu, is inactive. GST code 26 is Dadra and Nagar Haveli and Daman and Diu. Codes 97 and 99 are not seeded. `listStateUts` reads the table back in GST-code order. Business and customer tables remain later milestones.
 
 ## Tooling
 
