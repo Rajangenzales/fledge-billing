@@ -21,7 +21,7 @@ These documents are the source of truth. Implementation must not silently expand
 
 ## Development status
 
-**M0: Foundation** is in progress. The repository includes a TypeScript monorepo application shell, configuration, logging, error handling, and Vitest smoke tests. See [Technology Stack (M0)](./docs/09-technology-stack.md) for stack rationale.
+**M0: Foundation** is in progress. The repository includes a TypeScript monorepo application shell, configuration, logging, error handling, an exact money type, and Vitest tests. See [Technology Stack (M0)](./docs/09-technology-stack.md) for stack and money representation.
 
 ## Quick start
 
