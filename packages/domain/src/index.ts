@@ -18,8 +18,16 @@ export {
 } from "./state-ut.js";
 export {
   BusinessProfileError,
-  gstinCheckCharacter,
   validateBusinessInput,
   type NormalizedBusinessInput,
   type SaveBusinessProfileInput,
 } from "./business-profile.js";
+export {
+  CUSTOMER_REGISTRATION_TYPES,
+  CustomerError,
+  validateCustomerInput,
+  type CustomerRegistrationType,
+  type NormalizedCustomerInput,
+  type SaveCustomerInput,
+} from "./customer.js";
+export { GstinError, gstinCheckCharacter } from "./gstin.js";

@@ -33,6 +33,7 @@ describe("migrate", () => {
     expect(migrations.map((migration) => migration.name)).toEqual([
       "state-ut-master",
       "business-profile",
+      "customer",
     ]);
   });
 
