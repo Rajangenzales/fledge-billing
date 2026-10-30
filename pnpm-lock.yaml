@@ -40,6 +40,9 @@ importers:
 
   packages/persistence:
     dependencies:
+      '@fledge/application':
+        specifier: workspace:*
+        version: link:../application
       '@fledge/domain':
         specifier: workspace:*
         version: link:../domain
