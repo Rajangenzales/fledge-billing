@@ -1,7 +1,7 @@
 # Fledge Billing — Technology Stack (M0)
 
 **Status:** Adopted for foundation milestone  
-**Version:** 0.2
+**Version:** 0.3
 
 ## Decision
 
@@ -10,8 +10,9 @@ M0 uses a **TypeScript pnpm monorepo** with strict layer boundaries:
 | Package | Role |
 | --- | --- |
 | `@fledge/domain` | Pure domain types and engines. Money is exact; billing/GST engines come in later milestones. |
-| `@fledge/application` | Configuration, logging, errors, future use cases |
-| `@fledge/app` | Application shell entry (CLI and local HTTP health endpoint) |
+| `@fledge/application` | Configuration, logging, errors, future use cases. No SQLite dependency. |
+| `@fledge/persistence` | Local SQLite connection, schema migrations, and later repository implementations. |
+| `@fledge/app` | Application shell entry (CLI and local HTTP health endpoint). Opens the database on serve. |
 
 ## Rationale
 
@@ -29,6 +30,16 @@ Financial amounts live in `@fledge/domain` as exact rationals: a `bigint` numera
 `roundHalfUp(amount, decimalPlaces)` is the only rounding operation. It rounds half away from zero. `add`, `subtract`, and `times` leave the exact value unchanged, including non-terminating results such as an inclusive-price split. The GST engine will call `roundHalfUp` at the calculation stage defined for that rule, usually `INR_MINOR_SCALE`. Formatting a non-terminating amount throws until it has been rounded.
 
 Input strings allow at most 15 digits before the decimal point and 8 after it. That bound applies to typed input, not to exact intermediate rationals produced by multiplication.
+
+## Local database (M0-B)
+
+SQLite is the local database. The driver is Node.js 22 `node:sqlite` (`DatabaseSync`), used only inside `@fledge/persistence`. Node 22 still marks that module experimental. Keeping it behind this package means a later driver change does not touch domain or application code. No native addon is required.
+
+`FLEDGE_DATABASE` defaults to `data/fledge.sqlite`. `:memory:` is reserved for tests.
+
+Schema changes go through `migrate`. Versions are contiguous integers starting at 1. The `schema_migration` table stores version, name, and applied time. Startup applies only migrations newer than the installed version, and only when each installed row matches this build's version and name. A database newer than the application is refused. Each migration runs in one transaction with its version row, so a failure rolls that migration back and leaves earlier versions applied. The shipped migration list is empty: business tables begin in a later milestone.
+
+`pnpm start` opens the database, migrates, then serves `/health` with `schemaVersion`. The one-shot CLI status command does not create a database file.
 
 ## Tooling
 

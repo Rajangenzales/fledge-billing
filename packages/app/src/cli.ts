@@ -3,8 +3,8 @@ import {
   loadConfig,
   createLogger,
   toUserFacingMessage,
-  AppError,
 } from "@fledge/application";
+import { migrate, migrations, openDatabase } from "@fledge/persistence";
 import { getShellStatus, startShellServer } from "./shell.js";
 import { APP_NAME, APP_VERSION } from "./version.js";
 
@@ -31,23 +31,32 @@ async function main(): Promise<void> {
     return;
   }
 
-  const { close } = await startShellServer(config, log);
+  const database = openDatabase(config.databasePath);
+  try {
+    const schema = migrate(database, migrations);
+    log.info("Database schema ready", { schemaVersion: schema.toVersion });
+    const server = await startShellServer(config, log, schema.toVersion);
 
-  const shutdown = async () => {
-    log.info("Shutting down application shell");
-    await close();
-    process.exit(0);
-  };
+    const shutdown = async () => {
+      log.info("Shutting down application shell");
+      await server.close();
+      database.close();
+      process.exit(0);
+    };
 
-  process.on("SIGINT", () => void shutdown());
-  process.on("SIGTERM", () => void shutdown());
+    process.on("SIGINT", () => {
+      void shutdown();
+    });
+    process.on("SIGTERM", () => {
+      void shutdown();
+    });
+  } catch (error) {
+    database.close();
+    throw error;
+  }
 }
 
 main().catch((error) => {
-  const message =
-    error instanceof AppError
-      ? error.userMessage
-      : toUserFacingMessage(error);
-  console.error(message);
+  console.error(toUserFacingMessage(error));
   process.exit(1);
 });

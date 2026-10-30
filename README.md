@@ -21,7 +21,7 @@ These documents are the source of truth. Implementation must not silently expand
 
 ## Development status
 
-**M0: Foundation** is in progress. The repository includes a TypeScript monorepo application shell, configuration, logging, error handling, an exact money type, and Vitest tests. See [Technology Stack (M0)](./docs/09-technology-stack.md) for stack and money representation.
+**M0: Foundation** is in progress. The repository includes a TypeScript monorepo application shell, configuration, logging, error handling, an exact money type, a SQLite migration runner, and Vitest tests. See [Technology Stack (M0)](./docs/09-technology-stack.md) for stack, money, and database decisions.
 
 ## Quick start
 
@@ -32,7 +32,7 @@ cp .env.example .env   # optional; defaults work offline
 pnpm install
 pnpm test
 pnpm build
-pnpm start             # local HTTP shell — GET http://127.0.0.1:3847/health
+pnpm start             # local HTTP shell — migrates SQLite, then GET http://127.0.0.1:3847/health
 ```
 
 One-shot shell status (no HTTP server):
