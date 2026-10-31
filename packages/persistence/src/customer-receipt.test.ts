@@ -4,7 +4,7 @@ import { openDatabase, type SchemaDatabase } from "./connection.js";
 import { migrate, readSchemaVersion } from "./migrate.js";
 import { migrations } from "./migrations.js";
 import { createCustomerReceiptRepository } from "./customer-receipt.js";
-import { saveBusinessProfile, createCustomer, recordCustomerReceipt, getCustomerAdvance } from "@fledge/application";
+import { saveBusinessProfile, createCustomer, recordCustomerReceipt, getCustomerAdvance, printCustomerReceipt } from "@fledge/application";
 import { listStateUts } from "./state-ut.js";
 import { afterEach, describe, expect, it } from "vitest";
 
