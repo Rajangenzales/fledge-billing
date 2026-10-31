@@ -4,7 +4,7 @@ import { openDatabase, type SchemaDatabase } from "./connection.js";
 import { migrate, readSchemaVersion } from "./migrate.js";
 import { migrations } from "./migrations.js";
 import { createCustomerReceiptRepository } from "./customer-receipt.js";
-import { createBusinessProfile, createCustomer, recordCustomerReceipt, getCustomerAdvance } from "@fledge/application";
+import { saveBusinessProfile, createCustomer, recordCustomerReceipt, getCustomerAdvance } from "@fledge/application";
 import { listStateUts } from "./state-ut.js";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -16,7 +16,7 @@ function setup() {
   dbs.push(db);
   migrate(db, migrations);
   const states = listStateUts(db);
-  const business = createBusinessProfile({
+  const business = saveBusinessProfile({
     legalName: "Fledge Traders", address: "Market Road, Kochi", stateId: "IN-KL", gstRegistered: false,
   }, { repository: createBusinessRepository(db), states, now: () => "2026-10-31T08:00:00.000Z", createId: () => "biz-1" });
   const customer = createCustomer({
