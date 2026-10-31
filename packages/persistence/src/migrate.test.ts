@@ -42,7 +42,6 @@ describe("migrate", () => {
       "customer-receipt",
       "payment-allocation-events",
       "payment-refund-reversal-events",
-      "payment-refund-reversal-events",\n      "payment-refund-reversal-events",
     ]);
   });
 
