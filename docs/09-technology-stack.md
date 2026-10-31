@@ -1,7 +1,7 @@
 # Fledge Billing — Technology Stack (M0)
 
 **Status:** Adopted for foundation milestone  
-**Version:** 0.6
+**Version:** 0.7
 
 ## Decision
 
@@ -60,6 +60,12 @@ The GSTIN is 15 characters. The first two digits must match the selected State o
 Migration `customer` creates `customer`, linked to the local business and to `state_ut`. A customer can be saved only after the business profile exists. Name, billing address, and an active State or Union Territory are required. Shipping address, phone, email, PIN, and notes are optional.
 
 `registration_type` is `registered` or `unregistered`, separate from the GSTIN. A registered customer needs a GSTIN whose state code matches the customer State or Union Territory. The check digit is the same modulus-36 rule as the business profile. Deactivating a customer sets `active` to false and keeps the row. `listCustomers` returns active customers unless inactive rows are requested.
+
+## Products and services (M3)
+
+Migration `product-service` creates `tax_category`, `saved_gst_rate`, and `product_service`. Tax categories are the closed set taxable, exempt, nil-rated, and non-GST. A saved GST rate is a name and an exact percentage for one business. It is user configuration. It is not the versioned `tax_rate` or GST rule table, which arrive with the GST engine.
+
+A taxable item must point at a saved rate and may be tax-inclusive. Exempt, nil-rated, and non-GST items have no saved rate and are not tax-inclusive. Prices and discounts are exact rupee amounts in paise. HSN/SAC, when present, is 4, 6, or 8 digits. This milestone does not calculate tax and does not ship an HSN master. Deactivating a product or a saved rate keeps the row.
 
 ## Tooling
 

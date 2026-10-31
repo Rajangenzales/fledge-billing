@@ -21,7 +21,7 @@ These documents are the source of truth. Implementation must not silently expand
 
 ## Development status
 
-**M2: Customers** is in progress. Customers belong to the saved business and keep GST registration type separate from the GSTIN. State and Union Territory master data and the business profile are already in place. See [Technology Stack (M0)](./docs/09-technology-stack.md).
+**M3: Products and services** is in progress. Items store an HSN or SAC, a unit, an exact rupee price, and a saved GST percentage that stays separate from versioned tax rules. Customers, the business profile, and the State and Union Territory master are already in place. See [Technology Stack (M0)](./docs/09-technology-stack.md).
 
 ## Quick start
 
