@@ -103,6 +103,9 @@ export {
   type TemplateSectionDefinition,
   type TemplateSectionKey,
 } from "./template.js";
+export { formatInr } from "./format-inr.js";
+export { assertInvoiceLogo } from "./logo.js";
+export { invoicePdfFilename, presentationLines, renderPrintSheet } from "./print.js";
 export {
   PREVIEW_NOTICE,
   renderStoredDocument,

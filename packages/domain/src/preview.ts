@@ -177,6 +177,7 @@ export type IssuedRender = {
   version: number | null;
   documentId: string;
   documentNumber: string | null;
+  documentDate: string;
   documentType: DocumentType;
   sections: PreviewSection[];
   items: PreviewItem[];
@@ -272,6 +273,7 @@ export function renderStoredDocument(input: {
     version: input.fallback ? null : (template?.version ?? null),
     documentId: input.document.id,
     documentNumber: input.document.documentNumber,
+    documentDate: input.document.documentDate,
     documentType: input.document.documentType,
     sections,
     items,

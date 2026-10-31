@@ -21,7 +21,7 @@ These documents are the source of truth. Implementation must not silently expand
 
 ## Development status
 
-**M6: Invoice templates** is in progress. Built-in layouts, safe labels, optional fields, custom fields, and preview are in place. An issued document renders from the template version and amounts saved with it. A template does not calculate tax. See [Technology Stack (M0)](./docs/09-technology-stack.md).
+**M7: PDF, print and share** is in progress. An issued document can be printed and saved as a local PDF from the same render. The PDF does not calculate tax or change the stored invoice. See [Technology Stack (M0)](./docs/09-technology-stack.md).
 
 ## Quick start
 

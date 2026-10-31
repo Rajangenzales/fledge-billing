@@ -1,4 +1,7 @@
-import { BillingError, gstinCheckCharacter } from "@fledge/domain";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { BillingError, TemplateError, gstinCheckCharacter } from "@fledge/domain";
 import {
   cancelDocument,
   createCustomer,
@@ -7,8 +10,11 @@ import {
   finalizeDocument,
   getDocument,
   listDocuments,
+  exportInvoicePdf,
+  printInvoice,
   renderIssuedDocument,
   saveBusinessProfile,
+  shareInvoicePdf,
   saveNumberSeries,
   updateDocument,
 } from "@fledge/application";
@@ -588,6 +594,66 @@ describe("billing documents", () => {
     );
     expect(later.ruleVersionId).toBe("gst-structure-test");
     expect(getDocument(issued.id, deps)?.ruleVersionId).toBe("gst-structure-2017-07-01");
+  });
+});
+
+describe("PDF export", () => {
+  it("saves a local PDF and print sheet without changing the issued invoice", async () => {
+    const db = database();
+    prepare(db);
+    const deps = documentDeps(db);
+    const issued = finalizeDocument(
+      createDocument(
+        {
+          customerId: "cust-1",
+          documentType: "tax_invoice",
+          documentDate: "2026-10-31",
+          placeOfSupplyStateId: "IN-KL",
+          gstEnabled: true,
+          reverseCharge: false,
+          lines: [
+            {
+              description: "Service",
+              quantity: "1",
+              unit: "nos",
+              rate: "1000",
+              discountType: "none",
+              taxInclusive: false,
+              gstRatePercent: "18",
+              taxCategoryId: "taxable",
+            },
+          ],
+        },
+        deps,
+      ).id,
+      deps,
+    );
+    const renderDeps = {
+      documents: deps.repository,
+      templates: createTemplateRepository(db),
+      states: listStateUts(db),
+    };
+    const printed = printInvoice(issued.id, renderDeps);
+    expect(printed).toContain("Total: INR 1,180.00");
+    expect(printed).toContain("Tax: INR 180.00");
+    const directory = mkdtempSync(join(tmpdir(), "fledge-pdf-"));
+    try {
+      const saved = await exportInvoicePdf(issued.id, directory, renderDeps);
+      expect(saved.filePath.endsWith("tax-invoice_INV-2026-27-0001_2026-10-31.pdf")).toBe(true);
+      const shared = await shareInvoicePdf(issued.id, directory, renderDeps);
+      expect(shared).toEqual({ method: "local-file", filePath: saved.filePath });
+      await expect(
+        exportInvoicePdf(issued.id, directory, renderDeps, Uint8Array.from([0x3c, 0x68, 0x74, 0x6d, 0x6c])),
+      ).rejects.toThrow(TemplateError);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+    expect(getDocument(issued.id, deps)).toMatchObject({
+      status: "finalized",
+      documentNumber: "INV/2026-27/0001",
+      grandTotal: "1180",
+      taxTotal: "180",
+    });
   });
 });
 
