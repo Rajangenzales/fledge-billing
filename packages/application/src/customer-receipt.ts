@@ -34,6 +34,7 @@ export type CustomerReceiptRepository = {
   list(customerId: string): CustomerReceipt[];
   total(customerId: string): string;
   allocatedTotal(customerId: string): string;
+  adjustmentTotals(customerId: string): { refundedAmount: string; reversedReceiptAmount: string };
 };
 
 export type CustomerReceiptDeps = {
@@ -98,7 +99,7 @@ export function getCustomerAdvance(customerId: string, deps: CustomerReceiptDeps
     customerId,
     currency: "INR",
     receiptCount: deps.repository.list(customerId).length,
-    unallocatedAmount: subtractAmounts(deps.repository.total(customerId), deps.repository.allocatedTotal(customerId)),
+    unallocatedAmount: subtractAmounts(deps.repository.total(customerId), deps.repository.allocatedTotal(customerId), deps.repository.adjustmentTotals(customerId)),
   };
 }
 
@@ -142,9 +143,9 @@ function optional(value: string | null | undefined, max: number): string | null 
   return value.trim();
 }
 
-function subtractAmounts(total: string, allocated: string): string {
+function subtractAmounts(total: string, allocated: string, adjustments: { refundedAmount: string; reversedReceiptAmount: string }): string {
   try {
-    const remaining = Money.parse(total).subtract(Money.parse(allocated));
+    const remaining = Money.parse(total).subtract(Money.parse(allocated)).subtract(Money.parse(adjustments.refundedAmount)).subtract(Money.parse(adjustments.reversedReceiptAmount));
     if (remaining.compare(Money.zero()) < 0) throw new CustomerReceiptError("Customer allocations exceed the available receipts.");
     return roundHalfUp(remaining, 2).toDecimalString();
   } catch (error) {

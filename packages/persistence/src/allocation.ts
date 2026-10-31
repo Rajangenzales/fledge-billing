@@ -58,7 +58,9 @@ export function createAllocationRepository(db: SchemaDatabase): AllocationReposi
           throw new AllocationError("Choose a finalized invoice or bill of supply, not a quotation or receipt.");
         }
         const customerId = String(receipt.customer_id);
-        const receiptAvailable = paise(String(receipt.amount)) - activeForReceipt(db, event.businessId, event.receiptId);
+        const receiptAvailable = paise(String(receipt.amount)) - activeForReceipt(db, event.businessId, event.receiptId) -
+          netRefundedForReceipt(db, event.businessId, event.receiptId) -
+          (isReceiptReversed(db, event.businessId, event.receiptId) ? paise(String(receipt.amount)) : 0n);
         if (paise(event.amount) > receiptAvailable) throw new AllocationError("The allocation exceeds the receipt's available balance.");
         const outstanding = paise(String(invoice.grand_total)) - activeForInvoice(db, event.businessId, event.invoiceId);
         if (paise(event.amount) > outstanding) throw new AllocationError("The allocation exceeds the invoice's outstanding amount.");
@@ -154,6 +156,18 @@ function toEvent(row: Record<string, unknown>): AllocationEvent {
 function activeForReceipt(db: SchemaDatabase, businessId: string, receiptId: string): bigint {
   const rows = db.prepare("SELECT event_type, amount FROM payment_allocation_event WHERE business_id = ? AND receipt_id = ?").all(businessId, receiptId);
   return rows.reduce((sum, row) => sum + (row.event_type === "allocate" ? paise(text(row.amount)) : -paise(text(row.amount))), 0n);
+}
+function netRefundedForReceipt(db: SchemaDatabase, businessId: string, receiptId: string): bigint {
+  const rows = db.prepare("SELECT id, amount FROM payment_adjustment_event WHERE business_id = ? AND receipt_id = ? AND event_type = 'refund'").all(businessId, receiptId);
+  let total = 0n;
+  for (const row of rows) {
+    const reversed = db.prepare("SELECT id FROM payment_adjustment_event WHERE original_event_id = ? AND event_type = 'reverse_refund'").get(text(row.id));
+    if (!reversed) total += paise(text(row.amount));
+  }
+  return total;
+}
+function isReceiptReversed(db: SchemaDatabase, businessId: string, receiptId: string): boolean {
+  return Boolean(db.prepare("SELECT id FROM payment_adjustment_event WHERE business_id = ? AND receipt_id = ? AND event_type = 'reverse_receipt'").get(businessId, receiptId));
 }
 function activeForInvoice(db: SchemaDatabase, businessId: string, invoiceId: string): bigint {
   const rows = db.prepare("SELECT event_type, amount FROM payment_allocation_event WHERE business_id = ? AND invoice_id = ?").all(businessId, invoiceId);

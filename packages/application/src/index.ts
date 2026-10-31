@@ -113,3 +113,16 @@ export {
   type AllocationRepository,
   type InvoiceSettlement,
 } from "./allocation.js";
+
+export {
+  PaymentAdjustmentError,
+  recordCustomerRefund,
+  reverseCustomerReceipt,
+  reverseCustomerRefund,
+  listReceiptAdjustments,
+  type PaymentAdjustmentDeps,
+  type PaymentAdjustmentEvent,
+  type PaymentAdjustmentRepository,
+  type PaymentAdjustmentTotals,
+  type PaymentAdjustmentType,
+} from "./payment-adjustment.js";

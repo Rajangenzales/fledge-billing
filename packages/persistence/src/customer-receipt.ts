@@ -85,12 +85,27 @@ export function createCustomerReceiptRepository(db: SchemaDatabase): CustomerRec
         const released = db.prepare("SELECT id FROM payment_allocation_event WHERE allocation_id = ? AND event_type = 'release'").get(text(row.id));
         if (!released) {
           const value = row.amount;
-          if (typeof value !== "string" || !/^\\d+(?:\\.\\d{1,2})?$/.test(value)) throw new CustomerReceiptError("A saved allocation amount is invalid.");
+          if (typeof value !== "string" || !/^\d+(?:\.\d{1,2})?$/.test(value)) throw new CustomerReceiptError("A saved allocation amount is invalid.");
           const [whole, fraction = ""] = value.split(".");
           paise += BigInt(whole!) * 100n + BigInt(fraction.padEnd(2, "0"));
         }
       }
       return formatPaise(paise);
+    },
+    adjustmentTotals(customerId) {
+      const businessId = this.getBusinessId();
+      if (!businessId) return { refundedAmount: "0", reversedReceiptAmount: "0" };
+      const rows = db.prepare("SELECT * FROM payment_adjustment_event WHERE business_id = ? AND customer_id = ?").all(businessId, customerId);
+      let refunded = 0n;
+      let reversedReceipt = 0n;
+      for (const row of rows) {
+        if (row.event_type === "refund") {
+          const reversed = db.prepare("SELECT id FROM payment_adjustment_event WHERE original_event_id = ? AND event_type = 'reverse_refund'").get(text(row.id));
+          if (!reversed) refunded += amountPaise(text(row.amount));
+        }
+        if (row.event_type === "reverse_receipt") reversedReceipt += amountPaise(text(row.amount));
+      }
+      return { refundedAmount: formatPaise(refunded), reversedReceiptAmount: formatPaise(reversedReceipt) };
     },
     total(customerId) {
       const businessId = this.getBusinessId();
@@ -146,6 +161,16 @@ function nullableText(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   if (typeof value !== "string") throw new CustomerReceiptError("A saved receipt field is invalid.");
   return value;
+}
+function amountPaise(value: string): bigint {
+  if (!/^\d+(?:\.\d{1,2})?$/.test(value)) throw new CustomerReceiptError("A saved adjustment amount is invalid.");
+  const [whole, fraction = ""] = value.split(".");
+  return BigInt(whole!) * 100n + BigInt(fraction.padEnd(2, "0"));
+}
+function amountPaise(value: string): bigint {
+  if (!/^\d+(?:\.\d{1,2})?$/.test(value)) throw new CustomerReceiptError("A saved adjustment amount is invalid.");
+  const [whole, fraction = ""] = value.split(".");
+  return BigInt(whole!) * 100n + BigInt(fraction.padEnd(2, "0"));
 }
 function formatPaise(value: bigint): string {
   const whole = value / 100n;
