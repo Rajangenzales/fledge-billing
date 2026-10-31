@@ -35,7 +35,6 @@ export type CustomerReceiptRepository = {
   total(customerId: string): string;
   allocatedTotal(customerId: string): string;
   adjustmentTotals(customerId: string): { refundedAmount: string; reversedReceiptAmount: string };
-  adjustmentTotals(customerId: string): { refundedAmount: string; reversedReceiptAmount: string };
 };
 
 export type CustomerReceiptDeps = {
