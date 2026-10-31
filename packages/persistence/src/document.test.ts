@@ -7,6 +7,7 @@ import {
   finalizeDocument,
   getDocument,
   listDocuments,
+  renderIssuedDocument,
   saveBusinessProfile,
   saveNumberSeries,
   updateDocument,
@@ -20,6 +21,7 @@ import { migrate } from "./migrate.js";
 import { migrations } from "./migrations.js";
 import { createProductRepository } from "./product.js";
 import { listStateUts } from "./state-ut.js";
+import { createTemplateRepository } from "./template.js";
 
 const keralaGstin = `32AABCU9603R1Z${gstinCheckCharacter("32AABCU9603R1Z")}`;
 const chandigarhGstin = `04AABCU9603R1Z${gstinCheckCharacter("04AABCU9603R1Z")}`;
@@ -648,5 +650,22 @@ describe("GST migration", () => {
     });
     const taxRows = db.prepare("SELECT id FROM document_tax WHERE document_id = 'old-doc'").all();
     expect(taxRows).toEqual([]);
+
+    const stored = getDocument("old-doc", documentDeps(db));
+    expect(stored).toMatchObject({ templateId: null, grandTotal: "100", taxTotal: "0", status: "finalized" });
+    const rendered = renderIssuedDocument("old-doc", {
+      documents: createDocumentRepository(db),
+      templates: createTemplateRepository(db),
+      states: listStateUts(db),
+    });
+    expect(rendered.preview).toBe(false);
+    expect(rendered.fallback).toBe(true);
+    expect(rendered.documentNumber).toBe("INV/2026-27/0001");
+    expect(rendered.totals).toMatchObject({ taxTotal: "0", grandTotal: "100" });
+    expect(rendered.sections.flatMap((section) => section.fields).find((field) => field.key === "tax_components")?.value).toBe(
+      "0",
+    );
+    const after = db.prepare("SELECT template_id, grand_total, tax_total FROM document WHERE id = 'old-doc'").get();
+    expect(after).toMatchObject({ template_id: null, grand_total: "100", tax_total: "0" });
   });
 });

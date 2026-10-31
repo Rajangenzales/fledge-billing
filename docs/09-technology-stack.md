@@ -1,7 +1,7 @@
 # Fledge Billing — Technology Stack (M0)
 
 **Status:** Adopted for foundation milestone  
-**Version:** 0.13
+**Version:** 0.14
 
 ## Decision
 
@@ -101,7 +101,9 @@ A vendor can rename safe labels, such as Customer to Buyer, and show or hide opt
 
 Migration `custom-field` is version 8. A template version can add up to 20 custom fields of type short text, long text, number, date, phone, email, web address, or yes/no. A custom field has a stable key, a label, an optional helper, and a section. It cannot use a statutory heading such as GSTIN or sit in the tax summary. Values are stored as text on the document. They are not amounts and are not read by the billing or GST engines. A required value can be left blank on a draft and blocks finalization until it is entered. Finalizing copies the field label, type, and value onto the document. A later template version does not change that copy.
 
-A template preview lays out the saved template, or an unsaved edit, around sample invoice data. The sample number is `Preview`. Amounts come from the GST engine for a fixed sample: a tax invoice and a quotation use ₹1000 at 18%, a non-GST invoice and a receipt use three notebooks at ₹10.10 with a 10% discount, and a bill of supply uses ₹40 exempt. The preview says it is not a saved invoice. It does not insert a document or take a document number. Restoring a template writes a new version from the built-in layout and leaves the previous version in place. Reordering and brand styling are not in this slice.
+A template preview lays out the saved template, or an unsaved edit, around sample invoice data. The sample number is `Preview`. Amounts come from the GST engine for a fixed sample: a tax invoice and a quotation use ₹1000 at 18%, a non-GST invoice and a receipt use three notebooks at ₹10.10 with a 10% discount, and a bill of supply uses ₹40 exempt. The preview says it is not a saved invoice. It does not insert a document or take a document number. Restoring a template writes a new version from the built-in layout and leaves the previous version in place.
+
+An issued document renders from the template version stored on it and from the amounts, tax rows, and custom-field labels saved with the document. A later template edit does not change that render. A document saved before templates existed has a null template id. It renders with the built-in layout for its document type, and the render does not write a template id or recalculate the stored total. Supplier and customer names still come from the current master records. Reordering and brand styling are not in this slice.
 
 ## Tooling
 

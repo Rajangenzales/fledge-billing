@@ -105,12 +105,15 @@ export {
 } from "./template.js";
 export {
   PREVIEW_NOTICE,
+  renderStoredDocument,
   renderTemplatePreview,
   type PreviewCharge,
   type PreviewField,
   type PreviewItem,
   type PreviewSection,
+  type IssuedRender,
   type PreviewTemplate,
+  type StoredDocumentRender,
   type TemplatePreview,
 } from "./preview.js";
 export {

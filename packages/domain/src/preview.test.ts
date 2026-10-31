@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { GST_RULE_VERSIONS, calculateGstDocument } from "./gst.js";
 import { gstinCheckCharacter } from "./gstin.js";
-import { PREVIEW_NOTICE, renderTemplatePreview } from "./preview.js";
+import { PREVIEW_NOTICE, renderStoredDocument, renderTemplatePreview } from "./preview.js";
 import { STATE_UTS } from "./state-ut.js";
 import { BUILT_IN_TEMPLATES } from "./template.js";
 
@@ -80,6 +80,69 @@ describe("template preview", () => {
     expect(hiddenPhone.totals.grandTotal).toBe("1180");
     expect(field(hiddenPhone.sections, "customer_phone")).toBeUndefined();
     expect(hiddenPhone.sections.find((section) => section.key === "customer")?.label).toBe("Buyer");
+  });
+
+  it("renders an issued document from stored amounts and the saved field label", () => {
+    const template = BUILT_IN_TEMPLATES.find((item) => item.key === "gst:tax_invoice");
+    expect(template).toBeDefined();
+    const rendered = renderStoredDocument({
+      fallback: false,
+      template: { ...template!, id: "tpl:old", version: 1, customFields: [] },
+      document: {
+        id: "old-doc",
+        documentType: "tax_invoice",
+        documentNumber: "INV/2026-27/0001",
+        documentDate: "2026-10-31",
+        supplierLegalName: "Fledge Traders",
+        supplierGstin: keralaGstin,
+        customerName: "Meera",
+        customerPhone: null,
+        customerEmail: null,
+        placeOfSupplyName: "Kerala",
+        notes: "",
+        reverseCharge: false,
+        lines: [
+          {
+            description: "A stored line that stays intact even when it is much longer than a sample.",
+            quantity: "1",
+            unit: "nos",
+            rate: "100",
+            lineAmount: "100",
+            hsnSac: null,
+          },
+        ],
+        charges: [],
+        taxes: [],
+        customFields: [
+          {
+            key: "batch-no",
+            sectionKey: "custom-details",
+            label: "Batch No.",
+            value: "A-12",
+            visible: true,
+            sortOrder: 0,
+          },
+        ],
+        subtotal: "100",
+        discountTotal: "0",
+        taxableTotal: "100",
+        taxTotal: "0",
+        grandTotal: "100",
+      },
+    });
+    expect(rendered.preview).toBe(false);
+    expect(rendered.fallback).toBe(false);
+    expect(rendered.version).toBe(1);
+    expect(rendered.totals).toMatchObject({ taxTotal: "0", grandTotal: "100" });
+    expect(rendered.sections.flatMap((section) => section.fields).find((field) => field.key === "tax_components")?.value).toBe(
+      "0",
+    );
+    expect(rendered.sections.flatMap((section) => section.fields).find((field) => field.key === "batch-no")).toMatchObject({
+      label: "Batch No.",
+      value: "A-12",
+    });
+    expect(rendered.items[0]?.description).toContain("stays intact");
+    expect(rendered.documentNumber).toBe("INV/2026-27/0001");
   });
 });
 
