@@ -107,21 +107,6 @@ export function createCustomerReceiptRepository(db: SchemaDatabase): CustomerRec
       }
       return { refundedAmount: formatPaise(refunded), reversedReceiptAmount: formatPaise(reversedReceipt) };
     },
-    adjustmentTotals(customerId) {
-      const businessId = this.getBusinessId();
-      if (!businessId) return { refundedAmount: "0", reversedReceiptAmount: "0" };
-      const rows = db.prepare("SELECT * FROM payment_adjustment_event WHERE business_id = ? AND customer_id = ?").all(businessId, customerId);
-      let refunded = 0n;
-      let reversedReceipt = 0n;
-      for (const row of rows) {
-        if (row.event_type === "refund") {
-          const reversed = db.prepare("SELECT id FROM payment_adjustment_event WHERE original_event_id = ? AND event_type = 'reverse_refund'").get(text(row.id));
-          if (!reversed) refunded += amountPaise(text(row.amount));
-        }
-        if (row.event_type === "reverse_receipt") reversedReceipt += amountPaise(text(row.amount));
-      }
-      return { refundedAmount: formatPaise(refunded), reversedReceiptAmount: formatPaise(reversedReceipt) };
-    },
     total(customerId) {
       const businessId = this.getBusinessId();
       if (!businessId) return "0";
