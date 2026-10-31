@@ -47,11 +47,11 @@ Initial document types:
 Quotation and receipt may share infrastructure but must not be confused with a tax invoice.
 
 ## 7. Invoice Lifecycle
-DRAFT → FINALIZED → PAID / PARTIAL / OUTSTANDING
+DRAFT → FINALIZED → CANCELLED (where cancellation is permitted)
 
-Other controlled states may include CANCELLED, VOIDED, REVISED, or document-specific correction states.
+Payment state is separate and derived from payment events and allocations: UNPAID / PARTIALLY PAID / PAID, with customer credit tracked separately. These payment states must not be stored as document lifecycle states.
 
-Drafts are editable. Finalized documents preserve history.
+Other controlled document states may be introduced only where required by an approved document workflow. Drafts are editable. Finalized documents preserve history and are not silently rewritten.
 
 ## 8. GST UX
 The invoice must clearly show:
@@ -77,7 +77,7 @@ Invoice series must support prefix, sequence, financial year, document type, uni
 The GST compliance phase defines exact constraints.
 
 ## 11. Payments
-Support payment method, amount, date, reference, notes and payment status. Payment QR information may be configured at business level.
+Payments are separate financial events. Support payment method, amount, payment date, reference and notes. Payment status and outstanding balances are derived from valid payment events and allocations, not manually set on the invoice. Payment QR information may be configured at business level. See sections 21–22 and the dedicated M8 design for advances, allocations, refunds, receipts and credit/debit notes.
 
 ## 12. Templates
 Provide professional built-in templates. A template may control header, customer block, custom details, items, charges, tax summary, payment block, notes, terms and footer.
