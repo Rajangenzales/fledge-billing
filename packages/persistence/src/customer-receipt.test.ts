@@ -16,7 +16,7 @@ function setup() {
   dbs.push(db);
   migrate(db, migrations);
   const states = listStateUts(db);
-  const business = saveBusinessProfile({
+  saveBusinessProfile({
     legalName: "Fledge Traders", address: "Market Road, Kochi", stateId: "IN-KL", gstRegistered: false,
   }, { repository: createBusinessRepository(db), states, now: () => "2026-10-31T08:00:00.000Z", createId: () => "biz-1" });
   const customer = createCustomer({
@@ -28,14 +28,18 @@ function setup() {
     now: () => "2026-10-31T08:02:00.000Z",
     createId: () => `receipt-${++ids}`,
   };
-  return { db, customer, deps, business };
+  return { db, customer, deps };
 }
 
 describe("customer receipts", () => {
-  it("adds migration 9 without changing existing migration history", () => {
-    const { db } = setup();
-    expect(readSchemaVersion(db)).toBe(9);
+  it("upgrades a version-8 database by applying only migration 9", () => {
+    const db = openDatabase(":memory:");
+    dbs.push(db);
+    migrate(db, migrations.slice(0, 8));
+    expect(readSchemaVersion(db)).toBe(8);
+    expect(migrate(db, migrations)).toEqual({ fromVersion: 8, toVersion: 9, appliedVersions: [9] });
     expect(db.prepare("SELECT name FROM schema_migration WHERE version = 8").get()).toEqual({ name: "custom-field" });
+    expect(db.prepare("SELECT name FROM schema_migration WHERE version = 9").get()).toEqual({ name: "customer-receipt" });
   });
 
   it("records a customer receipt before any invoice exists and derives advance balance", () => {
