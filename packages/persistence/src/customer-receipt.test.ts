@@ -11,10 +11,10 @@ import { afterEach, describe, expect, it } from "vitest";
 const dbs: SchemaDatabase[] = [];
 afterEach(() => { for (const db of dbs.splice(0)) db.close(); });
 
-function setup() {
+function setup(migrationCount = migrations.length) {
   const db = openDatabase(":memory:");
   dbs.push(db);
-  migrate(db, migrations);
+  migrate(db, migrations.slice(0, migrationCount));
   const states = listStateUts(db);
   saveBusinessProfile({
     legalName: "Fledge Traders", address: "Market Road, Kochi", stateId: "IN-KL", gstRegistered: false,
@@ -32,14 +32,15 @@ function setup() {
 }
 
 describe("customer receipts", () => {
-  it("upgrades a version-8 database by applying only migration 9", () => {
+  it("upgrades a version-8 database through the current additive migration chain", () => {
     const db = openDatabase(":memory:");
     dbs.push(db);
     migrate(db, migrations.slice(0, 8));
     expect(readSchemaVersion(db)).toBe(8);
-    expect(migrate(db, migrations)).toEqual({ fromVersion: 8, toVersion: 9, appliedVersions: [9] });
+    expect(migrate(db, migrations)).toEqual({ fromVersion: 8, toVersion: 12, appliedVersions: [9, 10, 11, 12] });
     expect(db.prepare("SELECT name FROM schema_migration WHERE version = 8").get()).toEqual({ name: "custom-field" });
     expect(db.prepare("SELECT name FROM schema_migration WHERE version = 9").get()).toEqual({ name: "customer-receipt" });
+    expect(db.prepare("SELECT name FROM schema_migration WHERE version = 12").get()).toEqual({ name: "receipt-identity-snapshot" });
   });
 
   it("returns zero advance before any receipt", () => {
@@ -53,7 +54,13 @@ describe("customer receipts", () => {
       customerId: customer.id, amount: "1250.50", paymentDate: "2026-10-30",
       method: "upi", reference: "UPI-REF-1", idempotencyKey: "req-001",
     }, deps);
-    expect(receipt).toMatchObject({ amount: "1250.5", customerId: "cust-1", currency: "INR" });
+    expect(receipt).toMatchObject({
+      amount: "1250.5", customerId: "cust-1", currency: "INR",
+      identitySnapshot: {
+        business: { legalName: "Fledge Traders", stateName: "Kerala", gstRegistered: false },
+        customer: { name: "Harbour Stores", stateName: "Kerala", registrationType: "unregistered" },
+      },
+    });
     expect(getCustomerAdvance(customer.id, deps)).toEqual({
       customerId: "cust-1", currency: "INR", receiptCount: 1, unallocatedAmount: "1250.5",
     });
@@ -70,6 +77,21 @@ describe("customer receipts", () => {
     expect(retry.id).toBe(first.id);
     expect(getCustomerAdvance(customer.id, deps).unallocatedAmount).toBe("100");
     expect(() => recordCustomerReceipt({ ...input, amount: "101" }, deps)).toThrow();
+  });
+
+  it("keeps receipt identity unchanged when business and customer masters later change", () => {
+    const { db, customer, deps } = setup();
+    const input = {
+      customerId: customer.id, amount: "450", paymentDate: "2026-10-30",
+      method: "upi" as const, idempotencyKey: "snapshot-retry",
+    };
+    const first = recordCustomerReceipt(input, deps);
+    db.prepare("UPDATE business SET legal_name = ?, display_name = ? WHERE id = ?").run("Renamed Traders", "Renamed", "biz-1");
+    db.prepare("UPDATE customer SET name = ? WHERE id = ?").run("New Customer Name", "cust-1");
+    const retry = recordCustomerReceipt(input, deps);
+    expect(retry.identitySnapshot).toEqual(first.identitySnapshot);
+    expect(retry.identitySnapshot?.business.legalName).toBe("Fledge Traders");
+    expect(retry.identitySnapshot?.customer.name).toBe("Harbour Stores");
   });
 
   it("rejects invalid dates, zero amounts, and fractions of a paisa", () => {

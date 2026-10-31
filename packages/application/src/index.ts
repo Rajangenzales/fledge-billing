@@ -99,6 +99,7 @@ export {
   type CustomerReceiptDeps,
   type CustomerReceiptRepository,
   type PaymentMethod,
+  type ReceiptIdentitySnapshot,
   type RecordCustomerReceiptInput,
 } from "./customer-receipt.js";
 

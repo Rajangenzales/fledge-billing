@@ -49,7 +49,7 @@ Calculation tests, lifecycle tests, migration tests, rendering tests, offline te
 ### M12 — V1 Release
 PWA deployment, production hosting, documentation, release checklist, account/payment service configuration, support/monitoring and production validation.
 
-## 2.1 Verified implementation snapshot — main after PR #26
+## 2.1 Verified implementation snapshot — main after PR #28
 
 This snapshot records merged repository work as of 31 October 2026. A merged milestone label does not mean every legal scenario, user workflow or release criterion in that milestone is complete.
 
@@ -64,9 +64,13 @@ This snapshot records merged repository work as of 31 October 2026. A merged mil
 | Security and accounts | Specification only | Registration, authentication, email verification, password reset, sessions and authorization are not implemented. |
 | Cloud services | Specification only | Optional cloud backup, multi-device sync, subscription gateway, Admin Control Centre and product analytics are not implemented. |
 
-The current main-branch SQLite registry has eleven migrations, including customer receipts (9), payment allocation events (10), and refund/reversal events (11). Preserve the existing SQLite implementation and migration history while introducing future adapters.
+The current main-branch SQLite registry has eleven migrations, including customer receipts (9), payment allocation events (10), and refund/reversal events (11). Migration 12 for receipt-time identity snapshots is proposed separately and is not yet on main. Preserve the existing SQLite implementation and migration history while introducing future adapters.
 
 **M8 design progress (31 October 2026):** M8-01 product direction has owner approval, with statutory automation still gated on qualified GST-practitioner review. M8-02 payment and customer-advance domain design is documented in [docs/14](./14-m8-02-payment-advance-domain-model.md). M8-02A adds customer receipt persistence, idempotent receipt recording and a derived unallocated customer advance. Allocation/release history and derived invoice settlement are merged in M8-02B. M8-02C implements append-only refund, receipt reversal and refund reversal events, derived advance adjustments and allocation guards. Credit/debit notes, statutory receipt/refund vouchers and GST advance automation remain out of scope.
+
+**M8-04 design progress:** Ordinary payment receipt content, rendering boundaries, receipt-time identity snapshot requirements and the split between snapshot persistence and print/PDF work are documented in [docs/17](./17-m8-04-payment-receipt-generation.md). This excludes statutory GST receipt vouchers and GST advance automation.
+
+**M8-04A implementation in progress:** Receipt-time business/customer identity snapshot capture and migration 12 are proposed in [docs/18](./18-m8-04a-receipt-identity-snapshots.md). Existing receipts intentionally remain without fabricated snapshots. This work is not merged yet.
 
 **M8-03 design progress:** Credit/debit note categories, immutable record expectations, original-invoice linkage, date/numbering boundaries, customer-balance interactions and approval gates are documented in [docs/16](./16-m8-03-credit-debit-note-domain-model.md). This is design-only; no schema, migration, tax calculation or note workflow is authorized. D-05 to D-08 and note-specific decisions remain open pending owner/accountant and qualified GST-practitioner review.
 

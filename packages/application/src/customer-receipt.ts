@@ -3,6 +3,34 @@ import { Money, MoneyError, roundHalfUp } from "@fledge/domain";
 export const PAYMENT_METHODS = ["cash", "upi", "bank_transfer", "card", "cheque", "other"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
+export type ReceiptIdentitySnapshot = {
+  business: {
+    legalName: string;
+    displayName: string;
+    address: string;
+    stateId: string;
+    stateName: string;
+    pinCode: string | null;
+    gstRegistered: boolean;
+    gstin: string | null;
+    businessType: string | null;
+    phone: string | null;
+    email: string | null;
+  };
+  customer: {
+    name: string;
+    phone: string | null;
+    email: string | null;
+    gstin: string | null;
+    registrationType: "registered" | "unregistered";
+    billingAddress: string;
+    shippingAddress: string | null;
+    stateId: string;
+    stateName: string;
+    pinCode: string | null;
+  };
+};
+
 export type CustomerReceipt = {
   id: string;
   businessId: string;
@@ -15,6 +43,7 @@ export type CustomerReceipt = {
   notes: string | null;
   idempotencyKey: string;
   recordedAt: string;
+  identitySnapshot: ReceiptIdentitySnapshot | null;
 };
 
 export type RecordCustomerReceiptInput = {
@@ -80,6 +109,7 @@ export function recordCustomerReceipt(
     notes,
     idempotencyKey,
     recordedAt,
+    identitySnapshot: null,
   });
 }
 
