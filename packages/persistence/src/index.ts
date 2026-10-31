@@ -16,3 +16,4 @@ export { customField } from "./custom-field.js";
 export { createTemplateRepository, invoiceTemplate } from "./template.js";
 export { migrations } from "./migrations.js";
 export { listStateUts, stateUtMaster } from "./state-ut.js";
+\nexport { createCustomerReceiptRepository, customerReceipt } from "./customer-receipt.js";\n
