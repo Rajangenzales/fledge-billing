@@ -37,7 +37,7 @@ function setup() {
   const adjustmentDeps = { repository: createPaymentAdjustmentRepository(db), now: () => "2026-10-31T08:05:00.000Z", createId: () => `adjustment-${++id}` };
   let allocationId = 0;
   const allocationDeps = { repository: createAllocationRepository(db), now: () => "2026-10-31T08:04:00.000Z", createId: () => `allocation-${++allocationId}` };
-  return { db, customer, receipt, invoice, receiptDeps, adjustmentDeps, allocationDeps };
+  return { db, customer, receipt, invoice, receiptDeps, documentDeps, adjustmentDeps, allocationDeps };
 }
 
 describe("customer refunds and receipt reversals", () => {
@@ -82,10 +82,13 @@ describe("customer refunds and receipt reversals", () => {
   });
 
   it("limits later allocations to the unrefunded receipt balance", () => {
-    const { receipt, invoice, adjustmentDeps, allocationDeps } = setup();
+    const { customer, receipt, invoice, documentDeps, adjustmentDeps, allocationDeps } = setup();
     recordCustomerRefund({ receiptId: receipt.id, amount: "50", paymentDate: "2026-10-31", method: "cash", reason: "Partial return", idempotencyKey: "refund-1" }, adjustmentDeps);
     allocateReceiptToInvoice({ receiptId: receipt.id, invoiceId: invoice.id, amount: "100", idempotencyKey: "alloc-after-refund" }, allocationDeps);
-    expect(() => allocateReceiptToInvoice({ receiptId: receipt.id, invoiceId: invoice.id, amount: "1", idempotencyKey: "alloc-over-refund" }, allocationDeps)).toThrow(/available balance|outstanding amount/);
+    const secondDraft = createDocument({ customerId: customer.id, documentType: "non_gst_invoice", documentDate: "2026-10-31", gstEnabled: false, reverseCharge: false,
+      lines: [{ description: "Second invoice", quantity: "1", unit: "nos", rate: "100", discountType: "none", taxInclusive: false, taxCategoryId: "non-gst" }] }, documentDeps);
+    const secondInvoice = finalizeDocument(secondDraft.id, documentDeps);
+    expect(() => allocateReceiptToInvoice({ receiptId: receipt.id, invoiceId: secondInvoice.id, amount: "1", idempotencyKey: "alloc-over-refund" }, allocationDeps)).toThrow(/available balance/);
   });
 
   it("rejects receipt reversal while allocations or net refunds remain", () => {
