@@ -7,6 +7,7 @@ import {
   getTemplate,
   listTemplates,
   previewTemplate,
+  renderIssuedDocument,
   restoreTemplate,
   reviseTemplate,
   saveBusinessProfile,
@@ -386,5 +387,70 @@ describe("invoice templates", () => {
     expect(restored.sections.find((section) => section.key === "customer")?.label).toBe("Customer");
     expect(getTemplate(renamed.id, templates)?.sections.find((section) => section.key === "customer")?.label).toBe("Buyer");
     expect(previewTemplate(renamed.id, previewDeps).totals.grandTotal).toBe("1180");
+  });
+
+  it("renders an issued invoice from its saved template after the default changes", () => {
+    const db = database();
+    prepare(db);
+    const documentDeps = deps(db);
+    const templates = templateDeps(db);
+    const revised = reviseTemplate(
+      "tpl:biz-1:gst:tax_invoice:1",
+      {
+        sections: [{ key: "custom-details", visible: true }],
+        customFields: [{ label: "Batch No.", type: "short_text", required: true }],
+      },
+      templates,
+    );
+    const input = {
+      customerId: "cust-1",
+      documentType: "tax_invoice" as const,
+      documentDate: "2026-10-31",
+      placeOfSupplyStateId: "IN-KL",
+      gstEnabled: true,
+      reverseCharge: false,
+      lines: [line],
+      customFields: [{ key: "batch-no", value: "A-12" }],
+    };
+    const draft = createDocument(input, documentDeps);
+    const issued = finalizeDocument(draft.id, documentDeps);
+    expect(issued.documentNumber).toBe("INV/2026-27/0001");
+    expect(issued.grandTotal).toBe("1180");
+
+    reviseTemplate(
+      revised.id,
+      {
+        sections: [
+          { key: "customer", label: "Buyer" },
+          { key: "custom-details", visible: true },
+        ],
+        customFields: [{ key: "batch-no", label: "Lot", type: "short_text", required: true }],
+      },
+      templates,
+    );
+    const rendered = renderIssuedDocument(issued.id, {
+      documents: documentDeps.repository,
+      templates: templates.repository,
+      states: listStateUts(db),
+    });
+    expect(rendered.preview).toBe(false);
+    expect(rendered.fallback).toBe(false);
+    expect(rendered.templateId).toBe(revised.id);
+    expect(rendered.version).toBe(2);
+    expect(rendered.documentNumber).toBe("INV/2026-27/0001");
+    expect(rendered.totals).toMatchObject({ taxTotal: "180", grandTotal: "1180" });
+    expect(rendered.sections.flatMap((section) => section.fields).find((field) => field.key === "tax_components")?.value).toBe(
+      "CGST 90, SGST 90",
+    );
+    expect(rendered.sections.find((section) => section.key === "customer")?.label).toBe("Customer");
+    expect(rendered.sections.flatMap((section) => section.fields).find((field) => field.key === "batch-no")).toMatchObject({
+      label: "Batch No.",
+      value: "A-12",
+    });
+    expect(getDocument(issued.id, documentDeps)).toMatchObject({
+      templateId: revised.id,
+      grandTotal: "1180",
+      taxTotal: "180",
+    });
   });
 });

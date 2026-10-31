@@ -1,20 +1,24 @@
 import type { StateUt } from "@fledge/domain";
 import {
   BUILT_IN_TEMPLATES,
+  BillingError,
   GST_RULE_VERSIONS,
   TemplateError,
   calculateGstDocument,
   findStateUtById,
+  renderStoredDocument,
   renderTemplatePreview,
   reviseTemplateConfiguration,
   type CustomFieldDefinition,
   type DocumentType,
   type GstLineInput,
+  type IssuedRender,
   type PreviewTemplate,
   type TemplatePreview,
   type TemplateRevisionPatch,
 } from "@fledge/domain";
-import { reviseTemplate, type InvoiceTemplate, type TemplateDeps } from "./template.js";
+import type { DocumentRepository } from "./document.js";
+import { reviseTemplate, type InvoiceTemplate, type TemplateDeps, type TemplateRepository } from "./template.js";
 
 export const PREVIEW_DATE = "2026-10-31";
 
@@ -28,6 +32,12 @@ const LONG_NOTE =
   "This preview note is long enough to show that optional text is kept in full and is not cut off for the page.";
 
 export type TemplatePreviewDeps = TemplateDeps & {
+  states: readonly StateUt[];
+};
+
+export type IssuedRenderDeps = {
+  documents: DocumentRepository;
+  templates: TemplateRepository;
   states: readonly StateUt[];
 };
 
@@ -60,6 +70,78 @@ export function previewTemplate(
     customFields: edited?.customFields ?? stored.customFields,
   };
   return renderStoredTemplate(template, business, deps.states, edited === null);
+}
+
+export function renderIssuedDocument(id: string, deps: IssuedRenderDeps): IssuedRender {
+  const stored = deps.documents.get(id);
+  if (!stored) {
+    throw new BillingError("That document was not found.");
+  }
+  const business = deps.templates.getBusiness();
+  if (!business) {
+    throw new TemplateError("Save the business profile before choosing a template.");
+  }
+  const businessId = deps.templates.getBusinessId();
+  const saved = stored.templateId && businessId ? deps.templates.get(businessId, stored.templateId) : null;
+  if (stored.templateId && !saved) {
+    throw new TemplateError("That template was not found.");
+  }
+  if (saved && saved.documentType !== stored.documentType) {
+    throw new TemplateError("That template does not apply to this document.");
+  }
+  const builtin = BUILT_IN_TEMPLATES.find(
+    (template) => template.documentType === stored.documentType && template.isDefault,
+  );
+  const template: PreviewTemplate | null = saved ?? (builtin ? { ...builtin, id: builtin.key, version: 0, customFields: [] } : null);
+  if (!template) {
+    throw new TemplateError("Choose a template for this document.");
+  }
+  const contact = deps.documents.getCustomerContact(stored.customerId);
+  const place = stored.placeOfSupplyStateId ? findStateUtById(stored.placeOfSupplyStateId, deps.states) : null;
+  return renderStoredDocument({
+    fallback: saved === null,
+    template,
+    document: {
+      id: stored.id,
+      documentType: stored.documentType,
+      documentNumber: stored.documentNumber,
+      documentDate: stored.documentDate,
+      supplierLegalName: business.legalName,
+      supplierGstin: stored.supplierGstin,
+      customerName: contact?.name ?? "",
+      customerPhone: contact?.phone ?? null,
+      customerEmail: contact?.email ?? null,
+      placeOfSupplyName: place?.name ?? "",
+      notes: stored.notices.join("\n"),
+      reverseCharge: stored.reverseCharge,
+      lines: stored.lines.map((line) => ({
+        description: line.description,
+        quantity: line.quantity,
+        unit: line.unit,
+        rate: line.rate,
+        lineAmount: line.lineAmount,
+        hsnSac: line.hsnSac,
+      })),
+      charges: stored.charges.map((charge) => ({
+        description: charge.description,
+        amount: charge.amount,
+      })),
+      taxes: stored.taxes.map((tax) => ({ taxType: tax.taxType, amount: tax.amount })),
+      customFields: stored.customFields.map((field) => ({
+        key: field.key,
+        sectionKey: field.sectionKey,
+        label: field.label,
+        value: field.value,
+        visible: field.visible,
+        sortOrder: field.sortOrder,
+      })),
+      subtotal: stored.subtotal,
+      discountTotal: stored.discountTotal,
+      taxableTotal: stored.taxableTotal,
+      taxTotal: stored.taxTotal,
+      grandTotal: stored.grandTotal,
+    },
+  });
 }
 
 export function restoreTemplate(id: string, deps: TemplateDeps): InvoiceTemplate {

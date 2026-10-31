@@ -144,6 +144,23 @@ export function createDocumentRepository(db: SchemaDatabase): DocumentRepository
     getBusiness() {
       return readBusinessRef(db);
     },
+    getCustomerContact(id) {
+      const businessId = readBusinessId(db);
+      if (!businessId) {
+        return null;
+      }
+      const row = db
+        .prepare("SELECT name, phone, email FROM customer WHERE id = ? AND business_id = ?")
+        .get(id, businessId);
+      if (!row) {
+        return null;
+      }
+      return {
+        name: text(row.name, "name"),
+        phone: nullableText(row.phone),
+        email: nullableText(row.email),
+      };
+    },
     getCustomer(id) {
       const businessId = readBusinessId(db);
       if (!businessId) {

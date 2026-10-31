@@ -62,7 +62,9 @@ export {
 export {
   PREVIEW_DATE,
   previewTemplate,
+  renderIssuedDocument,
   restoreTemplate,
+  type IssuedRenderDeps,
   type TemplatePreviewDeps,
 } from "./preview.js";
 export {

@@ -147,6 +147,7 @@ export type DocumentRepository = {
   getBusinessId: () => string | null;
   getBusiness: () => BusinessRef | null;
   getCustomer: (id: string) => CustomerRef | null;
+  getCustomerContact: (id: string) => { name: string; phone: string | null; email: string | null } | null;
   getProduct: (id: string) => ProductRef | null;
   listGstRuleVersions: () => GstRuleVersion[];
   list: () => BillingDocument[];
