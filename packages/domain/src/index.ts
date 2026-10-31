@@ -103,3 +103,16 @@ export {
   type TemplateSectionDefinition,
   type TemplateSectionKey,
 } from "./template.js";
+export {
+  CUSTOM_FIELD_SECTIONS,
+  CUSTOM_FIELD_TYPES,
+  assertRequiredCustomFields,
+  customFieldsChanged,
+  reviseCustomFields,
+  snapshotCustomFields,
+  type CustomFieldDefinition,
+  type CustomFieldDraft,
+  type CustomFieldSection,
+  type CustomFieldSnapshot,
+  type CustomFieldType,
+} from "./custom-field.js";

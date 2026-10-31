@@ -1,8 +1,16 @@
-import type { DocumentType, ProductType, StateUt, TaxCategoryId } from "@fledge/domain";
+import type {
+  CustomFieldDefinition,
+  CustomFieldSnapshot,
+  DocumentType,
+  ProductType,
+  StateUt,
+  TaxCategoryId,
+} from "@fledge/domain";
 import {
   BillingError,
   GstError,
   assertDocumentGstMode,
+  snapshotCustomFields,
   assertFinancialYearLabel,
   calculateGstDocument,
   financialYearOf,
@@ -59,6 +67,10 @@ export type DocumentTax = {
   reverseCharge: boolean;
 };
 
+export type DocumentCustomField = CustomFieldSnapshot & {
+  id: string;
+};
+
 export type BillingDocument = {
   id: string;
   businessId: string;
@@ -92,6 +104,7 @@ export type BillingDocument = {
   ruleVersionId: string | null;
   notices: string[];
   templateId: string | null;
+  customFields: DocumentCustomField[];
   createdAt: string;
   finalizedAt: string | null;
   updatedAt: string;
@@ -146,6 +159,7 @@ export type DocumentRepository = {
   saveNumberSeries: (record: NumberSeries) => void;
   hasIssuedNumber: (documentType: BillingDocument["documentType"], financialYear: string) => boolean;
   resolveTemplate: (documentType: DocumentType, templateId: string | null, now: string) => string;
+  listCustomFields: (templateId: string) => CustomFieldDefinition[];
 };
 
 export type DocumentDeps = {
@@ -165,6 +179,7 @@ export type SaveDocumentInput = {
   lines: readonly GstLineInput[];
   charges?: readonly GstChargeInput[];
   templateId?: string | null;
+  customFields?: readonly { key: string; value: string | null }[];
 };
 
 export type SaveNumberSeriesInput = {
@@ -186,7 +201,7 @@ export function getDocument(id: string, deps: DocumentDeps): BillingDocument | n
 
 export function createDocument(input: SaveDocumentInput, deps: DocumentDeps): BillingDocument {
   const business = requireBusiness(deps);
-  const draft = buildDraft(input, deps, business, null, {
+  const draft = buildDraft(input, deps, business, null, [], {
     id: deps.createId(),
     businessId: business.id,
     status: "draft",
@@ -212,7 +227,7 @@ export function updateDocument(
     throw new BillingError("A finalized document cannot be changed.");
   }
   const business = requireBusiness(deps);
-  const draft = buildDraft(input, deps, business, existing.templateId, {
+  const draft = buildDraft(input, deps, business, existing.templateId, existing.customFields, {
     id: existing.id,
     businessId: existing.businessId,
     status: "draft",
@@ -279,6 +294,7 @@ function buildDraft(
   deps: DocumentDeps,
   business: BusinessRef,
   existingTemplateId: string | null,
+  existingCustomFields: readonly { key: string; value: string | null }[],
   identity: {
     id: string;
     businessId: string;
@@ -302,6 +318,11 @@ function buildDraft(
     input.templateId === undefined ? existingTemplateId : input.templateId,
     deps.now(),
   );
+  const customFields = snapshotCustomFields(
+    deps.repository.listCustomFields(templateId),
+    input.customFields,
+    existingCustomFields,
+  ).map((field) => ({ ...field, id: `dcf:${identity.id}:${field.key}` }));
   const lines = input.lines.map((line) => withProductNature(line, deps));
   const context = productContext(lines, deps);
   const calculated = calculateGstDocument({
@@ -341,6 +362,7 @@ function buildDraft(
     lineIds,
     chargeIds,
     templateId,
+    customFields,
   });
 }
 
@@ -420,6 +442,7 @@ function presentDraft(stored: BillingDocument, deps: DocumentDeps): BillingDocum
       lineIds: stored.lines.map((line) => line.id),
       chargeIds: stored.charges.map((charge) => charge.id),
       templateId: stored.templateId,
+      customFields: stored.customFields,
     },
   );
 }
@@ -447,6 +470,7 @@ function toDocument(
     lineIds: string[];
     chargeIds: string[];
     templateId: string | null;
+    customFields: DocumentCustomField[];
   },
 ): BillingDocument {
   if (
@@ -502,6 +526,7 @@ function toDocument(
     ruleVersionId: calculated.ruleVersionId,
     notices: calculated.notices,
     templateId: context.templateId,
+    customFields: context.customFields,
   };
 }
 

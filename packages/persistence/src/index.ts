@@ -12,6 +12,7 @@ export { createCustomerRepository, customerMaster } from "./customer.js";
 export { createProductRepository, productService } from "./product.js";
 export { billingDocument, createDocumentRepository } from "./document.js";
 export { gstEngine, readGstRuleVersions } from "./gst.js";
+export { customField } from "./custom-field.js";
 export { createTemplateRepository, invoiceTemplate } from "./template.js";
 export { migrations } from "./migrations.js";
 export { listStateUts, stateUtMaster } from "./state-ut.js";
