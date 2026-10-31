@@ -68,7 +68,7 @@ The current main-branch SQLite registry has eight migrations. The M8-02A branch 
 
 **M8 design progress (31 October 2026):** M8-01 product direction has owner approval, with statutory automation still gated on qualified GST-practitioner review. M8-02 payment and customer-advance domain design is documented in [docs/14](./14-m8-02-payment-advance-domain-model.md). M8-02A adds customer receipt persistence, idempotent receipt recording and a derived unallocated customer advance. Allocations, refunds, credit/debit notes, statutory receipt vouchers and GST advance automation remain out of scope.
 
-**Next implementation focus:** complete M8-02A receipt persistence and validation, then implement allocation history and derived invoice outstanding balances using docs/12 and docs/14. Statutory GST treatment remains gated on practitioner review. Do not reconcile payments against mutable or incomplete financial snapshots. Cross-cutting security and PWA foundations remain mandatory before public release. Do not claim production readiness or cross-platform offline PWA support yet.
+**Next implementation focus:** validate and merge M8-02B allocation/release history and derived invoice outstanding balances, then proceed to refund/reversal design and implementation using docs/12 and docs/14. Statutory GST treatment remains gated on practitioner review. Do not reconcile payments against mutable or incomplete financial snapshots. Cross-cutting security and PWA foundations remain mandatory before public release. Do not claim production readiness or cross-platform offline PWA support yet.
 
 
 ## 3. Cross-cutting platform and service prerequisites
