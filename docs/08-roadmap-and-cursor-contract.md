@@ -34,8 +34,8 @@ Template model, built-in templates, vendor-editable safe labels/fields/sections,
 ### M7 — PDF / Print / Share
 Deterministic invoice rendering, PDF, print and share.
 
-### M8 — Payments
-Payment records, derived payment status, outstanding balances, QR/payment information and receipts.
+### M8 — Payments, Advances & Financial Adjustments
+Payment events, customer advances, unallocated balances, payment allocations/reallocations, partial and multiple payments, refunds/reversals, derived balances/statuses, linked receipts, and linked credit/debit notes with independent numbering and tax snapshots.
 
 ### M9 — Backup & Recovery
 Local backup, restore, validation, recovery workflows and optional encrypted cloud backup. Cloud backup must not be confused with synchronization.
@@ -59,14 +59,14 @@ This snapshot records merged repository work as of 31 October 2026. A merged mil
 | M5 — GST Engine | Core implementation merged (PR #12) | CGST/SGST/UTGST/IGST component calculations, explicit GST rate input, inclusive/exclusive pricing, tax snapshots and tests. No HSN/SAC rate lookup; place-of-supply determination for IGST Act sections 10–13 remains unresolved; compensation cess is not calculated; reverse-charge support is restricted. Do not describe this as complete coverage of all GST scenarios. |
 | M6 — Templates | Partially implemented (PRs #13–17) | Built-in template snapshots, safe label/visibility edits, custom-field snapshots, sample preview and historical rendering. Section/field reordering and full brand customization remain outstanding. |
 | M7 — PDF / Print / Share | Partially implemented (PR #18) | Local PDF export and printable text from the issued-document render. Full customer-facing print preview and platform share workflow remain outstanding. |
-| M8 — Payments | Not started | No payment ledger, derived payment status, payment reversal workflow or receipt-from-payment implementation is verified yet. |
+| M8 — Payments and Adjustments | Not started | No payment ledger, advances, allocations, refunds, credit/debit notes or receipt-from-payment implementation is verified yet. Expanded design is in docs/12-m8-payments-advances-and-adjustments-design.md. |
 | PWA and platform foundations | Specification only | The app package remains a CLI/local HTTP health shell. No customer-facing PWA, service worker, IndexedDB adapter or browser-based offline billing is implemented. |
 | Security and accounts | Specification only | Registration, authentication, email verification, password reset, sessions and authorization are not implemented. |
 | Cloud services | Specification only | Optional cloud backup, multi-device sync, subscription gateway, Admin Control Centre and product analytics are not implemented. |
 
 The current SQLite migration registry contains eight migrations, ending with the custom-field migration. Preserve the existing SQLite implementation and migration history while introducing future adapters.
 
-**Next implementation focus:** close the remaining M6/M7 acceptance gaps or proceed with the next explicitly scoped M8 issue. Before public release, the cross-cutting security and PWA foundations remain mandatory. Do not present the repository as a production-ready billing application or claim cross-platform offline PWA support yet.
+**Next implementation focus:** resolve M5 GST legal/data gaps and M6/M7 historical identity/rendering gaps that M8 depends on; then implement M8 from docs/12. M8 remains not started. Do not reconcile payments against mutable or incomplete financial snapshots. Cross-cutting security and PWA foundations remain mandatory before public release. Do not claim production readiness or cross-platform offline PWA support yet.
 
 
 ## 3. Cross-cutting platform and service prerequisites
@@ -198,6 +198,7 @@ Before coding any milestone, Cursor must read:
 - docs/09-technology-stack.md
 - docs/10-m5-to-m8-implementation-contract.md
 - docs/11-pwa-offline-sync-and-platform-operations.md
+- docs/12-m8-payments-advances-and-adjustments-design.md when working on M8 or related billing-date/payment adjustments.
 
 Then the coding agent summarizes the relevant architecture and implementation plan, identifies affected packages/migrations/tests, and proceeds with one approved/specified issue. It must not redesign the system unless explicitly instructed.
 
@@ -212,3 +213,28 @@ The current app is still a CLI/local HTTP health shell. Before customer-facing r
 V1 cannot be called production-ready until critical GST calculations, financial arithmetic, invoice numbering, local data persistence, offline operation, authentication/security, vendor customization guardrails, rendering, payments, backup/restore, update behaviour, subscription/entitlement handling, privacy controls and supported-platform acceptance tests pass.
 
 Multi-device synchronization must not be advertised as available until sync, conflict resolution, duplicate-number prevention, payment idempotency, device security and recovery tests pass.
+
+
+## 18. Billing dates, GST mode and expanded M8 scope
+
+- GST is not mandatory for every Fledge business. Registration and statutory obligations still govern the applicable business and transaction.
+- Core GST/non-GST domain/application support exists, but customer-facing setup and invoice-entry workflows are not implemented.
+- The saved document date is already used for numbering and rendering. The future UI must expose date selection and preserve that exact date in PDF/print.
+- Do not print today's date or a generated-on date by default. Keep document date, created timestamp, finalized timestamp and optional due date separate. Financial-year numbering follows document date.
+- Past/future date support is subject to legally verified validation. Technical acceptance is not legal permission.
+- Payment state is separate from document lifecycle. Reconcile legacy `partial`/`paid` schema values safely if persisted.
+- Payments, advances, allocations, refunds, credit notes and debit notes remain unimplemented until M8 is delivered.
+- M8 depends on stable finalized totals, immutable GST snapshots, historical party identity snapshots and a canonical render model.
+- Read docs/12 for detailed M8 scope. Unresolved statutory questions remain blocking decisions, not assumptions.
+
+### Required M8 sequence
+
+1. Verify statutory date, GST advance, receipt-voucher and credit/debit-note questions using current official sources.
+2. Stabilize invoice-date policy, numbering and historical party/tax snapshots.
+3. Define payment, advance, allocation, refund and adjustment domain contracts.
+4. Add migration and persistence with transaction/idempotency tests.
+5. Add application use cases and derived balance/payment status.
+6. Add receipt, credit-note and debit-note rendering.
+7. Complete offline/retry/concurrency and historical immutability tests.
+
+Do not implement M8 as only a basic payment row tied to one invoice. It requires customer-level advances and separately traceable allocation and adjustment events.
