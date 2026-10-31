@@ -16,7 +16,7 @@ import { createBusinessRepository } from "./business.js";
 import { createCustomerRepository } from "./customer.js";
 import { createDocumentRepository } from "./document.js";
 import { openDatabase, type SchemaDatabase } from "./connection.js";
-import { migrate } from "./migrate.js";
+import { migrate, readSchemaVersion } from "./migrate.js";
 import { migrations } from "./migrations.js";
 import { createCustomerReceiptRepository } from "./customer-receipt.js";
 import { listStateUts } from "./state-ut.js";
@@ -66,6 +66,15 @@ function setup() {
 }
 
 describe("payment allocations", () => {
+  it("upgrades a version-9 database with migration 10", () => {
+    const db = openDatabase(":memory:");
+    databases.push(db);
+    migrate(db, migrations.slice(0, 9));
+    expect(readSchemaVersion(db)).toBe(9);
+    expect(migrate(db, migrations)).toMatchObject({ fromVersion: 9, toVersion: 10, appliedVersions: [10] });
+    expect(readSchemaVersion(db)).toBe(10);
+  });
+
   it("allocates receipts to finalized invoices and derives outstanding and advance balances", () => {
     const { receipt, invoice, allocationDeps, receiptDeps } = setup();
     const first = allocateReceiptToInvoice({
