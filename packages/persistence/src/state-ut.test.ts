@@ -22,9 +22,9 @@ describe("state and UT migration", () => {
     const stored = listStateUts(db);
     const second = migrate(db, migrations);
 
-    expect(first).toEqual({ fromVersion: 0, toVersion: 6, appliedVersions: [1, 2, 3, 4, 5, 6] });
+    expect(first).toEqual({ fromVersion: 0, toVersion: 7, appliedVersions: [1, 2, 3, 4, 5, 6, 7] });
     expect(second.appliedVersions).toEqual([]);
-    expect(readSchemaVersion(db)).toBe(6);
+    expect(readSchemaVersion(db)).toBe(7);
     expect(stored).toEqual(STATE_UTS);
     expect(stored.find((record) => record.id === "IN-KL")).toMatchObject({
       gstStateCode: "32",

@@ -91,6 +91,7 @@ export type BillingDocument = {
   grandTotal: string;
   ruleVersionId: string | null;
   notices: string[];
+  templateId: string | null;
   createdAt: string;
   finalizedAt: string | null;
   updatedAt: string;
@@ -144,6 +145,7 @@ export type DocumentRepository = {
   getNumberSeries: (documentType: BillingDocument["documentType"], financialYear: string) => NumberSeries | null;
   saveNumberSeries: (record: NumberSeries) => void;
   hasIssuedNumber: (documentType: BillingDocument["documentType"], financialYear: string) => boolean;
+  resolveTemplate: (documentType: DocumentType, templateId: string | null, now: string) => string;
 };
 
 export type DocumentDeps = {
@@ -162,6 +164,7 @@ export type SaveDocumentInput = {
   reverseCharge: boolean;
   lines: readonly GstLineInput[];
   charges?: readonly GstChargeInput[];
+  templateId?: string | null;
 };
 
 export type SaveNumberSeriesInput = {
@@ -183,7 +186,7 @@ export function getDocument(id: string, deps: DocumentDeps): BillingDocument | n
 
 export function createDocument(input: SaveDocumentInput, deps: DocumentDeps): BillingDocument {
   const business = requireBusiness(deps);
-  const draft = buildDraft(input, deps, business, {
+  const draft = buildDraft(input, deps, business, null, {
     id: deps.createId(),
     businessId: business.id,
     status: "draft",
@@ -209,7 +212,7 @@ export function updateDocument(
     throw new BillingError("A finalized document cannot be changed.");
   }
   const business = requireBusiness(deps);
-  const draft = buildDraft(input, deps, business, {
+  const draft = buildDraft(input, deps, business, existing.templateId, {
     id: existing.id,
     businessId: existing.businessId,
     status: "draft",
@@ -275,6 +278,7 @@ function buildDraft(
   input: SaveDocumentInput,
   deps: DocumentDeps,
   business: BusinessRef,
+  existingTemplateId: string | null,
   identity: {
     id: string;
     businessId: string;
@@ -293,6 +297,11 @@ function buildDraft(
   if (!customer.active) {
     throw new BillingError("Choose an active customer.");
   }
+  const templateId = deps.repository.resolveTemplate(
+    input.documentType,
+    input.templateId === undefined ? existingTemplateId : input.templateId,
+    deps.now(),
+  );
   const lines = input.lines.map((line) => withProductNature(line, deps));
   const context = productContext(lines, deps);
   const calculated = calculateGstDocument({
@@ -331,6 +340,7 @@ function buildDraft(
     customer,
     lineIds,
     chargeIds,
+    templateId,
   });
 }
 
@@ -409,6 +419,7 @@ function presentDraft(stored: BillingDocument, deps: DocumentDeps): BillingDocum
       customer,
       lineIds: stored.lines.map((line) => line.id),
       chargeIds: stored.charges.map((charge) => charge.id),
+      templateId: stored.templateId,
     },
   );
 }
@@ -435,6 +446,7 @@ function toDocument(
     customer: CustomerRef;
     lineIds: string[];
     chargeIds: string[];
+    templateId: string | null;
   },
 ): BillingDocument {
   if (
@@ -489,6 +501,7 @@ function toDocument(
     grandTotal: calculated.grandTotal,
     ruleVersionId: calculated.ruleVersionId,
     notices: calculated.notices,
+    templateId: context.templateId,
   };
 }
 

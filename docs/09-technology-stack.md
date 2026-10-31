@@ -1,7 +1,7 @@
 # Fledge Billing — Technology Stack (M0)
 
 **Status:** Adopted for foundation milestone  
-**Version:** 0.9
+**Version:** 0.10
 
 ## Decision
 
@@ -92,6 +92,12 @@ Intra-state tax is half CGST and half SGST. UTGST replaces SGST only for the Uni
 Each component is rounded half-up to paise from the paise taxable value. CGST Act section 170 rounds tax payable to the government to the nearest rupee and is not applied on the invoice. An intra-state split can therefore differ by one paise from IGST on the same value. For a tax-inclusive price, any difference between the embedded tax and the sum of the rounded components is stored as `rounding_residual` and is not folded into a component. Exclusive tax is added to the grand total. Inclusive tax is already inside the line amount. Reverse charge is an explicit flag: the tax is calculated and kept out of the amount payable to the supplier. Named reverse-charge categories and compensation cess are rejected until a verified rule is seeded.
 
 A tax invoice or bill of supply requires a GST-registered business. A tax invoice needs at least one taxable or nil-rated supply. Exempt and non-GST values stay out of the taxable total.
+
+## Invoice templates (M6, first slice)
+
+Migration `invoice-template` is version 7. It creates `invoice_template`, `template_section` and `template_field`. The seven built-in families are Standard, GST, Service, Retail, Quotation, Receipt and Bill of Supply. They are copied for the business the first time templates or a document are used. Each document type has one default. A new document stores that template id. Finalizing keeps it. Choosing a different default later does not change a finalized document or its totals.
+
+Labels cannot contain markup. Protected parts, including the supplier GSTIN and tax breakup on a tax invoice, cannot be hidden. This slice does not yet edit labels, add custom fields, or preview an invoice.
 
 ## Tooling
 

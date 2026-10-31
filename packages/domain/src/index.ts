@@ -1,4 +1,4 @@
-/** Domain layer entry. The GST component engine arrives in a later milestone. */
+/** Domain layer entry. Presentation templates do not calculate tax. */
 export const DOMAIN_LAYER = "domain" as const;
 
 export {
@@ -81,3 +81,21 @@ export {
   type GstTaxLine,
   type GstTaxType,
 } from "./gst.js";
+export {
+  BUILT_IN_TEMPLATES,
+  TEMPLATE_FAMILIES,
+  TEMPLATE_FIELD_KEYS,
+  TEMPLATE_SECTION_KEYS,
+  TemplateError,
+  assertTemplateConfiguration,
+  assertTemplateLabel,
+  templateMatchesDocument,
+  type BuiltInTemplate,
+  type TemplateDensity,
+  type TemplateFamily,
+  type TemplateFieldDefinition,
+  type TemplateFieldKey,
+  type TemplateFontFamily,
+  type TemplateSectionDefinition,
+  type TemplateSectionKey,
+} from "./template.js";
