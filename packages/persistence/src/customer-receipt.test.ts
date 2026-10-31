@@ -11,10 +11,10 @@ import { afterEach, describe, expect, it } from "vitest";
 const dbs: SchemaDatabase[] = [];
 afterEach(() => { for (const db of dbs.splice(0)) db.close(); });
 
-function setup() {
+function setup(migrationCount = migrations.length) {
   const db = openDatabase(":memory:");
   dbs.push(db);
-  migrate(db, migrations);
+  migrate(db, migrations.slice(0, migrationCount));
   const states = listStateUts(db);
   saveBusinessProfile({
     legalName: "Fledge Traders", address: "Market Road, Kochi", stateId: "IN-KL", gstRegistered: false,
