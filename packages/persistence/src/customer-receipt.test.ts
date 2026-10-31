@@ -94,6 +94,33 @@ describe("customer receipts", () => {
     expect(retry.identitySnapshot?.customer.name).toBe("Harbour Stores");
   });
 
+  it("prints a payment acknowledgement from the saved identity snapshot and original payment date", () => {
+    const { customer, deps } = setup();
+    const receipt = recordCustomerReceipt({
+      customerId: customer.id, amount: "1250.50", paymentDate: "2026-10-30",
+      method: "upi", reference: "UPI-REF-1", notes: "Advance for order", idempotencyKey: "print-001",
+    }, deps);
+    const printed = printCustomerReceipt(receipt.id, deps);
+    expect(printed).toContain("PAYMENT RECEIPT");
+    expect(printed).toContain("Receipt reference (internal): " + receipt.id);
+    expect(printed).toContain("Payment date: 2026-10-30");
+    expect(printed).toContain("Amount received: INR 1,250.50");
+    expect(printed).toContain("UPI-REF-1");
+    expect(printed).toContain("not a tax invoice or statutory GST receipt voucher");
+  });
+
+  it("blocks formal printing of legacy receipts without receipt-time identity", () => {
+    const { db, customer, deps } = setup(11);
+    db.prepare(`
+      INSERT INTO customer_receipt (
+        id, business_id, customer_id, amount, currency, payment_date, method,
+        reference, notes, idempotency_key, recorded_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run("legacy-no-snapshot", "biz-1", customer.id, "50", "INR", "2026-10-30", "cash", null, null, "legacy-print-key", "2026-10-31T08:02:00.000Z");
+    migrate(db, migrations);
+    expect(() => printCustomerReceipt("legacy-no-snapshot", deps)).toThrow(/no receipt-time identity snapshot/);
+  });
+
   it("rejects invalid dates, zero amounts, and fractions of a paisa", () => {
     const { customer, deps } = setup();
     const base = { customerId: customer.id, method: "cash" as const, idempotencyKey: "invalid" };
