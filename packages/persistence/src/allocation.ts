@@ -117,7 +117,7 @@ export function createAllocationRepository(db: SchemaDatabase): AllocationReposi
     getCustomerAllocatedTotal(customerId) {
       const businessId = this.getBusinessId();
       if (!businessId) return "0";
-      const rows = db.prepare("SELECT amount FROM payment_allocation_event WHERE business_id = ? AND customer_id = ? AND event_type = 'allocate'").all(businessId, customerId);
+      const rows = db.prepare("SELECT id, amount FROM payment_allocation_event WHERE business_id = ? AND customer_id = ? AND event_type = 'allocate'").all(businessId, customerId);
       let total = 0n;
       for (const row of rows) {
         const allocation = db.prepare("SELECT id FROM payment_allocation_event WHERE allocation_id = ? AND event_type = 'release'").get(row.id);
