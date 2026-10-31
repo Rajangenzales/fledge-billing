@@ -12,7 +12,7 @@ export async function exportCustomerReceiptPdf(
 ): Promise<{ filePath: string }> {
   const receipt = renderCustomerReceipt(receiptId, deps);
   const safeId = receipt.receiptId.replace(/[^A-Za-z0-9-]+/g, "-").replace(/-+/g, "-");
-  const date = /^\\d{4}-\\d{2}-\\d{2}$/.test(receipt.paymentDate) ? receipt.paymentDate : "undated";
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(receipt.paymentDate) ? receipt.paymentDate : "undated";
   const filename = "payment-receipt_" + safeId + "_" + date + ".pdf";
   const directoryPath = path.resolve(directory);
   const filePath = path.resolve(directoryPath, filename);
