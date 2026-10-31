@@ -97,7 +97,7 @@ export function getCustomerAdvance(customerId: string, deps: CustomerReceiptDeps
     customerId,
     currency: "INR",
     receiptCount: deps.repository.list(customerId).length,
-    unallocatedAmount: normalizeAmount(deps.repository.total(customerId)),
+    unallocatedAmount: deps.repository.total(customerId),
   };
 }
 
