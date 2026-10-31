@@ -64,11 +64,11 @@ This snapshot records merged repository work as of 31 October 2026. A merged mil
 | Security and accounts | Specification only | Registration, authentication, email verification, password reset, sessions and authorization are not implemented. |
 | Cloud services | Specification only | Optional cloud backup, multi-device sync, subscription gateway, Admin Control Centre and product analytics are not implemented. |
 
-The current SQLite migration registry contains eight migrations, ending with the custom-field migration. Preserve the existing SQLite implementation and migration history while introducing future adapters.
+The current main-branch SQLite registry has eight migrations. The M8-02A branch adds migration 9 for customer receipts. Preserve the existing SQLite implementation and migration history while introducing future adapters.
 
-**M8 design progress (31 October 2026):** M8-01 product direction has owner approval, with statutory automation still gated on qualified GST-practitioner review. M8-02 payment and customer-advance domain design is documented in [docs/14](./14-m8-02-payment-advance-domain-model.md). No payment schema, migration or application code has been implemented by this design work.
+**M8 design progress (31 October 2026):** M8-01 product direction has owner approval, with statutory automation still gated on qualified GST-practitioner review. M8-02 payment and customer-advance domain design is documented in [docs/14](./14-m8-02-payment-advance-domain-model.md). M8-02A adds customer receipt persistence, idempotent receipt recording and a derived unallocated customer advance. Allocations, refunds, credit/debit notes, statutory receipt vouchers and GST advance automation remain out of scope.
 
-**Next implementation focus:** validate M5/M6/M7 dependencies and inspect the current schema/legacy payment rows, then implement the first focused M8 payment-event slice using docs/12 and docs/14. Statutory GST treatment remains gated on practitioner review. Do not reconcile payments against mutable or incomplete financial snapshots. Cross-cutting security and PWA foundations remain mandatory before public release. Do not claim production readiness or cross-platform offline PWA support yet.
+**Next implementation focus:** complete M8-02A receipt persistence and validation, then implement allocation history and derived invoice outstanding balances using docs/12 and docs/14. Statutory GST treatment remains gated on practitioner review. Do not reconcile payments against mutable or incomplete financial snapshots. Cross-cutting security and PWA foundations remain mandatory before public release. Do not claim production readiness or cross-platform offline PWA support yet.
 
 
 ## 3. Cross-cutting platform and service prerequisites

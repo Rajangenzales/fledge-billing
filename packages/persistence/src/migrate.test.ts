@@ -39,6 +39,7 @@ describe("migrate", () => {
       "gst-engine",
       "invoice-template",
       "custom-field",
+      "customer-receipt",
     ]);
   });
 
