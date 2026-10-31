@@ -17,6 +17,24 @@ export {
   type StoredCustomer,
   type UpdateCustomerInput,
 } from "./customer.js";
+export {
+  createProduct,
+  createSavedGstRate,
+  getProduct,
+  listProducts,
+  listSavedGstRates,
+  listTaxCategories,
+  updateProduct,
+  updateSavedGstRate,
+  type Product,
+  type ProductDeps,
+  type ProductRepository,
+  type SavedGstRate,
+  type StoredProduct,
+  type TaxCategory,
+  type UpdateProductInput,
+  type UpdateSavedGstRateInput,
+} from "./product.js";
 export { loadConfig, type AppConfig } from "./config.js";
 export { AppError, toUserFacingMessage, type ErrorCode } from "./errors.js";
 export { createLogger, type Logger } from "./logger.js";

@@ -31,3 +31,16 @@ export {
   type SaveCustomerInput,
 } from "./customer.js";
 export { GstinError, gstinCheckCharacter } from "./gstin.js";
+export {
+  PRODUCT_TYPES,
+  ProductError,
+  TAX_CATEGORIES,
+  validateProductInput,
+  validateSavedGstRate,
+  type NormalizedProductInput,
+  type NormalizedSavedGstRate,
+  type ProductType,
+  type SaveProductInput,
+  type SaveSavedGstRateInput,
+  type TaxCategoryId,
+} from "./product.js";

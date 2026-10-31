@@ -34,6 +34,7 @@ describe("migrate", () => {
       "state-ut-master",
       "business-profile",
       "customer",
+      "product-service",
     ]);
   });
 
