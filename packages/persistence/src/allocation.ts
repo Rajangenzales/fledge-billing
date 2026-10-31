@@ -120,7 +120,7 @@ export function createAllocationRepository(db: SchemaDatabase): AllocationReposi
       const rows = db.prepare("SELECT id, amount FROM payment_allocation_event WHERE business_id = ? AND customer_id = ? AND event_type = 'allocate'").all(businessId, customerId);
       let total = 0n;
       for (const row of rows) {
-        const allocation = db.prepare("SELECT id FROM payment_allocation_event WHERE allocation_id = ? AND event_type = 'release'").get(row.id);
+        const allocation = db.prepare("SELECT id FROM payment_allocation_event WHERE allocation_id = ? AND event_type = 'release'").get(text(row.id));
         if (!allocation) total += paise(text(row.amount));
       }
       return formatPaise(total);
