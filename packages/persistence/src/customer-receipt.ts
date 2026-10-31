@@ -76,6 +76,22 @@ export function createCustomerReceiptRepository(db: SchemaDatabase): CustomerRec
         ORDER BY payment_date DESC, recorded_at DESC, id DESC
       `).all(businessId, customerId).map(toReceipt);
     },
+    allocatedTotal(customerId) {
+      const businessId = this.getBusinessId();
+      if (!businessId) return "0";
+      const rows = db.prepare("SELECT id, amount FROM payment_allocation_event WHERE business_id = ? AND customer_id = ? AND event_type = 'allocate'").all(businessId, customerId);
+      let paise = 0n;
+      for (const row of rows) {
+        const released = db.prepare("SELECT id FROM payment_allocation_event WHERE allocation_id = ? AND event_type = 'release'").get(row.id);
+        if (!released) {
+          const value = row.amount;
+          if (typeof value !== "string" || !/^\\d+(?:\\.\\d{1,2})?$/.test(value)) throw new CustomerReceiptError("A saved allocation amount is invalid.");
+          const [whole, fraction = ""] = value.split(".");
+          paise += BigInt(whole!) * 100n + BigInt(fraction.padEnd(2, "0"));
+        }
+      }
+      return formatPaise(paise);
+    },
     total(customerId) {
       const businessId = this.getBusinessId();
       if (!businessId) return "0";
