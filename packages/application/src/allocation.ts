@@ -1,5 +1,3 @@
-import type { CustomerReceipt } from "./customer-receipt.js";
-
 export type AllocationEvent = {
   id: string;
   businessId: string;
