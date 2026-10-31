@@ -110,3 +110,48 @@ Full accounting, GST return filing, direct GST portal submission, e-invoice/e-wa
 
 ## 18. PRD Rule
 Any feature added during development must be classified as V1, future, or rejected before implementation. Cursor must not invent product scope.
+
+
+## 19. Billing Modes and GST Optionality
+
+Fledge supports both GST and non-GST businesses. GST registration is a business-profile setting and is not mandatory for every Fledge customer. GST/non-GST document workflows remain subject to registration and transaction law; a GST-off setting is not permission to suppress tax where legally due. Drafts may change between supported modes with recalculation from source values. Finalized documents are immutable and corrections use controlled workflows. Domain/application support does not mean the customer-facing setup and invoice-entry UI is complete.
+
+## 20. Invoice Date, System Timestamps and Due Date
+
+The invoice/document date is explicitly selected and saved by the user, not inferred from record creation time.
+
+- `invoice_date` / `document_date`: user-selected date printed on the invoice.
+- `created_at`: actual system creation timestamp for internal audit.
+- `finalized_at`: actual system finalization timestamp for internal audit.
+- `due_date`: optional user-selected payment deadline.
+- `updated_at`: actual system update timestamp where applicable.
+
+Requirements:
+1. Support user-selected past, current and future invoice dates, subject to validation and applicable legal/accounting restrictions.
+2. Never silently replace the saved invoice date with today's date.
+3. Never print today's date, a generated-on date, creation timestamp or finalization timestamp by default. A generated-on date may appear only when explicitly enabled by the user.
+4. PDF/print must show exactly the saved invoice date.
+5. Derive financial-year numbering from the selected document date, not system timestamps.
+6. Technical acceptance of a date is not legal approval. Future/backdated GST documents require validation based on verified statutory rules.
+7. Due date is optional and must not change invoice date or numbering.
+
+## 21. Payments, Customer Advances and Adjustments
+
+Support advance receipts before an invoice exists, unallocated customer advance balances, partial and multiple payments, allocation across invoices, allocation release/reallocation history, refunds/reversals with reasons and audit history, receipts linked to payment events, and credit/debit notes linked to original invoices with independent numbering, dates, reasons and immutable amount/tax snapshots.
+
+Payment status is derived from valid payment events, allocations and approved note adjustments. It is not a document lifecycle state. A finalized invoice remains finalized while unpaid, partially settled or settled. Payments, advances, refunds and note adjustments never rewrite the original invoice's date, line values, tax snapshot or grand total.
+
+GST treatment of advances, receipt vouchers, credit/debit notes and reporting must follow verified current official sources. Do not assume every advance is taxable or every software note qualifies for statutory GST adjustment.
+
+## 22. V1 Acceptance Additions
+
+- Configure GST or non-GST business profiles, subject to legal eligibility and validation.
+- Select past/current/future invoice dates where validation permits.
+- Print the saved invoice date exactly; no automatic today/generated-on date.
+- Keep creation/finalization timestamps internal and due date optional/separate.
+- Derive numbering financial year from the saved document date.
+- Record advances before invoice creation, show unallocated balances and allocate later.
+- Record partial/multiple payments, reallocate with history, and record refunds/reversals without erasing original events.
+- Issue linked credit/debit notes with independent dates/numbers/reasons and retained tax snapshots.
+- Keep derived payment status separate from document lifecycle.
+- Preserve finalized financial documents immutably.
