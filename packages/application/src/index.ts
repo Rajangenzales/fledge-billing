@@ -101,3 +101,15 @@ export {
   type PaymentMethod,
   type RecordCustomerReceiptInput,
 } from "./customer-receipt.js";
+
+export {
+  AllocationError,
+  allocateReceiptToInvoice,
+  releaseReceiptAllocation,
+  getInvoiceSettlement,
+  getCustomerAllocatedTotal,
+  type AllocationDeps,
+  type AllocationEvent,
+  type AllocationRepository,
+  type InvoiceSettlement,
+} from "./allocation.js";
