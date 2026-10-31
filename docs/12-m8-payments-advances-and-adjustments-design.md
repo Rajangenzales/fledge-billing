@@ -1,6 +1,6 @@
 # Fledge Billing — M8 Payments, Advances & Financial Adjustments Design
 
-**Status:** Product/technical design baseline; implementation not started  
+**Status:** Product/technical design baseline; M8-01 decisions recorded and M8-02 domain model documented; implementation not started  
 **Version:** 1.1  
 **Date:** 2026-10-31  
 **Related:** docs/02-prd-v1.md, docs/04-database-design.md, docs/05-gst-compliance-spec.md, docs/06-invoice-template-system.md, docs/08-roadmap-and-cursor-contract.md, docs/10-m5-to-m8-implementation-contract.md
@@ -175,7 +175,7 @@ Resolve product decisions with the owner and legal treatment from current offici
 ## 16. Suggested issue breakdown
 
 - M8-01: Resolve statutory/product decisions and approve payment domain contract.
-- M8-02: Payment event and customer advance model, migration and repository.
+- M8-02: Payment event and customer advance model, migration and repository. Domain contract: [docs/14-m8-02-payment-advance-domain-model.md](./14-m8-02-payment-advance-domain-model.md).
 - M8-03: Allocation, release/reallocation and idempotency.
 - M8-04: Derived balances/payment status and lifecycle migration.
 - M8-05: Refund/reversal workflows and immutable audit history.
