@@ -130,7 +130,6 @@ export function createPaymentAdjustmentRepository(db: SchemaDatabase): PaymentAd
       let reversedReceipts = 0n;
       for (const event of rows) {
         if (event.eventType === "refund" && !rows.some(item => item.eventType === "reverse_refund" && item.originalEventId === event.id)) refunds += paise(event.amount);
-        if (event.eventType === "reverse_refund") refunds -= paise(event.amount);
         if (event.eventType === "reverse_receipt") reversedReceipts += paise(event.amount);
       }
       return { refundedAmount: formatPaise(refunds), reversedReceiptAmount: formatPaise(reversedReceipts) };
@@ -186,7 +185,7 @@ function toEvent(row: Record<string, unknown>): PaymentAdjustmentEvent {
   };
 }
 function paise(value: string): bigint {
-  if (!/^\\d+(?:\\.\\d{1,2})?$/.test(value)) throw new PaymentAdjustmentError("A saved financial amount is invalid.");
+  if (!/^\d+(?:\.\d{1,2})?$/.test(value)) throw new PaymentAdjustmentError("A saved financial amount is invalid.");
   const [whole, fraction = ""] = value.split(".");
   return BigInt(whole!) * 100n + BigInt(fraction.padEnd(2, "0"));
 }
