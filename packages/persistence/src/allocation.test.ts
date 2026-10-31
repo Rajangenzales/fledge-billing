@@ -3,6 +3,7 @@ import {
   createCustomer,
   createDocument,
   finalizeDocument,
+  getCustomerAdvance,
   getCustomerAllocatedTotal,
   getInvoiceSettlement,
   recordCustomerReceipt,
@@ -66,7 +67,7 @@ function setup() {
 
 describe("payment allocations", () => {
   it("allocates receipts to finalized invoices and derives outstanding and advance balances", () => {
-    const { receipt, invoice, allocationDeps } = setup();
+    const { receipt, invoice, allocationDeps, receiptDeps } = setup();
     const first = allocateReceiptToInvoice({
       receiptId: receipt.id, invoiceId: invoice.id, amount: "60", idempotencyKey: "alloc-1",
     }, allocationDeps);
@@ -80,10 +81,11 @@ describe("payment allocations", () => {
       allocatedAmount: "100", outstandingAmount: "0", paymentStatus: "paid",
     });
     expect(getCustomerAllocatedTotal("cust-1", allocationDeps)).toBe("100");
+    expect(getCustomerAdvance("cust-1", receiptDeps).unallocatedAmount).toBe("50");
   });
 
   it("releases an allocation as a compensating event without deleting history", () => {
-    const { receipt, invoice, allocationDeps } = setup();
+    const { receipt, invoice, allocationDeps, receiptDeps } = setup();
     const allocation = allocateReceiptToInvoice({
       receiptId: receipt.id, invoiceId: invoice.id, amount: "60", idempotencyKey: "alloc-release-1",
     }, allocationDeps);
@@ -97,6 +99,7 @@ describe("payment allocations", () => {
       allocatedAmount: "0", outstandingAmount: "100", paymentStatus: "unpaid",
     });
     expect(getCustomerAllocatedTotal("cust-1", allocationDeps)).toBe("0");
+    expect(getCustomerAdvance("cust-1", receiptDeps).unallocatedAmount).toBe("150");
     expect(allocationDeps.repository.listReceiptEvents(receipt.id)).toHaveLength(2);
   });
 
