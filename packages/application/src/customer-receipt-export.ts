@@ -16,7 +16,7 @@ export async function exportCustomerReceiptPdf(
   const filename = "payment-receipt_" + safeId + "_" + date + ".pdf";
   const directoryPath = path.resolve(directory);
   const filePath = path.resolve(directoryPath, filename);
-  if (!safeId || filename.includes("/") || filename.includes("\\\\") || !filePath.startsWith(directoryPath + path.sep)) {
+  if (!safeId || filename.includes("/") || filename.includes("\\") || !filePath.startsWith(directoryPath + path.sep)) {
     throw new AppError("INTERNAL", "Choose a folder on this computer.");
   }
   let bytes: Uint8Array;
