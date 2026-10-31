@@ -1,7 +1,7 @@
 # Fledge Billing — M8 Payments, Advances & Financial Adjustments Design
 
 **Status:** Product/technical design baseline; implementation not started  
-**Version:** 1.0  
+**Version:** 1.1  
 **Date:** 2026-10-31  
 **Related:** docs/02-prd-v1.md, docs/04-database-design.md, docs/05-gst-compliance-spec.md, docs/06-invoice-template-system.md, docs/08-roadmap-and-cursor-contract.md, docs/10-m5-to-m8-implementation-contract.md
 
@@ -16,7 +16,8 @@ This is a design, not permission to begin implementation before statutory and pr
 ## 2. Product principles and billing dates
 
 - GST is optional at business-profile level. GST/non-GST use remains subject to registration and transaction law.
-- Support user-selected past, current and future document dates, subject to validation and applicable legal restrictions.
+- Preserve the actual issue date on finalized documents. Future dates may be used on drafts/pro-forma documents only; historical imports must retain their original issue date and a separate system-entry timestamp. Do not backdate a newly issued invoice to misrepresent its issue date.
+- Follow the statutory/product decision record in docs/13-m8-01-gst-compliance-and-product-decisions.md for goods/service invoice timing, advances, receipt/refund vouchers and credit/debit-note treatment.
 - `document_date` / `invoice_date` is the saved user-selected date and the date printed on the invoice.
 - `created_at` and `finalized_at` are actual system timestamps for internal audit, not invoice dates.
 - `due_date` is optional and separate. `payment_date` records the actual receipt/refund date.
@@ -98,7 +99,7 @@ Generate a receipt from a recorded payment event, not as an unrelated manually p
 - Credit/debit note tax snapshots must use verified rules and retain the original invoice relationship.
 - If required facts/rules are unavailable, block automatic tax treatment and show an actionable compliance error.
 
-Official-source review is a prerequisite for compulsory registration/non-GST eligibility; invoice issuance timing and past/future date treatment; advance time-of-supply and receipt-voucher rules; credit/debit-note definitions, particulars, deadlines and reporting; relevant RCM/Cess treatment. Use current CGST/IGST/UTGST Acts and Rules, CBIC notifications/circulars and GST Portal guidance. Record source, section/rule, effective date, version and tested example. This design does not itself approve a legal interpretation.
+The initial official-source review and proposed decisions are recorded in docs/13-m8-01-gst-compliance-and-product-decisions.md. Product-owner approval and qualified GST-practitioner review remain required for its open items. Use current CGST/IGST/UTGST Acts and Rules, CBIC notifications/circulars and GST Portal guidance. Record source, section/rule, effective date, version and tested example. Neither this design nor the decision record is legal advice or permission to automate unresolved treatment.
 
 ## 10. Numbering and rendering
 
