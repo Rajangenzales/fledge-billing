@@ -27,8 +27,6 @@ The approved product and engineering baseline is maintained in [`docs/`](./docs/
 17. [M8-04 Payment Receipt Generation Contract](./docs/17-m8-04-payment-receipt-generation.md)
 18. [M8-04A Receipt-Time Identity Snapshots](./docs/18-m8-04a-receipt-identity-snapshots.md)
 19. [M8-04B Payment Receipt Print and PDF](./docs/19-m8-04b-payment-receipt-print-pdf.md)
-17. [M8-04 Payment Receipt Generation Contract](./docs/17-m8-04-payment-receipt-generation.md)
-18. [M8-04A Receipt-Time Identity Snapshots](./docs/18-m8-04a-receipt-identity-snapshots.md)
 
 These documents are the source of truth. Implementation must not silently expand V1 scope or introduce GST rules in UI code.
 
