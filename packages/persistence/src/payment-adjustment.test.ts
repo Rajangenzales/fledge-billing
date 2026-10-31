@@ -29,7 +29,8 @@ function setup() {
     { repository: createCustomerRepository(db), states, now: () => "2026-10-31T08:01:00.000Z", createId: () => "cust-1" });
   const receiptDeps = { repository: createCustomerReceiptRepository(db), now: () => "2026-10-31T08:02:00.000Z", createId: () => "receipt-1" };
   const receipt = recordCustomerReceipt({ customerId: customer.id, amount: "150", paymentDate: "2026-10-30", method: "upi", idempotencyKey: "receipt-1" }, receiptDeps);
-  const documentDeps = { repository: createDocumentRepository(db), states, now: () => "2026-10-31T08:03:00.000Z", createId: () => "invoice-1" };
+  let documentSequence = 0;
+  const documentDeps = { repository: createDocumentRepository(db), states, now: () => "2026-10-31T08:03:00.000Z", createId: () => `invoice-${++documentSequence}` };
   const draft = createDocument({ customerId: customer.id, documentType: "non_gst_invoice", documentDate: "2026-10-31", gstEnabled: false, reverseCharge: false,
     lines: [{ description: "Goods", quantity: "1", unit: "nos", rate: "100", discountType: "none", taxInclusive: false, taxCategoryId: "non-gst" }] }, documentDeps);
   const invoice = finalizeDocument(draft.id, documentDeps);
