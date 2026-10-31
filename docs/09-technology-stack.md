@@ -1,7 +1,7 @@
 # Fledge Billing — Technology Stack (M0)
 
 **Status:** Adopted for foundation milestone  
-**Version:** 0.11
+**Version:** 0.12
 
 ## Decision
 
@@ -97,7 +97,9 @@ A tax invoice or bill of supply requires a GST-registered business. A tax invoic
 
 Migration `invoice-template` is version 7. It creates `invoice_template`, `template_section` and `template_field`. The seven built-in families are Standard, GST, Service, Retail, Quotation, Receipt and Bill of Supply. They are copied for the business the first time templates or a document are used. Each document type has one default. A new document stores that template id. Finalizing keeps it. Choosing a different default later does not change a finalized document or its totals.
 
-A vendor can rename safe labels, such as Customer to Buyer, and show or hide optional fields and sections such as phone and payment. Statutory labels, including GSTIN, place of supply, HSN/SAC and the tax breakup, stay as written. Protected parts cannot be hidden. Labels cannot contain markup or copy a statutory heading. Saving an edit inserts the next template version and leaves the previous rows unchanged, so an issued document and an open draft keep the version they already store until the draft chooses another template. Custom fields and preview are not in this slice.
+A vendor can rename safe labels, such as Customer to Buyer, and show or hide optional fields and sections such as phone and payment. Statutory labels, including GSTIN, place of supply, HSN/SAC and the tax breakup, stay as written. Protected parts cannot be hidden. Labels cannot contain markup or copy a statutory heading. Saving an edit inserts the next template version and leaves the previous rows unchanged, so an issued document and an open draft keep the version they already store until the draft chooses another template.
+
+Migration `custom-field` is version 8. A template version can add up to 20 custom fields of type short text, long text, number, date, phone, email, web address, or yes/no. A custom field has a stable key, a label, an optional helper, and a section. It cannot use a statutory heading such as GSTIN or sit in the tax summary. Values are stored as text on the document. They are not amounts and are not read by the billing or GST engines. A required value can be left blank on a draft and blocks finalization until it is entered. Finalizing copies the field label, type, and value onto the document. A later template version does not change that copy. Preview is not in this slice.
 
 ## Tooling
 

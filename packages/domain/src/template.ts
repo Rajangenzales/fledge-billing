@@ -4,6 +4,7 @@
  */
 
 import { DOCUMENT_TYPES, type DocumentType } from "./billing.js";
+import { customFieldsChanged, reviseCustomFields, type CustomFieldDefinition, type CustomFieldDraft } from "./custom-field.js";
 
 export const TEMPLATE_FAMILIES = [
   "standard",
@@ -296,6 +297,7 @@ export type TemplateRevisionChange = {
 export type TemplateRevisionPatch = {
   sections?: readonly TemplateRevisionChange[];
   fields?: readonly TemplateRevisionChange[];
+  customFields?: readonly CustomFieldDraft[];
 };
 
 export type TemplateConfiguration = {
@@ -316,12 +318,13 @@ export type TemplateConfiguration = {
     required: boolean;
     protected: boolean;
   }[];
+  customFields?: readonly CustomFieldDefinition[];
 };
 
 export function reviseTemplateConfiguration(
   current: TemplateConfiguration,
   patch: TemplateRevisionPatch,
-): { sections: TemplateSectionDefinition[]; fields: TemplateFieldDefinition[] } {
+): { sections: TemplateSectionDefinition[]; fields: TemplateFieldDefinition[]; customFields: CustomFieldDefinition[] } {
   const sections = applySectionChanges(current, patch.sections ?? []);
   const fields = applyFieldChanges(current, patch.fields ?? []);
   for (const field of fields) {
@@ -330,8 +333,9 @@ export function reviseTemplateConfiguration(
       throw new TemplateError("Show this section before showing a field inside it.");
     }
   }
-  if (!configurationChanged(current, sections, fields)) {
-    throw new TemplateError("Change a label or which optional parts are shown before saving a new template version.");
+  const customFields = reviseCustomFields(current.customFields ?? [], sections, patch.customFields);
+  if (!configurationChanged(current, sections, fields) && !customFieldsChanged(current.customFields ?? [], customFields)) {
+    throw new TemplateError("Change a label, an optional part, or a custom field before saving a new template version.");
   }
   assertTemplateConfiguration({
     key: "revision",
@@ -346,7 +350,7 @@ export function reviseTemplateConfiguration(
     sections,
     fields,
   });
-  return { sections, fields };
+  return { sections, fields, customFields };
 }
 
 function buildBuiltIn(family: TemplateFamily, documentType: DocumentType): BuiltInTemplate {

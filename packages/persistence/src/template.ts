@@ -1,10 +1,17 @@
-import type { InvoiceTemplate, TemplateField, TemplateRepository, TemplateSection } from "@fledge/application";
+import type {
+  InvoiceTemplate,
+  TemplateCustomField,
+  TemplateField,
+  TemplateRepository,
+  TemplateSection,
+} from "@fledge/application";
 import {
   BUILT_IN_TEMPLATES,
   TemplateError,
   type BuiltInTemplate,
   type TemplateDensity,
   type TemplateFamily,
+  type CustomFieldDefinition,
   type TemplateFieldDefinition,
   type TemplateFontFamily,
   type TemplateSectionDefinition,
@@ -111,10 +118,10 @@ export function createTemplateRepository(db: SchemaDatabase): TemplateRepository
         throw error;
       }
     },
-    saveRevision(businessId, sourceId, sections, fields, now) {
+    saveRevision(businessId, sourceId, sections, fields, customFields, now) {
       db.exec("BEGIN IMMEDIATE");
       try {
-        const revisedId = insertRevision(db, businessId, sourceId, sections, fields, now);
+        const revisedId = insertRevision(db, businessId, sourceId, sections, fields, customFields, now);
         db.exec("COMMIT");
         return revisedId;
       } catch (error) {
@@ -212,6 +219,7 @@ function insertRevision(
   sourceId: string,
   sections: readonly TemplateSectionDefinition[],
   fields: readonly TemplateFieldDefinition[],
+  customFields: readonly CustomFieldDefinition[],
   now: string,
 ): string {
   const source = readTemplate(db, businessId, sourceId);
@@ -290,7 +298,32 @@ function insertRevision(
       field.protected ? 1 : 0,
     );
   }
+  insertCustomFields(db, id, customFields);
   return id;
+}
+
+function insertCustomFields(db: SchemaDatabase, templateId: string, customFields: readonly CustomFieldDefinition[]): void {
+  const insertCustomField = db.prepare(
+    `INSERT INTO template_custom_field (
+      id, template_id, field_key, section_key, label, field_type, helper_text,
+      required, visible, sort_order, default_value
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  for (const field of customFields) {
+    insertCustomField.run(
+      `tcf:${templateId}:${field.key}`,
+      templateId,
+      field.key,
+      field.sectionKey,
+      field.label,
+      field.type,
+      field.helperText,
+      field.required ? 1 : 0,
+      field.visible ? 1 : 0,
+      field.sortOrder,
+      field.defaultValue,
+    );
+  }
 }
 
 export function resolveTemplateId(
@@ -381,6 +414,7 @@ function readTemplate(db: SchemaDatabase, businessId: string, id: string): Invoi
     active: row.active === 1,
     sections,
     fields,
+    customFields: readCustomFields(db, id),
     createdAt: text(row.created_at, "created_at"),
     updatedAt: text(row.updated_at, "updated_at"),
   };
@@ -388,6 +422,69 @@ function readTemplate(db: SchemaDatabase, businessId: string, id: string): Invoi
 
 function templateId(businessId: string, builtin: BuiltInTemplate): string {
   return `tpl:${businessId}:${builtin.key}:1`;
+}
+
+function readCustomFields(db: SchemaDatabase, templateId: string): TemplateCustomField[] {
+  return db
+    .prepare(
+      `SELECT id, field_key, section_key, label, field_type, helper_text, required, visible, sort_order, default_value
+       FROM template_custom_field WHERE template_id = ? ORDER BY sort_order ASC, id ASC`,
+    )
+    .all(templateId)
+    .map(toCustomField);
+}
+
+function toCustomField(row: Record<string, unknown>): TemplateCustomField {
+  const type = text(row.field_type, "field_type");
+  if (
+    type !== "short_text" &&
+    type !== "long_text" &&
+    type !== "number" &&
+    type !== "date" &&
+    type !== "phone" &&
+    type !== "email" &&
+    type !== "url" &&
+    type !== "checkbox"
+  ) {
+    throw new TemplateError("The stored template is invalid.");
+  }
+  return {
+    id: text(row.id, "id"),
+    key: text(row.field_key, "field_key"),
+    sectionKey: customFieldSection(text(row.section_key, "section_key")),
+    label: text(row.label, "label"),
+    type,
+    helperText: nullableText(row.helper_text),
+    required: row.required === 1,
+    visible: row.visible === 1,
+    sortOrder: wholeNumber(row.sort_order),
+    defaultValue: nullableText(row.default_value),
+  };
+}
+
+function customFieldSection(value: string): TemplateCustomField["sectionKey"] {
+  if (
+    value === "header" ||
+    value === "business" ||
+    value === "customer" ||
+    value === "custom-details" ||
+    value === "payment" ||
+    value === "notes-terms" ||
+    value === "footer"
+  ) {
+    return value;
+  }
+  throw new TemplateError("The stored template is invalid.");
+}
+
+function nullableText(value: unknown): string | null {
+  if (value === null) {
+    return null;
+  }
+  if (typeof value !== "string" || value.length === 0) {
+    throw new TemplateError("The stored template is invalid.");
+  }
+  return value;
 }
 
 function toSection(row: Record<string, unknown>): TemplateSection {

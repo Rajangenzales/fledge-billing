@@ -47,6 +47,7 @@ export {
   type BillingDocument,
   type BusinessRef,
   type CustomerRef,
+  type DocumentCustomField,
   type DocumentCharge,
   type DocumentDeps,
   type DocumentLine,
@@ -66,6 +67,7 @@ export {
   type InvoiceTemplate,
   type TemplateDeps,
   type TemplateField,
+  type TemplateCustomField,
   type TemplateRepository,
   type TemplateSection,
 } from "./template.js";

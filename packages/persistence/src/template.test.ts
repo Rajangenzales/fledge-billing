@@ -230,4 +230,84 @@ describe("invoice templates", () => {
     expect(getTemplate(revised.id, templates)?.version).toBe(2);
     expect(listTemplates(templates).filter((template) => template.key === "gst:tax_invoice")).toHaveLength(2);
   });
+
+  it("stores custom field values on the document and leaves them when the template changes", () => {
+    const db = database();
+    prepare(db);
+    const documentDeps = deps(db);
+    const templates = templateDeps(db);
+    const revised = reviseTemplate(
+      "tpl:biz-1:gst:tax_invoice:1",
+      {
+        sections: [{ key: "custom-details", visible: true }],
+        customFields: [
+          { label: "Batch No.", type: "short_text", required: true, helperText: "Printed on the carton" },
+          { label: "Delivery date", type: "date" },
+        ],
+      },
+      templates,
+    );
+    expect(revised.customFields.map((field) => field.key)).toEqual(["batch-no", "delivery-date"]);
+    expect(getTemplate("tpl:biz-1:gst:tax_invoice:1", templates)?.customFields).toEqual([]);
+
+    const input = {
+      customerId: "cust-1",
+      documentType: "tax_invoice" as const,
+      documentDate: "2026-10-31",
+      placeOfSupplyStateId: "IN-KL",
+      gstEnabled: true,
+      reverseCharge: false,
+      lines: [line],
+    };
+    const draft = createDocument(input, documentDeps);
+    expect(draft.templateId).toBe(revised.id);
+    expect(draft.grandTotal).toBe("1180");
+    expect(draft.customFields.find((field) => field.key === "batch-no")?.value).toBeNull();
+    expect(() => finalizeDocument(draft.id, documentDeps)).toThrow(/Enter Batch No/);
+    expect(getDocument(draft.id, documentDeps)?.documentNumber).toBeNull();
+
+    const saved = updateDocument(
+      draft.id,
+      {
+        ...input,
+        customFields: [
+          { key: "batch-no", value: "A-12" },
+          { key: "delivery-date", value: "2026-11-02" },
+        ],
+      },
+      documentDeps,
+    );
+    expect(saved.taxTotal).toBe("180");
+    expect(saved.grandTotal).toBe("1180");
+    const kept = updateDocument(draft.id, input, documentDeps);
+    expect(kept.customFields.find((field) => field.key === "batch-no")?.value).toBe("A-12");
+    const issued = finalizeDocument(draft.id, documentDeps);
+    expect(issued.customFields).toMatchObject([
+      { key: "batch-no", label: "Batch No.", value: "A-12", type: "short_text" },
+      { key: "delivery-date", label: "Delivery date", value: "2026-11-02", type: "date" },
+    ]);
+
+    const renamed = reviseTemplate(
+      revised.id,
+      {
+        sections: [{ key: "custom-details", visible: true }],
+        customFields: [
+          { key: "batch-no", label: "Lot", type: "short_text", required: true },
+          { label: "Project Name", type: "short_text" },
+        ],
+      },
+      templates,
+    );
+    expect(renamed.id).toBe("tpl:biz-1:gst:tax_invoice:3");
+    expect(renamed.customFields.map((field) => field.label)).toEqual(["Lot", "Project Name"]);
+    const stored = getDocument(issued.id, documentDeps);
+    expect(stored?.templateId).toBe(revised.id);
+    expect(stored?.grandTotal).toBe("1180");
+    expect(stored?.taxTotal).toBe("180");
+    expect(stored?.customFields.find((field) => field.key === "batch-no")).toMatchObject({
+      label: "Batch No.",
+      value: "A-12",
+    });
+    expect(getTemplate(revised.id, templates)?.customFields[0]?.label).toBe("Batch No.");
+  });
 });

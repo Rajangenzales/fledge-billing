@@ -5,6 +5,7 @@ import {
   type TemplateDensity,
   type TemplateFamily,
   type TemplateFontFamily,
+  type CustomFieldDefinition,
   type TemplateRevisionPatch,
   type TemplateSectionDefinition,
   type TemplateFieldDefinition,
@@ -30,6 +31,10 @@ export type TemplateField = {
   protected: boolean;
 };
 
+export type TemplateCustomField = CustomFieldDefinition & {
+  id: string;
+};
+
 export type InvoiceTemplate = {
   id: string;
   businessId: string;
@@ -46,6 +51,7 @@ export type InvoiceTemplate = {
   active: boolean;
   sections: TemplateSection[];
   fields: TemplateField[];
+  customFields: TemplateCustomField[];
   createdAt: string;
   updatedAt: string;
 };
@@ -61,6 +67,7 @@ export type TemplateRepository = {
     sourceId: string,
     sections: readonly TemplateSectionDefinition[],
     fields: readonly TemplateFieldDefinition[],
+    customFields: readonly CustomFieldDefinition[],
     now: string,
   ) => string;
 };
@@ -108,7 +115,14 @@ export function reviseTemplate(id: string, patch: TemplateRevisionPatch, deps: T
     throw new TemplateError("That template was not found.");
   }
   const next = reviseTemplateConfiguration(current, patch);
-  const revisedId = deps.repository.saveRevision(businessId, id, next.sections, next.fields, deps.now());
+  const revisedId = deps.repository.saveRevision(
+    businessId,
+    id,
+    next.sections,
+    next.fields,
+    next.customFields,
+    deps.now(),
+  );
   const saved = deps.repository.get(businessId, revisedId);
   if (!saved) {
     throw new TemplateError("That template was not found.");

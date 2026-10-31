@@ -4,6 +4,7 @@ import {
   type BusinessRef,
   type CustomerRef,
   type DocumentCharge,
+  type DocumentCustomField,
   type DocumentLine,
   type DocumentRepository,
   type DocumentStatus,
@@ -14,9 +15,12 @@ import {
 import {
   BillingError,
   GstError,
+  assertRequiredCustomFields,
   calculateGstDocument,
   defaultDocumentPrefix,
   formatDocumentNumber,
+  type CustomFieldDefinition,
+  type CustomFieldType,
   type DiscountType,
   type DocumentType,
   type TaxCategoryId,
@@ -212,7 +216,9 @@ export function createDocumentRepository(db: SchemaDatabase): DocumentRepository
         if (status !== "draft") {
           throw new BillingError("Only a draft can be finalized.");
         }
-        const current = recalculate(db, readDocument(db, id));
+        const stored = readDocument(db, id);
+        assertRequiredCustomFields(stored.customFields);
+        const current = recalculate(db, stored);
         const series = readSeries(db, businessId, current.documentType, current.financialYear) ??
           insertDefaultSeries(db, businessId, current.documentType, current.financialYear);
         const documentNumber = formatDocumentNumber(
@@ -327,6 +333,17 @@ export function createDocumentRepository(db: SchemaDatabase): DocumentRepository
         throw new BillingError("Save the business profile before creating a document.");
       }
       return resolveTemplateId(db, businessId, documentType, templateId, now);
+    },
+    listCustomFields(templateId) {
+      return db
+        .prepare(
+          `SELECT field_key, section_key, label, field_type, helper_text, required, visible, sort_order, default_value
+           FROM template_custom_field
+           WHERE template_id = ?
+           ORDER BY sort_order ASC, id ASC`,
+        )
+        .all(templateId)
+        .map(toCustomFieldDefinition);
     },
   };
 }
@@ -456,9 +473,31 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
       tax.reverseCharge ? 1 : 0,
     );
   }
+  const insertCustomField = db.prepare(
+    `INSERT INTO document_custom_field (
+      id, document_id, field_key, section_key, label, field_type, helper_text,
+      required, visible, sort_order, value
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  for (const field of record.customFields) {
+    insertCustomField.run(
+      field.id,
+      record.id,
+      field.key,
+      field.sectionKey,
+      field.label,
+      field.type,
+      field.helperText,
+      field.required ? 1 : 0,
+      field.visible ? 1 : 0,
+      field.sortOrder,
+      field.value,
+    );
+  }
 }
 
 function deleteChildren(db: SchemaDatabase, documentId: string): void {
+  db.prepare("DELETE FROM document_custom_field WHERE document_id = ?").run(documentId);
   db.prepare("DELETE FROM document_tax WHERE document_id = ?").run(documentId);
   db.prepare("DELETE FROM document_charge WHERE document_id = ?").run(documentId);
   db.prepare("DELETE FROM document_item WHERE document_id = ?").run(documentId);
@@ -547,10 +586,86 @@ function readDocument(db: SchemaDatabase, id: string): BillingDocument {
     ruleVersionId: nullableText(row.gst_rule_version_id),
     notices: noticesFrom(row.calculation_notes),
     templateId: nullableText(row.template_id),
+    customFields: readDocumentCustomFields(db, id),
     createdAt: text(row.created_at, "created_at"),
     finalizedAt: nullableText(row.finalized_at),
     updatedAt: text(row.updated_at, "updated_at"),
   };
+}
+
+function readDocumentCustomFields(db: SchemaDatabase, documentId: string): DocumentCustomField[] {
+  return db
+    .prepare(
+      `SELECT id, field_key, section_key, label, field_type, helper_text, required, visible, sort_order, value
+       FROM document_custom_field
+       WHERE document_id = ?
+       ORDER BY sort_order ASC, id ASC`,
+    )
+    .all(documentId)
+    .map((row) => ({
+      id: text(row.id, "id"),
+      key: text(row.field_key, "field_key"),
+      sectionKey: text(row.section_key, "section_key"),
+      label: text(row.label, "label"),
+      type: customFieldType(row.field_type),
+      helperText: nullableCustomText(row.helper_text),
+      required: row.required === 1,
+      visible: row.visible === 1,
+      sortOrder: wholeNumber(row.sort_order, "sort_order"),
+      value: nullableCustomText(row.value),
+    }));
+}
+
+function toCustomFieldDefinition(row: Record<string, unknown>): CustomFieldDefinition {
+  const sectionKey = text(row.section_key, "section_key");
+  if (
+    sectionKey !== "header" &&
+    sectionKey !== "business" &&
+    sectionKey !== "customer" &&
+    sectionKey !== "custom-details" &&
+    sectionKey !== "payment" &&
+    sectionKey !== "notes-terms" &&
+    sectionKey !== "footer"
+  ) {
+    throw new BillingError("The stored template is invalid.");
+  }
+  return {
+    key: text(row.field_key, "field_key"),
+    sectionKey,
+    label: text(row.label, "label"),
+    type: customFieldType(row.field_type),
+    helperText: nullableCustomText(row.helper_text),
+    required: row.required === 1,
+    visible: row.visible === 1,
+    sortOrder: wholeNumber(row.sort_order, "sort_order"),
+    defaultValue: nullableCustomText(row.default_value),
+  };
+}
+
+function customFieldType(value: unknown): CustomFieldType {
+  if (
+    value === "short_text" ||
+    value === "long_text" ||
+    value === "number" ||
+    value === "date" ||
+    value === "phone" ||
+    value === "email" ||
+    value === "url" ||
+    value === "checkbox"
+  ) {
+    return value;
+  }
+  throw new BillingError("The stored template is invalid.");
+}
+
+function nullableCustomText(value: unknown): string | null {
+  if (value === null) {
+    return null;
+  }
+  if (typeof value !== "string" || value.length === 0) {
+    throw new BillingError("The stored template is invalid.");
+  }
+  return value;
 }
 
 function readSeries(

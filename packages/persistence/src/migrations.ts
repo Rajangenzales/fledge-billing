@@ -4,6 +4,7 @@ import { businessProfile } from "./business.js";
 import { customerMaster } from "./customer.js";
 import type { Migration } from "./migrate.js";
 import { productService } from "./product.js";
+import { customField } from "./custom-field.js";
 import { invoiceTemplate } from "./template.js";
 import { stateUtMaster } from "./state-ut.js";
 
@@ -16,4 +17,5 @@ export const migrations: readonly Migration[] = [
   billingDocument,
   gstEngine,
   invoiceTemplate,
+  customField,
 ];

@@ -38,6 +38,7 @@ describe("migrate", () => {
       "billing-document",
       "gst-engine",
       "invoice-template",
+      "custom-field",
     ]);
   });
 
