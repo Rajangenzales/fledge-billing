@@ -49,22 +49,22 @@ Calculation tests, lifecycle tests, migration tests, rendering tests, offline te
 ### M12 — V1 Release
 PWA deployment, production hosting, documentation, release checklist, account/payment service configuration, support/monitoring and production validation.
 
-## 2.1 Verified implementation snapshot — main after PR #18
+## 2.1 Verified implementation snapshot — main after PR #25
 
 This snapshot records merged repository work as of 31 October 2026. A merged milestone label does not mean every legal scenario, user workflow or release criterion in that milestone is complete.
 
 | Area | Repository status | Verified scope and remaining boundary |
 | --- | --- | --- |
-| M0 — M4 | Implemented baseline | TypeScript monorepo, SQLite migrations through version 8, business/customer/product records, billing documents, exact money arithmetic and document numbering. |
+| M0 — M4 | Implemented baseline | TypeScript monorepo, SQLite migrations through version 10, business/customer/product records, billing documents, exact money arithmetic and document numbering. |
 | M5 — GST Engine | Core implementation merged (PR #12) | CGST/SGST/UTGST/IGST component calculations, explicit GST rate input, inclusive/exclusive pricing, tax snapshots and tests. No HSN/SAC rate lookup; place-of-supply determination for IGST Act sections 10–13 remains unresolved; compensation cess is not calculated; reverse-charge support is restricted. Do not describe this as complete coverage of all GST scenarios. |
 | M6 — Templates | Partially implemented (PRs #13–17) | Built-in template snapshots, safe label/visibility edits, custom-field snapshots, sample preview and historical rendering. Section/field reordering and full brand customization remain outstanding. |
 | M7 — PDF / Print / Share | Partially implemented (PR #18) | Local PDF export and printable text from the issued-document render. Full customer-facing print preview and platform share workflow remain outstanding. |
-| M8 — Payments and Adjustments | Not started | No payment ledger, advances, allocations, refunds, credit/debit notes or receipt-from-payment implementation is verified yet. Expanded design is in docs/12-m8-payments-advances-and-adjustments-design.md. |
+| M8 — Payments and Adjustments | Partially implemented | M8-02A customer receipts/advances and M8-02B allocation/release history with derived invoice settlement are merged (PRs #24–25). Refund/reversal implementation is under review in PR #26. Credit/debit notes, statutory voucher automation and GST advance automation remain outstanding. |
 | PWA and platform foundations | Specification only | The app package remains a CLI/local HTTP health shell. No customer-facing PWA, service worker, IndexedDB adapter or browser-based offline billing is implemented. |
 | Security and accounts | Specification only | Registration, authentication, email verification, password reset, sessions and authorization are not implemented. |
 | Cloud services | Specification only | Optional cloud backup, multi-device sync, subscription gateway, Admin Control Centre and product analytics are not implemented. |
 
-The current main-branch SQLite registry has eight migrations. The M8-02A branch adds migration 9 for customer receipts. Preserve the existing SQLite implementation and migration history while introducing future adapters.
+The current main-branch SQLite registry has ten migrations, including customer receipts (9) and payment allocation events (10). PR #26 proposes additive migration 11 for refund/reversal events. Preserve the existing SQLite implementation and migration history while introducing future adapters.
 
 **M8 design progress (31 October 2026):** M8-01 product direction has owner approval, with statutory automation still gated on qualified GST-practitioner review. M8-02 payment and customer-advance domain design is documented in [docs/14](./14-m8-02-payment-advance-domain-model.md). M8-02A adds customer receipt persistence, idempotent receipt recording and a derived unallocated customer advance. Allocation/release history and derived invoice settlement are merged in M8-02B. M8-02C implements append-only refund, receipt reversal and refund reversal events, derived advance adjustments and allocation guards. Credit/debit notes, statutory receipt/refund vouchers and GST advance automation remain out of scope.
 
