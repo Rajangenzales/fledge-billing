@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   BusinessProfileError,
-  gstinCheckCharacter,
   validateBusinessInput,
   type SaveBusinessProfileInput,
 } from "./business-profile.js";
+import { gstinCheckCharacter } from "./gstin.js";
 import { STATE_UTS } from "./state-ut.js";
 
 const keralaGstin = `32AABCU9603R1Z${gstinCheckCharacter("32AABCU9603R1Z")}`;

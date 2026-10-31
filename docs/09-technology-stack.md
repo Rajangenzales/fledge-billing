@@ -1,7 +1,7 @@
 # Fledge Billing — Technology Stack (M0)
 
 **Status:** Adopted for foundation milestone  
-**Version:** 0.5
+**Version:** 0.6
 
 ## Decision
 
@@ -54,6 +54,12 @@ Migration `business-profile` creates `business` and `business_setting`. `saveBus
 The GSTIN is 15 characters. The first two digits must match the selected State or Union Territory, position 14 is `Z`, and position 15 is the GSTN modulus-36 check digit. `27AAACR5055K1Z7` is the worked example.
 
 `payment_details` and `invoice_preferences` are the business settings saved with the profile. District stays out of this migration until a district master exists, so the address is not a free-text state or district name. `state_id` references `state_ut`.
+
+## Customers (M2)
+
+Migration `customer` creates `customer`, linked to the local business and to `state_ut`. A customer can be saved only after the business profile exists. Name, billing address, and an active State or Union Territory are required. Shipping address, phone, email, PIN, and notes are optional.
+
+`registration_type` is `registered` or `unregistered`, separate from the GSTIN. A registered customer needs a GSTIN whose state code matches the customer State or Union Territory. The check digit is the same modulus-36 rule as the business profile. Deactivating a customer sets `active` to false and keeps the row. `listCustomers` returns active customers unless inactive rows are requested.
 
 ## Tooling
 

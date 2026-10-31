@@ -8,5 +8,6 @@ export {
   type Migration,
 } from "./migrate.js";
 export { businessProfile, createBusinessRepository } from "./business.js";
+export { createCustomerRepository, customerMaster } from "./customer.js";
 export { migrations } from "./migrations.js";
 export { listStateUts, stateUtMaster } from "./state-ut.js";

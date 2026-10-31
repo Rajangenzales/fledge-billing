@@ -21,7 +21,7 @@ These documents are the source of truth. Implementation must not silently expand
 
 ## Development status
 
-**M1: Business setup** is in progress. The State and Union Territory master is seeded, and a business profile can be saved with GST registration status kept separate from the GSTIN. Foundation work covers the application shell, exact money, and the SQLite migration runner. See [Technology Stack (M0)](./docs/09-technology-stack.md).
+**M2: Customers** is in progress. Customers belong to the saved business and keep GST registration type separate from the GSTIN. State and Union Territory master data and the business profile are already in place. See [Technology Stack (M0)](./docs/09-technology-stack.md).
 
 ## Quick start
 
