@@ -21,6 +21,7 @@ The approved product and engineering baseline is maintained in [`docs/`](./docs/
 11. [PWA, Offline Sync & Platform Operations](./docs/11-pwa-offline-sync-and-platform-operations.md)
 12. [M8 Payments, Advances & Adjustments Design](./docs/12-m8-payments-advances-and-adjustments-design.md)
 13. [M8-01 GST Compliance & Product Decisions](./docs/13-m8-01-gst-compliance-and-product-decisions.md)
+14. [M8-02 Payment & Customer Advance Domain Model](./docs/14-m8-02-payment-advance-domain-model.md)
 
 These documents are the source of truth. Implementation must not silently expand V1 scope or introduce GST rules in UI code.
 

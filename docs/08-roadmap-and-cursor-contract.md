@@ -2,7 +2,7 @@
 
 **Phase:** 8 of 8  
 **Status:** Approved implementation contract  
-**Version:** 1.3
+**Version:** 1.4
 
 ## 1. Development Rule
 
@@ -66,7 +66,9 @@ This snapshot records merged repository work as of 31 October 2026. A merged mil
 
 The current SQLite migration registry contains eight migrations, ending with the custom-field migration. Preserve the existing SQLite implementation and migration history while introducing future adapters.
 
-**Next implementation focus:** resolve M5 GST legal/data gaps and M6/M7 historical identity/rendering gaps that M8 depends on; then implement M8 from docs/12. M8 remains not started. Do not reconcile payments against mutable or incomplete financial snapshots. Cross-cutting security and PWA foundations remain mandatory before public release. Do not claim production readiness or cross-platform offline PWA support yet.
+**M8 design progress (31 October 2026):** M8-01 product direction has owner approval, with statutory automation still gated on qualified GST-practitioner review. M8-02 payment and customer-advance domain design is documented in [docs/14](./14-m8-02-payment-advance-domain-model.md). No payment schema, migration or application code has been implemented by this design work.
+
+**Next implementation focus:** validate M5/M6/M7 dependencies and inspect the current schema/legacy payment rows, then implement the first focused M8 payment-event slice using docs/12 and docs/14. Statutory GST treatment remains gated on practitioner review. Do not reconcile payments against mutable or incomplete financial snapshots. Cross-cutting security and PWA foundations remain mandatory before public release. Do not claim production readiness or cross-platform offline PWA support yet.
 
 
 ## 3. Cross-cutting platform and service prerequisites
