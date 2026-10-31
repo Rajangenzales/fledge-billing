@@ -1,7 +1,7 @@
 # Fledge Billing — Technology Stack (M0)
 
 **Status:** Adopted for foundation milestone  
-**Version:** 0.10
+**Version:** 0.11
 
 ## Decision
 
@@ -93,11 +93,11 @@ Each component is rounded half-up to paise from the paise taxable value. CGST Ac
 
 A tax invoice or bill of supply requires a GST-registered business. A tax invoice needs at least one taxable or nil-rated supply. Exempt and non-GST values stay out of the taxable total.
 
-## Invoice templates (M6, first slice)
+## Invoice templates (M6)
 
 Migration `invoice-template` is version 7. It creates `invoice_template`, `template_section` and `template_field`. The seven built-in families are Standard, GST, Service, Retail, Quotation, Receipt and Bill of Supply. They are copied for the business the first time templates or a document are used. Each document type has one default. A new document stores that template id. Finalizing keeps it. Choosing a different default later does not change a finalized document or its totals.
 
-Labels cannot contain markup. Protected parts, including the supplier GSTIN and tax breakup on a tax invoice, cannot be hidden. This slice does not yet edit labels, add custom fields, or preview an invoice.
+A vendor can rename safe labels, such as Customer to Buyer, and show or hide optional fields and sections such as phone and payment. Statutory labels, including GSTIN, place of supply, HSN/SAC and the tax breakup, stay as written. Protected parts cannot be hidden. Labels cannot contain markup or copy a statutory heading. Saving an edit inserts the next template version and leaves the previous rows unchanged, so an issued document and an open draft keep the version they already store until the draft chooses another template. Custom fields and preview are not in this slice.
 
 ## Tooling
 

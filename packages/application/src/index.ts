@@ -61,6 +61,7 @@ export {
 export {
   getTemplate,
   listTemplates,
+  reviseTemplate,
   setDefaultTemplate,
   type InvoiceTemplate,
   type TemplateDeps,

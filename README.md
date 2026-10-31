@@ -21,7 +21,7 @@ These documents are the source of truth. Implementation must not silently expand
 
 ## Development status
 
-**M6: Invoice templates** is in progress. Built-in layouts can be attached to a document and are snapshotted when it is finalized. A template does not calculate tax. See [Technology Stack (M0)](./docs/09-technology-stack.md).
+**M6: Invoice templates** is in progress. Built-in layouts can be attached to a document. Safe labels and optional fields can be edited as a new template version, so an issued document keeps the version it was finalized with. A template does not calculate tax. See [Technology Stack (M0)](./docs/09-technology-stack.md).
 
 ## Quick start
 

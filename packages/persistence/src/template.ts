@@ -5,7 +5,9 @@ import {
   type BuiltInTemplate,
   type TemplateDensity,
   type TemplateFamily,
+  type TemplateFieldDefinition,
   type TemplateFontFamily,
+  type TemplateSectionDefinition,
 } from "@fledge/domain";
 import type { SchemaDatabase } from "./connection.js";
 import type { Migration } from "./migrate.js";
@@ -109,6 +111,17 @@ export function createTemplateRepository(db: SchemaDatabase): TemplateRepository
         throw error;
       }
     },
+    saveRevision(businessId, sourceId, sections, fields, now) {
+      db.exec("BEGIN IMMEDIATE");
+      try {
+        const revisedId = insertRevision(db, businessId, sourceId, sections, fields, now);
+        db.exec("COMMIT");
+        return revisedId;
+      } catch (error) {
+        rollback(db);
+        throw error;
+      }
+    },
   };
 }
 
@@ -191,6 +204,93 @@ function insertMissingTemplates(db: SchemaDatabase, businessId: string, now: str
       );
     }
   }
+}
+
+function insertRevision(
+  db: SchemaDatabase,
+  businessId: string,
+  sourceId: string,
+  sections: readonly TemplateSectionDefinition[],
+  fields: readonly TemplateFieldDefinition[],
+  now: string,
+): string {
+  const source = readTemplate(db, businessId, sourceId);
+  if (!source || !source.active) {
+    throw new TemplateError("That template was not found.");
+  }
+  const latest = db
+    .prepare(
+      `SELECT MAX(version) AS version FROM invoice_template
+       WHERE business_id = ? AND builtin_key = ?`,
+    )
+    .get(businessId, source.key);
+  if (wholeNumber(latest?.version) !== source.version) {
+    throw new TemplateError("Edit the current version of this template.");
+  }
+  const version = source.version + 1;
+  const id = `tpl:${businessId}:${source.key}:${version}`;
+  if (source.isDefault) {
+    db.prepare(
+      `UPDATE invoice_template SET is_default = 0
+       WHERE business_id = ? AND document_type = ? AND is_default = 1`,
+    ).run(businessId, source.documentType);
+  }
+  db.prepare(
+    `INSERT INTO invoice_template (
+      id, business_id, builtin_key, family, name, purpose, document_type, version,
+      brand_color, font_family, density, is_default, active, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+  ).run(
+    id,
+    businessId,
+    source.key,
+    source.family,
+    source.name,
+    source.purpose,
+    source.documentType,
+    version,
+    source.brandColor,
+    source.fontFamily,
+    source.density,
+    source.isDefault ? 1 : 0,
+    now,
+    now,
+  );
+  const insertSection = db.prepare(
+    `INSERT INTO template_section (
+      id, template_id, section_key, label, sort_order, visible, protected
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  );
+  for (const section of sections) {
+    insertSection.run(
+      `${id}:${section.key}`,
+      id,
+      section.key,
+      section.label,
+      section.sortOrder,
+      section.visible ? 1 : 0,
+      section.protected ? 1 : 0,
+    );
+  }
+  const insertField = db.prepare(
+    `INSERT INTO template_field (
+      id, template_id, section_key, field_key, label, sort_order, visible, required, protected
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  for (const field of fields) {
+    insertField.run(
+      `${id}:${field.key}`,
+      id,
+      field.sectionKey,
+      field.key,
+      field.label,
+      field.sortOrder,
+      field.visible ? 1 : 0,
+      field.required ? 1 : 0,
+      field.protected ? 1 : 0,
+    );
+  }
+  return id;
 }
 
 export function resolveTemplateId(

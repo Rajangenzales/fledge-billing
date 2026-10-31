@@ -1,5 +1,14 @@
 import type { DocumentType } from "@fledge/domain";
-import { TemplateError, type TemplateDensity, type TemplateFamily, type TemplateFontFamily } from "@fledge/domain";
+import {
+  TemplateError,
+  reviseTemplateConfiguration,
+  type TemplateDensity,
+  type TemplateFamily,
+  type TemplateFontFamily,
+  type TemplateRevisionPatch,
+  type TemplateSectionDefinition,
+  type TemplateFieldDefinition,
+} from "@fledge/domain";
 
 export type TemplateSection = {
   id: string;
@@ -47,6 +56,13 @@ export type TemplateRepository = {
   list: (businessId: string) => InvoiceTemplate[];
   get: (businessId: string, id: string) => InvoiceTemplate | null;
   setDefault: (businessId: string, id: string, now: string) => void;
+  saveRevision: (
+    businessId: string,
+    sourceId: string,
+    sections: readonly TemplateSectionDefinition[],
+    fields: readonly TemplateFieldDefinition[],
+    now: string,
+  ) => string;
 };
 
 export type TemplateDeps = {
@@ -82,6 +98,22 @@ export function setDefaultTemplate(id: string, deps: TemplateDeps): InvoiceTempl
     throw new TemplateError("That template was not found.");
   }
   return updated;
+}
+
+export function reviseTemplate(id: string, patch: TemplateRevisionPatch, deps: TemplateDeps): InvoiceTemplate {
+  const businessId = requireBusiness(deps);
+  deps.repository.ensureBuiltIns(businessId, deps.now());
+  const current = deps.repository.get(businessId, id);
+  if (!current || !current.active) {
+    throw new TemplateError("That template was not found.");
+  }
+  const next = reviseTemplateConfiguration(current, patch);
+  const revisedId = deps.repository.saveRevision(businessId, id, next.sections, next.fields, deps.now());
+  const saved = deps.repository.get(businessId, revisedId);
+  if (!saved) {
+    throw new TemplateError("That template was not found.");
+  }
+  return saved;
 }
 
 function requireBusiness(deps: TemplateDeps): string {
