@@ -53,6 +53,8 @@ describe("customer refunds and receipt reversals", () => {
     const { customer, receipt, receiptDeps, adjustmentDeps } = setup();
     const refund = recordCustomerRefund({ receiptId: receipt.id, amount: "50", paymentDate: "2026-10-31", method: "bank_transfer", reason: "Order cancelled", idempotencyKey: "refund-1" }, adjustmentDeps);
     expect(refund).toMatchObject({ eventType: "refund", amount: "50", receiptId: receipt.id, paymentDate: "2026-10-31" });
+    const retry = recordCustomerRefund({ receiptId: receipt.id, amount: "50", paymentDate: "2026-10-31", method: "bank_transfer", reason: "Order cancelled", idempotencyKey: "refund-1" }, adjustmentDeps);
+    expect(retry.id).toBe(refund.id);
     expect(getCustomerAdvance(customer.id, receiptDeps).unallocatedAmount).toBe("100");
     expect(() => recordCustomerRefund({ receiptId: receipt.id, amount: "101", paymentDate: "2026-10-31", method: "cash", reason: "Excess", idempotencyKey: "refund-too-much" }, adjustmentDeps)).toThrow(/remaining refundable/);
   });
@@ -77,6 +79,13 @@ describe("customer refunds and receipt reversals", () => {
     const receiptReversal = reverseCustomerReceipt({ receiptId: receipt.id, reason: "Receipt was recorded in error", idempotencyKey: "receipt-reversal-1" }, adjustmentDeps);
     expect(receiptReversal).toMatchObject({ eventType: "reverse_receipt", amount: "150" });
     expect(getCustomerAdvance(customer.id, receiptDeps).unallocatedAmount).toBe("0");
+  });
+
+  it("limits later allocations to the unrefunded receipt balance", () => {
+    const { receipt, invoice, adjustmentDeps, allocationDeps } = setup();
+    recordCustomerRefund({ receiptId: receipt.id, amount: "50", paymentDate: "2026-10-31", method: "cash", reason: "Partial return", idempotencyKey: "refund-1" }, adjustmentDeps);
+    allocateReceiptToInvoice({ receiptId: receipt.id, invoiceId: invoice.id, amount: "100", idempotencyKey: "alloc-after-refund" }, allocationDeps);
+    expect(() => allocateReceiptToInvoice({ receiptId: receipt.id, invoiceId: invoice.id, amount: "1", idempotencyKey: "alloc-over-refund" }, allocationDeps)).toThrow(/available balance|outstanding amount/);
   });
 
   it("rejects receipt reversal while allocations or net refunds remain", () => {
