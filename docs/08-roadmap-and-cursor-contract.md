@@ -199,6 +199,7 @@ Before coding any milestone, Cursor must read:
 - docs/10-m5-to-m8-implementation-contract.md
 - docs/11-pwa-offline-sync-and-platform-operations.md
 - docs/12-m8-payments-advances-and-adjustments-design.md when working on M8 or related billing-date/payment adjustments.
+- docs/13-m8-01-gst-compliance-and-product-decisions.md before implementing M8 statutory date, advance, receipt-voucher or credit/debit-note behaviour.
 
 Then the coding agent summarizes the relevant architecture and implementation plan, identifies affected packages/migrations/tests, and proceeds with one approved/specified issue. It must not redesign the system unless explicitly instructed.
 
@@ -238,3 +239,17 @@ Multi-device synchronization must not be advertised as available until sync, con
 7. Complete offline/retry/concurrency and historical immutability tests.
 
 Do not implement M8 as only a basic payment row tied to one invoice. It requires customer-level advances and separately traceable allocation and adjustment events.
+
+
+## 19. M8-01 compliance decision gate
+
+The official-source research baseline and proposed product decisions are recorded in docs/13-m8-01-gst-compliance-and-product-decisions.md. Key controls:
+
+- A finalized GST invoice date represents its actual issue date. Future-dated tax invoices are not finalized; future dates may be used on drafts/pro-forma documents.
+- Historical invoices genuinely issued outside Fledge may be imported with their original issue date and a separate system-entry timestamp. Do not backdate a newly issued invoice to misrepresent its issue date.
+- Goods advances and services advances must not share one automatic tax treatment. Notification 66/2017-Central Tax provides advance tax-payment relief for goods within its scope; service advances require section 13 analysis.
+- Statutory receipt vouchers and refund vouchers are distinct from generic payment receipts and money-transfer events.
+- Credit notes and debit notes are linked independent documents. Section 34 credit-note tax-adjustment deadline and conditions must be enforced separately from commercial customer-credit accounting.
+- M8 implementation remains blocked pending product-owner approval, GST-practitioner review of open statutory questions, and confirmation that M5/M6/M7 snapshot/render dependencies are adequate.
+
+The decision record is a research baseline, not legal advice or authorization to automate unresolved tax treatment. Do not implement open decisions by inference.
