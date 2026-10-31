@@ -110,6 +110,18 @@ export class Money {
     );
   }
 
+  dividedBy(divisor: Money): Money {
+    const amount = readMoney(this);
+    const other = readMoney(divisor);
+    if (other.numerator === 0n) {
+      throw new MoneyError("Cannot divide by zero.");
+    }
+    return new Money(
+      amount.numerator * other.denominator,
+      amount.denominator * other.numerator,
+    );
+  }
+
   compare(other: Money): -1 | 0 | 1 {
     const left = readMoney(this);
     const right = readMoney(other);

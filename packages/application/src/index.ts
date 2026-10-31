@@ -35,6 +35,25 @@ export {
   type UpdateProductInput,
   type UpdateSavedGstRateInput,
 } from "./product.js";
+export {
+  cancelDocument,
+  createDocument,
+  finalizeDocument,
+  getDocument,
+  listDocuments,
+  saveNumberSeries,
+  seriesId,
+  updateDocument,
+  type BillingDocument,
+  type DocumentCharge,
+  type DocumentDeps,
+  type DocumentLine,
+  type DocumentRepository,
+  type DocumentStatus,
+  type NumberSeries,
+  type SaveDocumentInput,
+  type SaveNumberSeriesInput,
+} from "./document.js";
 export { loadConfig, type AppConfig } from "./config.js";
 export { AppError, toUserFacingMessage, type ErrorCode } from "./errors.js";
 export { createLogger, type Logger } from "./logger.js";

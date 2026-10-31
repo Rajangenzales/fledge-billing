@@ -1,4 +1,4 @@
-/** Domain layer entry — billing/GST engines will live here in later milestones. */
+/** Domain layer entry. The GST component engine arrives in a later milestone. */
 export const DOMAIN_LAYER = "domain" as const;
 
 export {
@@ -44,3 +44,22 @@ export {
   type SaveSavedGstRateInput,
   type TaxCategoryId,
 } from "./product.js";
+export {
+  DOCUMENT_TYPES,
+  BillingError,
+  assertDocumentGstMode,
+  assertFinancialYearLabel,
+  calculateDocument,
+  defaultDocumentPrefix,
+  financialYearOf,
+  formatDocumentNumber,
+  normalizeSeriesPrefix,
+  type CalculatedCharge,
+  type CalculatedLine,
+  type ChargeInput,
+  type DiscountType,
+  type DocumentCalculation,
+  type DocumentCalculationInput,
+  type DocumentType,
+  type LineInput,
+} from "./billing.js";
