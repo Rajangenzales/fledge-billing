@@ -1,4 +1,4 @@
-import type { CustomerReceipt, CustomerReceiptRepository, PaymentMethod } from "@fledge/application";
+import type { CustomerReceipt, CustomerReceiptRepository, PaymentMethod, ReceiptIdentitySnapshot } from "@fledge/application";
 import { CustomerReceiptError } from "@fledge/application";
 import type { SchemaDatabase } from "./connection.js";
 import type { Migration } from "./migrate.js";
@@ -54,17 +54,18 @@ export function createCustomerReceiptRepository(db: SchemaDatabase): CustomerRec
         if (!this.customerExists(record.customerId, record.businessId)) {
           throw new CustomerReceiptError("Choose a customer belonging to this business.");
         }
+        const identitySnapshot = captureIdentitySnapshot(db, record.businessId, record.customerId);
         db.prepare(`
           INSERT INTO customer_receipt (
             id, business_id, customer_id, amount, currency, payment_date,
-            method, reference, notes, idempotency_key, recorded_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            method, reference, notes, idempotency_key, recorded_at, identity_snapshot_json
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           record.id, record.businessId, record.customerId, record.amount, record.currency,
           record.paymentDate, record.method, record.reference, record.notes,
-          record.idempotencyKey, record.recordedAt,
+          record.idempotencyKey, record.recordedAt, JSON.stringify(identitySnapshot),
         );
-        return record;
+        return { ...record, identitySnapshot };
       });
     },
     list(customerId) {
@@ -150,7 +151,67 @@ function toReceipt(row: Record<string, unknown>): CustomerReceipt {
     method: method as PaymentMethod, reference: nullableText(row.reference),
     notes: nullableText(row.notes), idempotencyKey: text(row.idempotency_key),
     recordedAt: text(row.recorded_at),
+    identitySnapshot: parseIdentitySnapshot(row.identity_snapshot_json),
   };
+}
+
+function captureIdentitySnapshot(
+  db: SchemaDatabase,
+  businessId: string,
+  customerId: string,
+): ReceiptIdentitySnapshot {
+  const business = db.prepare(`
+    SELECT b.legal_name, b.display_name, b.address, b.state_id, bs.name AS state_name,
+           b.pin_code, b.gst_registered, b.gstin, b.business_type, b.phone, b.email
+    FROM business b
+    JOIN state_ut bs ON bs.id = b.state_id
+    WHERE b.id = ?
+  `).get(businessId);
+  const customer = db.prepare(`
+    SELECT c.name, c.phone, c.email, c.gstin, c.registration_type,
+           c.billing_address, c.shipping_address, c.state_ut_id, cs.name AS state_name,
+           c.pin_code
+    FROM customer c
+    JOIN state_ut cs ON cs.id = c.state_ut_id
+    WHERE c.id = ? AND c.business_id = ?
+  `).get(customerId, businessId);
+  if (!business || !customer) {
+    throw new CustomerReceiptError("Business or customer identity could not be captured.");
+  }
+  const registrationType = customer.registration_type;
+  if (registrationType !== "registered" && registrationType !== "unregistered") {
+    throw new CustomerReceiptError("The customer registration type is invalid.");
+  }
+  return {
+    business: {
+      legalName: text(business.legal_name), displayName: text(business.display_name),
+      address: text(business.address), stateId: text(business.state_id),
+      stateName: text(business.state_name), pinCode: nullableText(business.pin_code),
+      gstRegistered: business.gst_registered === 1, gstin: nullableText(business.gstin),
+      businessType: nullableText(business.business_type), phone: nullableText(business.phone),
+      email: nullableText(business.email),
+    },
+    customer: {
+      name: text(customer.name), phone: nullableText(customer.phone), email: nullableText(customer.email),
+      gstin: nullableText(customer.gstin), registrationType, billingAddress: text(customer.billing_address),
+      shippingAddress: nullableText(customer.shipping_address), stateId: text(customer.state_ut_id),
+      stateName: text(customer.state_name), pinCode: nullableText(customer.pin_code),
+    },
+  };
+}
+
+function parseIdentitySnapshot(value: unknown): ReceiptIdentitySnapshot | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "string") throw new CustomerReceiptError("A saved receipt identity snapshot is invalid.");
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!parsed || typeof parsed !== "object" || !("business" in parsed) || !("customer" in parsed)) {
+      throw new Error("Invalid snapshot shape");
+    }
+    return parsed as ReceiptIdentitySnapshot;
+  } catch {
+    throw new CustomerReceiptError("A saved receipt identity snapshot is unreadable.");
+  }
 }
 
 function text(value: unknown): string {
