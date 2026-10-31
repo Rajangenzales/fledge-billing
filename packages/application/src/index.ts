@@ -88,4 +88,16 @@ export { buildInvoicePdf } from "./pdf.js";
 export { loadConfig, type AppConfig } from "./config.js";
 export { AppError, toUserFacingMessage, type ErrorCode } from "./errors.js";
 export { createLogger, type Logger } from "./logger.js";
-\nexport {\n  PAYMENT_METHODS,\n  CustomerReceiptError,\n  recordCustomerReceipt,\n  listCustomerReceipts,\n  getCustomerAdvance,\n  type CustomerReceipt,\n  type CustomerReceiptDeps,\n  type CustomerReceiptRepository,\n  type PaymentMethod,\n  type RecordCustomerReceiptInput,\n} from "./customer-receipt.js";\n
+
+export {
+  PAYMENT_METHODS,
+  CustomerReceiptError,
+  recordCustomerReceipt,
+  listCustomerReceipts,
+  getCustomerAdvance,
+  type CustomerReceipt,
+  type CustomerReceiptDeps,
+  type CustomerReceiptRepository,
+  type PaymentMethod,
+  type RecordCustomerReceiptInput,
+} from "./customer-receipt.js";
