@@ -40,6 +40,7 @@ describe("migrate", () => {
       "invoice-template",
       "custom-field",
       "customer-receipt",
+      "payment-allocation-events",
     ]);
   });
 
