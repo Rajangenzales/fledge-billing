@@ -8,7 +8,7 @@ import { customField } from "./custom-field.js";
 import { invoiceTemplate } from "./template.js";
 import { stateUtMaster } from "./state-ut.js";
 import { customerReceipt } from "./customer-receipt.js";
-import { allocationEvents } from "./allocation.js";
+import { allocationEvents } from "./allocation.js";\nimport { paymentAdjustments } from "./payment-adjustment.js";
 
 /** Schema changes shipped with this application build. */
 export const migrations: readonly Migration[] = [
