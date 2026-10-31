@@ -1,6 +1,6 @@
 # Fledge Billing — M8 Payments, Advances & Financial Adjustments Design
 
-**Status:** Product/technical design baseline; M8-01 decisions recorded and M8-02 domain model documented; implementation not started  
+**Status:** Product/technical design baseline; M8-02A/B/C payment-event foundations implemented; M8-03 note design documented; statutory/accounting decisions remain open  
 **Version:** 1.1  
 **Date:** 2026-10-31  
 **Related:** docs/02-prd-v1.md, docs/04-database-design.md, docs/05-gst-compliance-spec.md, docs/06-invoice-template-system.md, docs/08-roadmap-and-cursor-contract.md, docs/10-m5-to-m8-implementation-contract.md
@@ -172,15 +172,15 @@ Recommended sequence: resolve M5 legal/date gaps; complete M6 identity snapshots
 
 Resolve product decisions with the owner and legal treatment from current official sources. Do not silently guess.
 
-## 16. Suggested issue breakdown
+## 16. M8 delivery status and remaining sequence
 
-- M8-01: Resolve statutory/product decisions and approve payment domain contract.
-- M8-02: Payment event and customer advance model, migration and repository. Domain contract: [docs/14-m8-02-payment-advance-domain-model.md](./14-m8-02-payment-advance-domain-model.md).
-- M8-03: Allocation, release/reallocation and idempotency.
-- M8-04: Derived balances/payment status and lifecycle migration.
-- M8-05: Refund/reversal workflows and immutable audit history.
-- M8-06: Credit/debit note model, numbering, tax snapshots and original links.
-- M8-07: Receipt generation and canonical rendering.
-- M8-08: Payment settings, PDF/print and offline/concurrency regression suite.
+The original issue sequence below is superseded by the merged implementation and focused design records:
 
-Implement one focused issue per branch/PR. Stop on legal ambiguity or risk of rewriting finalized financial history.
+- **M8-01 — Compliance/product decisions:** research baseline in [docs/13](./13-m8-01-gst-compliance-and-product-decisions.md). Open statutory and accounting decisions remain gated on owner approval and qualified GST-practitioner review.
+- **M8-02A — Customer receipts/advances:** implemented in migration 9; receipt events, idempotent recording and derived customer advance.
+- **M8-02B — Allocations/releases:** implemented in migration 10; append-only allocation/release events and derived invoice settlement.
+- **M8-02C — Refunds/reversals:** implemented in migration 11; append-only refund and receipt/refund reversal events with derived advance adjustments.
+- **M8-03 — Credit/debit note domain design:** documented in [docs/16](./16-m8-03-credit-debit-note-domain-model.md). Design only; no note schema, tax logic or workflow is authorized.
+- **M8-04 onward — Note implementation, statutory voucher classification/rendering, customer-ledger integration and remaining payment rendering/settings:** sequence and scope must be re-baselined after open owner/accountant and practitioner decisions are resolved.
+
+Keep each implementation issue focused. Preserve immutable finalized documents and event history. Stop on legal ambiguity or any risk of rewriting finalized financial history.
