@@ -104,6 +104,16 @@ export {
   type TemplateSectionKey,
 } from "./template.js";
 export {
+  PREVIEW_NOTICE,
+  renderTemplatePreview,
+  type PreviewCharge,
+  type PreviewField,
+  type PreviewItem,
+  type PreviewSection,
+  type PreviewTemplate,
+  type TemplatePreview,
+} from "./preview.js";
+export {
   CUSTOM_FIELD_SECTIONS,
   CUSTOM_FIELD_TYPES,
   assertRequiredCustomFields,

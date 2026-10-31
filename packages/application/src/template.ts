@@ -56,8 +56,16 @@ export type InvoiceTemplate = {
   updatedAt: string;
 };
 
+export type TemplateBusiness = {
+  legalName: string;
+  stateId: string;
+  gstRegistered: boolean;
+  gstin: string | null;
+};
+
 export type TemplateRepository = {
   getBusinessId: () => string | null;
+  getBusiness: () => TemplateBusiness | null;
   ensureBuiltIns: (businessId: string, now: string) => void;
   list: (businessId: string) => InvoiceTemplate[];
   get: (businessId: string, id: string) => InvoiceTemplate | null;

@@ -1,7 +1,7 @@
 # Fledge Billing — Technology Stack (M0)
 
 **Status:** Adopted for foundation milestone  
-**Version:** 0.12
+**Version:** 0.13
 
 ## Decision
 
@@ -99,7 +99,9 @@ Migration `invoice-template` is version 7. It creates `invoice_template`, `templ
 
 A vendor can rename safe labels, such as Customer to Buyer, and show or hide optional fields and sections such as phone and payment. Statutory labels, including GSTIN, place of supply, HSN/SAC and the tax breakup, stay as written. Protected parts cannot be hidden. Labels cannot contain markup or copy a statutory heading. Saving an edit inserts the next template version and leaves the previous rows unchanged, so an issued document and an open draft keep the version they already store until the draft chooses another template.
 
-Migration `custom-field` is version 8. A template version can add up to 20 custom fields of type short text, long text, number, date, phone, email, web address, or yes/no. A custom field has a stable key, a label, an optional helper, and a section. It cannot use a statutory heading such as GSTIN or sit in the tax summary. Values are stored as text on the document. They are not amounts and are not read by the billing or GST engines. A required value can be left blank on a draft and blocks finalization until it is entered. Finalizing copies the field label, type, and value onto the document. A later template version does not change that copy. Preview is not in this slice.
+Migration `custom-field` is version 8. A template version can add up to 20 custom fields of type short text, long text, number, date, phone, email, web address, or yes/no. A custom field has a stable key, a label, an optional helper, and a section. It cannot use a statutory heading such as GSTIN or sit in the tax summary. Values are stored as text on the document. They are not amounts and are not read by the billing or GST engines. A required value can be left blank on a draft and blocks finalization until it is entered. Finalizing copies the field label, type, and value onto the document. A later template version does not change that copy.
+
+A template preview lays out the saved template, or an unsaved edit, around sample invoice data. The sample number is `Preview`. Amounts come from the GST engine for a fixed sample: a tax invoice and a quotation use ₹1000 at 18%, a non-GST invoice and a receipt use three notebooks at ₹10.10 with a 10% discount, and a bill of supply uses ₹40 exempt. The preview says it is not a saved invoice. It does not insert a document or take a document number. Restoring a template writes a new version from the built-in layout and leaves the previous version in place. Reordering and brand styling are not in this slice.
 
 ## Tooling
 

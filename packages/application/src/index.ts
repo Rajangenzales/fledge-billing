@@ -60,6 +60,12 @@ export {
   type SaveNumberSeriesInput,
 } from "./document.js";
 export {
+  PREVIEW_DATE,
+  previewTemplate,
+  restoreTemplate,
+  type TemplatePreviewDeps,
+} from "./preview.js";
+export {
   getTemplate,
   listTemplates,
   reviseTemplate,

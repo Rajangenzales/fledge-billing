@@ -88,6 +88,24 @@ export function createTemplateRepository(db: SchemaDatabase): TemplateRepository
     getBusinessId() {
       return readBusinessId(db);
     },
+    getBusiness() {
+      const businessId = readBusinessId(db);
+      if (!businessId) {
+        return null;
+      }
+      const row = db
+        .prepare("SELECT legal_name, state_id, gst_registered, gstin FROM business WHERE id = ?")
+        .get(businessId);
+      if (!row) {
+        return null;
+      }
+      return {
+        legalName: text(row.legal_name, "legal_name"),
+        stateId: text(row.state_id, "state_id"),
+        gstRegistered: row.gst_registered === 1,
+        gstin: row.gstin === null ? null : text(row.gstin, "gstin"),
+      };
+    },
     ensureBuiltIns(businessId, now) {
       ensureBuiltInTemplates(db, businessId, now);
     },

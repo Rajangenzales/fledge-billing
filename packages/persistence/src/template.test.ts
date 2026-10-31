@@ -6,6 +6,8 @@ import {
   getDocument,
   getTemplate,
   listTemplates,
+  previewTemplate,
+  restoreTemplate,
   reviseTemplate,
   saveBusinessProfile,
   setDefaultTemplate,
@@ -309,5 +311,80 @@ describe("invoice templates", () => {
       value: "A-12",
     });
     expect(getTemplate(revised.id, templates)?.customFields[0]?.label).toBe("Batch No.");
+  });
+
+  it("previews sample invoices without saving a document or a template edit", () => {
+    const db = database();
+    prepare(db);
+    const templates = templateDeps(db);
+    const previewDeps = { ...templates, states: listStateUts(db) };
+    const gst = previewTemplate("tpl:biz-1:gst:tax_invoice:1", previewDeps);
+    expect(gst.notice).toBe("Preview. This is not a saved invoice.");
+    expect(gst.saved).toBe(true);
+    expect(gst.totals).toMatchObject({ taxTotal: "180", grandTotal: "1180" });
+    expect(gst.sections.flatMap((section) => section.fields).find((field) => field.key === "document_number")?.value).toBe(
+      "Preview",
+    );
+    expect(gst.sections.flatMap((section) => section.fields).find((field) => field.key === "tax_components")?.value).toBe(
+      "CGST 90, SGST 90",
+    );
+    expect(gst.sections.flatMap((section) => section.fields).find((field) => field.key === "notes")?.value).toContain(
+      "not cut off",
+    );
+
+    const quotation = previewTemplate("tpl:biz-1:quotation:quotation:1", previewDeps);
+    expect(quotation.totals.grandTotal).toBe("1180");
+    expect(quotation.sections.flatMap((section) => section.fields).some((field) => field.key === "tax_components")).toBe(
+      false,
+    );
+    expect(previewTemplate("tpl:biz-1:standard:non_gst_invoice:1", previewDeps).totals.grandTotal).toBe("27.27");
+    expect(previewTemplate("tpl:biz-1:receipt:receipt:1", previewDeps).totals).toMatchObject({
+      taxTotal: "0",
+      grandTotal: "27.27",
+    });
+    expect(previewTemplate("tpl:biz-1:bill-of-supply:bill_of_supply:1", previewDeps).totals).toMatchObject({
+      taxTotal: "0",
+      grandTotal: "40",
+    });
+
+    const edited = previewTemplate("tpl:biz-1:gst:tax_invoice:1", previewDeps, {
+      sections: [{ key: "customer", label: "Buyer" }],
+      fields: [{ key: "customer_phone", visible: false }],
+    });
+    expect(edited.saved).toBe(false);
+    expect(edited.sections.find((section) => section.key === "customer")?.label).toBe("Buyer");
+    expect(edited.sections.flatMap((section) => section.fields).some((field) => field.key === "customer_phone")).toBe(
+      false,
+    );
+    expect(edited.totals.grandTotal).toBe("1180");
+    expect(getTemplate("tpl:biz-1:gst:tax_invoice:1", templates)?.sections.find((section) => section.key === "customer")?.label).toBe(
+      "Customer",
+    );
+    expect(() =>
+      previewTemplate("tpl:biz-1:gst:tax_invoice:1", previewDeps, { fields: [{ key: "supplier_gstin", visible: false }] }),
+    ).toThrow(TemplateError);
+
+    const documents = db.prepare("SELECT COUNT(*) AS count FROM document").get();
+    const series = db.prepare("SELECT COUNT(*) AS count FROM number_series").get();
+    expect(Number(documents?.count)).toBe(0);
+    expect(Number(series?.count)).toBe(0);
+    expect(listTemplates(templates).filter((template) => template.key === "gst:tax_invoice")).toHaveLength(1);
+
+    const renamed = reviseTemplate(
+      "tpl:biz-1:gst:tax_invoice:1",
+      { sections: [{ key: "customer", label: "Buyer" }] },
+      templates,
+    );
+    expect(previewTemplate("tpl:biz-1:gst:tax_invoice:1", previewDeps).sections.find((section) => section.key === "customer")?.label).toBe(
+      "Customer",
+    );
+    expect(previewTemplate(renamed.id, previewDeps).sections.find((section) => section.key === "customer")?.label).toBe(
+      "Buyer",
+    );
+    const restored = restoreTemplate(renamed.id, templates);
+    expect(restored.version).toBe(3);
+    expect(restored.sections.find((section) => section.key === "customer")?.label).toBe("Customer");
+    expect(getTemplate(renamed.id, templates)?.sections.find((section) => section.key === "customer")?.label).toBe("Buyer");
+    expect(previewTemplate(renamed.id, previewDeps).totals.grandTotal).toBe("1180");
   });
 });
