@@ -250,6 +250,105 @@ export function templateMatchesDocument(template: { documentType: DocumentType }
   return template.documentType === documentType;
 }
 
+const EDITABLE_FIELD_KEYS = new Set<TemplateFieldKey>(["customer_name", "customer_phone", "customer_email", "notes"]);
+
+const EDITABLE_SECTION_KEYS = new Set<TemplateSectionKey>([
+  "header",
+  "business",
+  "customer",
+  "custom-details",
+  "items",
+  "charges",
+  "payment",
+  "notes-terms",
+  "footer",
+]);
+
+const RESERVED_LABELS = new Set(
+  [
+    "Number",
+    "Date",
+    "Supplier",
+    "GSTIN",
+    "Place of supply",
+    "HSN/SAC",
+    "Taxable value",
+    "Tax",
+    "Reverse charge",
+    "Total",
+    "Tax summary",
+    "Totals",
+    "HSN",
+    "SAC",
+    "CGST",
+    "SGST",
+    "UTGST",
+    "IGST",
+  ].map((label) => label.toLowerCase()),
+);
+
+export type TemplateRevisionChange = {
+  key: string;
+  label?: string;
+  visible?: boolean;
+};
+
+export type TemplateRevisionPatch = {
+  sections?: readonly TemplateRevisionChange[];
+  fields?: readonly TemplateRevisionChange[];
+};
+
+export type TemplateConfiguration = {
+  documentType: DocumentType;
+  sections: readonly {
+    key: string;
+    label: string;
+    sortOrder: number;
+    visible: boolean;
+    protected: boolean;
+  }[];
+  fields: readonly {
+    key: string;
+    sectionKey: string;
+    label: string;
+    sortOrder: number;
+    visible: boolean;
+    required: boolean;
+    protected: boolean;
+  }[];
+};
+
+export function reviseTemplateConfiguration(
+  current: TemplateConfiguration,
+  patch: TemplateRevisionPatch,
+): { sections: TemplateSectionDefinition[]; fields: TemplateFieldDefinition[] } {
+  const sections = applySectionChanges(current, patch.sections ?? []);
+  const fields = applyFieldChanges(current, patch.fields ?? []);
+  for (const field of fields) {
+    const section = sections.find((item) => item.key === field.sectionKey);
+    if (field.visible && section && !section.visible) {
+      throw new TemplateError("Show this section before showing a field inside it.");
+    }
+  }
+  if (!configurationChanged(current, sections, fields)) {
+    throw new TemplateError("Change a label or which optional parts are shown before saving a new template version.");
+  }
+  assertTemplateConfiguration({
+    key: "revision",
+    family: "standard",
+    name: "Revision",
+    purpose: "A revised template.",
+    documentType: current.documentType,
+    isDefault: false,
+    brandColor: "#1F4B99",
+    fontFamily: "system",
+    density: "comfortable",
+    sections,
+    fields,
+  });
+  return { sections, fields };
+}
+
 function buildBuiltIn(family: TemplateFamily, documentType: DocumentType): BuiltInTemplate {
   const sections = TEMPLATE_SECTION_KEYS.map((key, index) => {
     const protectedSection =
@@ -295,6 +394,137 @@ function buildBuiltIn(family: TemplateFamily, documentType: DocumentType): Built
   };
   assertTemplateConfiguration(template);
   return template;
+}
+
+function applySectionChanges(
+  current: TemplateConfiguration,
+  changes: readonly TemplateRevisionChange[],
+): TemplateSectionDefinition[] {
+  const seen = new Set<string>();
+  const replacements = new Map<string, TemplateRevisionChange>();
+  for (const change of changes) {
+    if (!isSectionKey(change.key) || !current.sections.some((section) => section.key === change.key)) {
+      throw new TemplateError("That part of the invoice is not on this template.");
+    }
+    if (seen.has(change.key)) {
+      throw new TemplateError("Choose each part once.");
+    }
+    seen.add(change.key);
+    replacements.set(change.key, change);
+  }
+  return TEMPLATE_SECTION_KEYS.map((key) => {
+    const existing = current.sections.find((section) => section.key === key);
+    const change = replacements.get(key);
+    const protectedSection = isProtectedSection(key);
+    const visible = change?.visible ?? existing?.visible ?? key !== "custom-details";
+    if (protectedSection && !visible) {
+      throw new TemplateError("This part of the invoice has to stay visible.");
+    }
+    const label = change?.label === undefined ? (existing?.label ?? sectionLabel(key, current.documentType)) : change.label;
+    const normalized = assertTemplateLabel(label);
+    if (!EDITABLE_SECTION_KEYS.has(key) && normalized !== sectionLabel(key, current.documentType)) {
+      throw new TemplateError(`Keep the label "${sectionLabel(key, current.documentType)}".`);
+    }
+    if (EDITABLE_SECTION_KEYS.has(key)) {
+      assertSafeLabel(normalized);
+    }
+    return {
+      key,
+      label: normalized,
+      sortOrder: existing?.sortOrder ?? TEMPLATE_SECTION_KEYS.indexOf(key),
+      visible,
+      protected: protectedSection,
+    };
+  });
+}
+
+function applyFieldChanges(
+  current: TemplateConfiguration,
+  changes: readonly TemplateRevisionChange[],
+): TemplateFieldDefinition[] {
+  const seen = new Set<string>();
+  const replacements = new Map<string, TemplateRevisionChange>();
+  for (const change of changes) {
+    if (!isFieldKey(change.key) || !current.fields.some((field) => field.key === change.key)) {
+      throw new TemplateError("That part of the invoice is not on this template.");
+    }
+    if (seen.has(change.key)) {
+      throw new TemplateError("Choose each part once.");
+    }
+    seen.add(change.key);
+    replacements.set(change.key, change);
+  }
+  return TEMPLATE_FIELD_KEYS.map((key) => {
+    const existing = current.fields.find((field) => field.key === key);
+    const change = replacements.get(key);
+    const protectedField = isProtectedField(key, current.documentType);
+    const visible = change?.visible ?? existing?.visible ?? !protectedField;
+    if (protectedField && !visible) {
+      throw new TemplateError("This part of the invoice has to stay visible.");
+    }
+    const label = change?.label === undefined ? (existing?.label ?? FIELD_LABELS[key]) : change.label;
+    const normalized = assertTemplateLabel(label);
+    if (!EDITABLE_FIELD_KEYS.has(key) && normalized !== FIELD_LABELS[key]) {
+      throw new TemplateError(`Keep the label "${FIELD_LABELS[key]}".`);
+    }
+    if (EDITABLE_FIELD_KEYS.has(key)) {
+      assertSafeLabel(normalized);
+    }
+    return {
+      key,
+      sectionKey: FIELD_SECTION[key],
+      label: normalized,
+      sortOrder: existing?.sortOrder ?? TEMPLATE_FIELD_KEYS.indexOf(key),
+      visible,
+      required: protectedField,
+      protected: protectedField,
+    };
+  });
+}
+
+function configurationChanged(
+  current: TemplateConfiguration,
+  sections: readonly TemplateSectionDefinition[],
+  fields: readonly TemplateFieldDefinition[],
+): boolean {
+  for (const section of sections) {
+    const existing = current.sections.find((item) => item.key === section.key);
+    if (!existing || existing.label !== section.label || existing.visible !== section.visible) {
+      return true;
+    }
+  }
+  for (const field of fields) {
+    const existing = current.fields.find((item) => item.key === field.key);
+    if (!existing || existing.label !== field.label || existing.visible !== field.visible) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function assertSafeLabel(label: string): void {
+  if (RESERVED_LABELS.has(label.toLowerCase())) {
+    throw new TemplateError("Use a label that does not stand in for a statutory heading.");
+  }
+}
+
+function sectionLabel(key: TemplateSectionKey, documentType: DocumentType): string {
+  if (key === "tax-summary" && documentType !== "tax_invoice") {
+    return "Totals";
+  }
+  return SECTION_LABELS[key];
+}
+
+function isProtectedSection(key: TemplateSectionKey): boolean {
+  return key === "header" || key === "business" || key === "customer" || key === "items" || key === "tax-summary";
+}
+
+function isSectionKey(key: string): key is TemplateSectionKey {
+  return (TEMPLATE_SECTION_KEYS as readonly string[]).includes(key);
+}
+
+function isFieldKey(key: string): key is TemplateFieldKey {
+  return (TEMPLATE_FIELD_KEYS as readonly string[]).includes(key);
 }
 
 function isProtectedField(key: TemplateFieldKey, documentType: DocumentType): boolean {

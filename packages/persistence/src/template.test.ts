@@ -4,9 +4,12 @@ import {
   createDocument,
   finalizeDocument,
   getDocument,
+  getTemplate,
   listTemplates,
+  reviseTemplate,
   saveBusinessProfile,
   setDefaultTemplate,
+  updateDocument,
 } from "@fledge/application";
 import { TemplateError } from "@fledge/domain";
 import { afterEach, describe, expect, it } from "vitest";
@@ -161,5 +164,70 @@ describe("invoice templates", () => {
     );
     expect(next.templateId).toBe(standard!.id);
     expect(getDocument(issued.id, documentDeps)?.templateId).toBe("tpl:biz-1:gst:tax_invoice:1");
+  });
+
+  it("saves a label change as a new version and leaves an issued document on the old one", () => {
+    const db = database();
+    prepare(db);
+    const documentDeps = deps(db);
+    const templates = templateDeps(db);
+    const input = {
+      customerId: "cust-1",
+      documentType: "tax_invoice" as const,
+      documentDate: "2026-10-31",
+      placeOfSupplyStateId: "IN-KL",
+      gstEnabled: true,
+      reverseCharge: false,
+      lines: [line],
+    };
+    const draft = createDocument(input, documentDeps);
+    const issued = finalizeDocument(draft.id, documentDeps);
+    expect(issued.templateId).toBe("tpl:biz-1:gst:tax_invoice:1");
+    expect(issued.grandTotal).toBe("1180");
+
+    const openDraft = createDocument(input, documentDeps);
+    const revised = reviseTemplate(
+      "tpl:biz-1:gst:tax_invoice:1",
+      {
+        sections: [{ key: "customer", label: "Buyer" }, { key: "payment", visible: false }],
+        fields: [
+          { key: "customer_name", label: "Client" },
+          { key: "customer_phone", visible: false },
+        ],
+      },
+      templates,
+    );
+    expect(revised.id).toBe("tpl:biz-1:gst:tax_invoice:2");
+    expect(revised.version).toBe(2);
+    expect(revised.isDefault).toBe(true);
+    expect(revised.fields.find((field) => field.key === "customer_name")?.label).toBe("Client");
+    expect(revised.fields.find((field) => field.key === "customer_phone")?.visible).toBe(false);
+    expect(revised.sections.find((section) => section.key === "payment")?.visible).toBe(false);
+
+    const original = getTemplate("tpl:biz-1:gst:tax_invoice:1", templates);
+    expect(original?.fields.find((field) => field.key === "customer_name")?.label).toBe("Customer");
+    expect(original?.fields.find((field) => field.key === "customer_phone")?.visible).toBe(true);
+    expect(original?.isDefault).toBe(false);
+
+    const stored = getDocument(issued.id, documentDeps);
+    expect(stored?.templateId).toBe("tpl:biz-1:gst:tax_invoice:1");
+    expect(stored?.grandTotal).toBe("1180");
+    expect(stored?.taxTotal).toBe("180");
+
+    const kept = updateDocument(openDraft.id, input, documentDeps);
+    expect(kept.templateId).toBe("tpl:biz-1:gst:tax_invoice:1");
+
+    const next = createDocument(input, documentDeps);
+    expect(next.templateId).toBe("tpl:biz-1:gst:tax_invoice:2");
+    expect(next.grandTotal).toBe("1180");
+
+    expect(() =>
+      reviseTemplate("tpl:biz-1:gst:tax_invoice:1", { fields: [{ key: "notes", label: "Remarks" }] }, templates),
+    ).toThrow(/current version/);
+    expect(() =>
+      reviseTemplate(revised.id, { fields: [{ key: "supplier_gstin", visible: false }] }, templates),
+    ).toThrow(TemplateError);
+    expect(getTemplate(revised.id, templates)?.version).toBe(2);
+    expect(listTemplates(templates).filter((template) => template.key === "gst:tax_invoice")).toHaveLength(2);
   });
 });

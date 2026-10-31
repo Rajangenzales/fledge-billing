@@ -7,6 +7,7 @@ import {
   TemplateError,
   assertTemplateConfiguration,
   assertTemplateLabel,
+  reviseTemplateConfiguration,
 } from "./template.js";
 
 describe("built-in invoice templates", () => {
@@ -52,5 +53,59 @@ describe("built-in invoice templates", () => {
         ),
       }),
     ).toThrow(/stay visible/);
+  });
+});
+
+describe("template label revisions", () => {
+  const gst = () => {
+    const template = BUILT_IN_TEMPLATES.find((item) => item.key === "gst:tax_invoice");
+    if (!template) {
+      throw new Error("missing GST template");
+    }
+    return template;
+  };
+
+  it("renames a safe label and hides an optional field", () => {
+    const revised = reviseTemplateConfiguration(gst(), {
+      sections: [{ key: "customer", label: "Buyer" }],
+      fields: [
+        { key: "customer_name", label: "Client" },
+        { key: "customer_phone", visible: false },
+      ],
+    });
+    expect(revised.sections.find((section) => section.key === "customer")).toMatchObject({
+      label: "Buyer",
+      visible: true,
+      protected: true,
+    });
+    expect(revised.fields.find((field) => field.key === "customer_name")?.label).toBe("Client");
+    expect(revised.fields.find((field) => field.key === "customer_phone")).toMatchObject({ visible: false });
+    expect(revised.fields.find((field) => field.key === "supplier_gstin")).toMatchObject({
+      label: "GSTIN",
+      visible: true,
+      protected: true,
+    });
+    expect(revised.sections.find((section) => section.key === "tax-summary")?.label).toBe("Tax summary");
+  });
+
+  it("rejects a hidden statutory field, a renamed statutory label, and a statutory alias", () => {
+    expect(() => reviseTemplateConfiguration(gst(), { fields: [{ key: "supplier_gstin", visible: false }] })).toThrow(
+      /stay visible/,
+    );
+    expect(() => reviseTemplateConfiguration(gst(), { fields: [{ key: "supplier_gstin", label: "Tax id" }] })).toThrow(
+      /Keep the label "GSTIN"/,
+    );
+    expect(() => reviseTemplateConfiguration(gst(), { fields: [{ key: "customer_phone", label: "GSTIN" }] })).toThrow(
+      /statutory heading/,
+    );
+    expect(() => reviseTemplateConfiguration(gst(), { fields: [{ key: "notes", label: "<b>Notes</b>" }] })).toThrow(
+      TemplateError,
+    );
+    expect(() =>
+      reviseTemplateConfiguration(gst(), {
+        sections: [{ key: "notes-terms", visible: false }],
+      }),
+    ).toThrow(/Show this section/);
+    expect(() => reviseTemplateConfiguration(gst(), {})).toThrow(/new template version/);
   });
 });
