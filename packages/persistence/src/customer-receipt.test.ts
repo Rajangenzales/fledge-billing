@@ -42,7 +42,12 @@ describe("customer receipts", () => {
     expect(db.prepare("SELECT name FROM schema_migration WHERE version = 9").get()).toEqual({ name: "customer-receipt" });
   });
 
-  it("returns zero advance before any receipt", () => {\n    const { customer, deps } = setup();\n    expect(getCustomerAdvance(customer.id, deps).unallocatedAmount).toBe("0");\n  });\n\n  it("records a customer receipt before any invoice exists and derives advance balance", () => {
+  it("returns zero advance before any receipt", () => {
+    const { customer, deps } = setup();
+    expect(getCustomerAdvance(customer.id, deps).unallocatedAmount).toBe("0");
+  });
+
+  it("records a customer receipt before any invoice exists and derives advance balance", () => {
     const { customer, deps } = setup();
     const receipt = recordCustomerReceipt({
       customerId: customer.id, amount: "1250.50", paymentDate: "2026-10-30",
