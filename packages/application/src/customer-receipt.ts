@@ -33,6 +33,7 @@ export type CustomerReceiptRepository = {
   insert(record: CustomerReceipt): CustomerReceipt;
   list(customerId: string): CustomerReceipt[];
   total(customerId: string): string;
+  allocatedTotal(customerId: string): string;
 };
 
 export type CustomerReceiptDeps = {
@@ -97,7 +98,7 @@ export function getCustomerAdvance(customerId: string, deps: CustomerReceiptDeps
     customerId,
     currency: "INR",
     receiptCount: deps.repository.list(customerId).length,
-    unallocatedAmount: deps.repository.total(customerId),
+    unallocatedAmount: subtractAmounts(deps.repository.total(customerId), deps.repository.allocatedTotal(customerId)),
   };
 }
 
@@ -139,4 +140,16 @@ function optional(value: string | null | undefined, max: number): string | null 
   if (value === null || value === undefined || value.trim() === "") return null;
   if (value.trim().length > max) throw new CustomerReceiptError("A receipt text field is too long.");
   return value.trim();
+}
+
+function subtractAmounts(total: string, allocated: string): string {
+  try {
+    const remaining = Money.parse(total).subtract(Money.parse(allocated));
+    if (remaining.compare(Money.zero()) < 0) throw new CustomerReceiptError("Customer allocations exceed the available receipts.");
+    return roundHalfUp(remaining, 2).toDecimalString();
+  } catch (error) {
+    if (error instanceof CustomerReceiptError) throw error;
+    if (error instanceof MoneyError) throw new CustomerReceiptError("A saved customer balance is invalid.");
+    throw error;
+  }
 }
