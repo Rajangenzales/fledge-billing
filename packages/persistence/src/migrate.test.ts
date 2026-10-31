@@ -40,7 +40,8 @@ describe("migrate", () => {
       "invoice-template",
       "custom-field",
       "customer-receipt",
-      "payment-allocation-events",\n      "payment-refund-reversal-events",
+      "payment-allocation-events",
+      "payment-refund-reversal-events",\n      "payment-refund-reversal-events",
     ]);
   });
 
