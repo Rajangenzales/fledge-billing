@@ -21,7 +21,7 @@ These documents are the source of truth. Implementation must not silently expand
 
 ## Development status
 
-**M6: Invoice templates** is in progress. Built-in layouts, safe labels, optional fields, and custom fields are stored on a template version. An issued document keeps that version, including its custom-field values. A template does not calculate tax. See [Technology Stack (M0)](./docs/09-technology-stack.md).
+**M6: Invoice templates** is in progress. Built-in layouts, safe labels, optional fields, and custom fields are stored on a template version. A preview shows sample invoice data for a saved template or an unsaved edit, and it does not issue a document. A template does not calculate tax. See [Technology Stack (M0)](./docs/09-technology-stack.md).
 
 ## Quick start
 
