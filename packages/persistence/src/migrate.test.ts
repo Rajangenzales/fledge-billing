@@ -36,6 +36,7 @@ describe("migrate", () => {
       "customer",
       "product-service",
       "billing-document",
+      "gst-engine",
     ]);
   });
 

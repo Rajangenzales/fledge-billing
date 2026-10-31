@@ -1,4 +1,5 @@
 import { billingDocument } from "./document.js";
+import { gstEngine } from "./gst.js";
 import { businessProfile } from "./business.js";
 import { customerMaster } from "./customer.js";
 import type { Migration } from "./migrate.js";
@@ -12,4 +13,5 @@ export const migrations: readonly Migration[] = [
   customerMaster,
   productService,
   billingDocument,
+  gstEngine,
 ];

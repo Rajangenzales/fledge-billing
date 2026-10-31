@@ -63,3 +63,21 @@ export {
   type DocumentType,
   type LineInput,
 } from "./billing.js";
+export {
+  GST_RULE_VERSIONS,
+  GST_TAX_TYPES,
+  GstError,
+  calculateGstDocument,
+  selectGstRuleVersion,
+  type GstCalculatedCharge,
+  type GstCalculatedLine,
+  type GstChargeInput,
+  type GstDocumentCalculation,
+  type GstDocumentInput,
+  type GstLineInput,
+  type GstParty,
+  type GstRecipient,
+  type GstRuleVersion,
+  type GstTaxLine,
+  type GstTaxType,
+} from "./gst.js";

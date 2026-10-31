@@ -21,7 +21,7 @@ These documents are the source of truth. Implementation must not silently expand
 
 ## Development status
 
-**M4: Billing engine** is in progress. Documents store line items, discounts, charges, commercial totals, and a draft, finalized, or cancelled lifecycle. Numbers are assigned per document type and financial year when a draft is finalized. GST component splits are not calculated yet. See [Technology Stack (M0)](./docs/09-technology-stack.md).
+**M5: GST engine** is in progress. Tax invoices calculate CGST, SGST, UTGST or IGST from the supplier location, the place of supply, and the configured rate, using exact paise arithmetic. Finalized documents keep that tax snapshot. See [Technology Stack (M0)](./docs/09-technology-stack.md).
 
 ## Quick start
 

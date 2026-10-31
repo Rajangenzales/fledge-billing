@@ -1,21 +1,30 @@
 import {
   seriesId,
   type BillingDocument,
+  type BusinessRef,
+  type CustomerRef,
   type DocumentCharge,
   type DocumentLine,
   type DocumentRepository,
   type DocumentStatus,
+  type DocumentTax,
   type NumberSeries,
+  type ProductRef,
 } from "@fledge/application";
 import {
   BillingError,
+  GstError,
+  calculateGstDocument,
   defaultDocumentPrefix,
   formatDocumentNumber,
   type DiscountType,
   type DocumentType,
+  type TaxCategoryId,
 } from "@fledge/domain";
 import type { SchemaDatabase, SqlValue } from "./connection.js";
+import { readGstRuleVersions } from "./gst.js";
 import type { Migration } from "./migrate.js";
+import { listStateUts } from "./state-ut.js";
 
 export const billingDocument: Migration = {
   version: 5,
@@ -127,31 +136,25 @@ export function createDocumentRepository(db: SchemaDatabase): DocumentRepository
     getBusinessId() {
       return readBusinessId(db);
     },
+    getBusiness() {
+      return readBusinessRef(db);
+    },
     getCustomer(id) {
       const businessId = readBusinessId(db);
       if (!businessId) {
         return null;
       }
-      const row = db
-        .prepare("SELECT id, active FROM customer WHERE id = ? AND business_id = ?")
-        .get(id, businessId);
-      if (!row || typeof row.id !== "string") {
-        return null;
-      }
-      return { id: row.id, active: row.active === 1 };
+      return readCustomerRef(db, id, businessId);
     },
     getProduct(id) {
       const businessId = readBusinessId(db);
       if (!businessId) {
         return null;
       }
-      const row = db
-        .prepare("SELECT id FROM product_service WHERE id = ? AND business_id = ?")
-        .get(id, businessId);
-      if (!row || typeof row.id !== "string") {
-        return null;
-      }
-      return { id: row.id };
+      return readProductRef(db, id, businessId);
+    },
+    listGstRuleVersions() {
+      return readGstRuleVersions(db);
     },
     list() {
       const businessId = readBusinessId(db);
@@ -188,8 +191,7 @@ export function createDocumentRepository(db: SchemaDatabase): DocumentRepository
         if (status !== "draft") {
           throw new BillingError("A finalized document cannot be changed.");
         }
-        db.prepare("DELETE FROM document_charge WHERE document_id = ?").run(record.id);
-        db.prepare("DELETE FROM document_item WHERE document_id = ?").run(record.id);
+        deleteChildren(db, record.id);
         writeDocument(db, record, true);
       });
     },
@@ -209,7 +211,7 @@ export function createDocumentRepository(db: SchemaDatabase): DocumentRepository
         if (status !== "draft") {
           throw new BillingError("Only a draft can be finalized.");
         }
-        const current = readDocument(db, id);
+        const current = recalculate(db, readDocument(db, id));
         const series = readSeries(db, businessId, current.documentType, current.financialYear) ??
           insertDefaultSeries(db, businessId, current.documentType, current.financialYear);
         const documentNumber = formatDocumentNumber(
@@ -223,11 +225,18 @@ export function createDocumentRepository(db: SchemaDatabase): DocumentRepository
            SET next_number = ?
            WHERE id = ? AND business_id = ?`,
         ).run(series.nextNumber + 1, series.id, businessId);
-        db.prepare(
-          `UPDATE document
-           SET status = 'finalized', document_number = ?, finalized_at = ?, updated_at = ?
-           WHERE id = ? AND business_id = ? AND status = 'draft'`,
-        ).run(documentNumber, finalizedAt, finalizedAt, id, businessId);
+        deleteChildren(db, id);
+        writeDocument(
+          db,
+          {
+            ...current,
+            status: "finalized",
+            documentNumber,
+            finalizedAt,
+            updatedAt: finalizedAt,
+          },
+          true,
+        );
         return readDocument(db, id);
       });
     },
@@ -324,6 +333,7 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
     record.documentDate,
     record.placeOfSupplyStateId,
     record.gstEnabled ? 1 : 0,
+    record.ruleVersionId,
     record.subtotal,
     record.discountTotal,
     record.taxableTotal,
@@ -331,14 +341,30 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
     record.grandTotal,
     record.finalizedAt,
     record.updatedAt,
+    record.supplierStateId,
+    record.supplierGstRegistered ? 1 : 0,
+    record.supplierGstin,
+    record.recipientStateId,
+    record.recipientRegistrationType,
+    record.recipientGstin,
+    record.reverseCharge ? 1 : 0,
+    record.exemptTotal,
+    record.nonGstTotal,
+    record.roundingResidual,
+    record.cessTotal,
+    record.notices.join("\n"),
   ];
   if (updating) {
     db.prepare(
       `UPDATE document SET
         customer_id = ?, document_type = ?, status = ?, document_number = ?,
         financial_year = ?, document_date = ?, place_of_supply_state_id = ?,
-        gst_enabled = ?, subtotal = ?, discount_total = ?, taxable_total = ?,
-        tax_total = ?, grand_total = ?, finalized_at = ?, updated_at = ?
+        gst_enabled = ?, gst_rule_version_id = ?, subtotal = ?, discount_total = ?,
+        taxable_total = ?, tax_total = ?, grand_total = ?, finalized_at = ?, updated_at = ?,
+        supplier_state_id = ?, supplier_gst_registered = ?, supplier_gstin = ?,
+        recipient_state_id = ?, recipient_registration_type = ?, recipient_gstin = ?,
+        reverse_charge = ?, exempt_total = ?, non_gst_total = ?, rounding_residual = ?,
+        cess_total = ?, calculation_notes = ?
        WHERE id = ? AND business_id = ?`,
     ).run(...values, record.id, record.businessId);
   } else {
@@ -347,16 +373,19 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
         customer_id, document_type, status, document_number, financial_year, document_date,
         place_of_supply_state_id, gst_enabled, gst_rule_version_id, template_id,
         subtotal, discount_total, taxable_total, tax_total, grand_total,
-        finalized_at, updated_at, id, business_id, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        finalized_at, updated_at, supplier_state_id, supplier_gst_registered, supplier_gstin,
+        recipient_state_id, recipient_registration_type, recipient_gstin, reverse_charge,
+        exempt_total, non_gst_total, rounding_residual, cess_total, calculation_notes,
+        id, business_id, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(...values, record.id, record.businessId, record.createdAt);
   }
   const insertLine = db.prepare(
     `INSERT INTO document_item (
       id, document_id, product_service_id, description_snapshot, hsn_sac_snapshot,
       quantity, unit, rate, discount_type, discount_value, discount_amount, line_amount,
-      taxable_value, gst_rate_snapshot, tax_inclusive, sort_order
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      taxable_value, gst_rate_snapshot, tax_inclusive, sort_order, tax_category_id, supply_nature
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const line of record.lines) {
     insertLine.run(
@@ -376,12 +405,14 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
       line.gstRatePercent,
       line.taxInclusive ? 1 : 0,
       line.sortOrder,
+      line.taxCategoryId,
+      line.supplyNature,
     );
   }
   const insertCharge = db.prepare(
     `INSERT INTO document_charge (
-      id, document_id, description, amount, taxable, sort_order
-    ) VALUES (?, ?, ?, ?, ?, ?)`,
+      id, document_id, description, amount, taxable, sort_order, tax_category_id, gst_rate_snapshot
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const charge of record.charges) {
     insertCharge.run(
@@ -391,8 +422,37 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
       charge.amount,
       charge.taxable ? 1 : 0,
       charge.sortOrder,
+      charge.taxCategoryId,
+      charge.gstRatePercent,
     );
   }
+  const insertTax = db.prepare(
+    `INSERT INTO document_tax (
+      id, document_id, document_item_id, document_charge_id, tax_type, rate, taxable_value,
+      amount, jurisdiction_state_id, rule_version_id, reverse_charge
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  for (const tax of record.taxes) {
+    insertTax.run(
+      tax.id,
+      record.id,
+      tax.documentItemId,
+      tax.documentChargeId,
+      tax.taxType,
+      tax.rate,
+      tax.taxableValue,
+      tax.amount,
+      tax.jurisdictionStateId,
+      tax.ruleVersionId,
+      tax.reverseCharge ? 1 : 0,
+    );
+  }
+}
+
+function deleteChildren(db: SchemaDatabase, documentId: string): void {
+  db.prepare("DELETE FROM document_tax WHERE document_id = ?").run(documentId);
+  db.prepare("DELETE FROM document_charge WHERE document_id = ?").run(documentId);
+  db.prepare("DELETE FROM document_item WHERE document_id = ?").run(documentId);
 }
 
 function readDocument(db: SchemaDatabase, id: string): BillingDocument {
@@ -400,8 +460,11 @@ function readDocument(db: SchemaDatabase, id: string): BillingDocument {
     .prepare(
       `SELECT id, business_id, customer_id, document_type, status, document_number,
               financial_year, document_date, place_of_supply_state_id, gst_enabled,
-              subtotal, discount_total, taxable_total, tax_total, grand_total,
-              created_at, finalized_at, updated_at
+              gst_rule_version_id, subtotal, discount_total, taxable_total, tax_total,
+              grand_total, created_at, finalized_at, updated_at, supplier_state_id,
+              supplier_gst_registered, supplier_gstin, recipient_state_id,
+              recipient_registration_type, recipient_gstin, reverse_charge, exempt_total,
+              non_gst_total, rounding_residual, cess_total, calculation_notes
        FROM document WHERE id = ?`,
     )
     .get(id);
@@ -412,7 +475,7 @@ function readDocument(db: SchemaDatabase, id: string): BillingDocument {
     .prepare(
       `SELECT id, product_service_id, description_snapshot, hsn_sac_snapshot, quantity, unit,
               rate, discount_type, discount_value, discount_amount, line_amount, taxable_value,
-              gst_rate_snapshot, tax_inclusive, sort_order
+              gst_rate_snapshot, tax_inclusive, sort_order, tax_category_id, supply_nature
        FROM document_item
        WHERE document_id = ?
        ORDER BY sort_order ASC, id ASC`,
@@ -421,13 +484,27 @@ function readDocument(db: SchemaDatabase, id: string): BillingDocument {
     .map(toLine);
   const charges = db
     .prepare(
-      `SELECT id, description, amount, taxable, sort_order
+      `SELECT id, description, amount, taxable, sort_order, tax_category_id, gst_rate_snapshot
        FROM document_charge
        WHERE document_id = ?
        ORDER BY sort_order ASC, id ASC`,
     )
     .all(id)
     .map(toCharge);
+  const taxes = db
+    .prepare(
+      `SELECT id, document_item_id, document_charge_id, tax_type, rate, taxable_value, amount,
+              jurisdiction_state_id, rule_version_id, reverse_charge
+       FROM document_tax
+       WHERE document_id = ?
+       ORDER BY id ASC`,
+    )
+    .all(id)
+    .map(toTax);
+  const registration = row.recipient_registration_type;
+  if (registration !== "registered" && registration !== "unregistered") {
+    throw new BillingError("The stored customer registration is invalid.");
+  }
   return {
     id: text(row.id, "id"),
     businessId: text(row.business_id, "business_id"),
@@ -439,13 +516,27 @@ function readDocument(db: SchemaDatabase, id: string): BillingDocument {
     documentDate: text(row.document_date, "document_date"),
     placeOfSupplyStateId: nullableText(row.place_of_supply_state_id),
     gstEnabled: row.gst_enabled === 1,
+    reverseCharge: row.reverse_charge === 1,
+    supplierStateId: text(row.supplier_state_id, "supplier_state_id"),
+    supplierGstRegistered: row.supplier_gst_registered === 1,
+    supplierGstin: nullableText(row.supplier_gstin),
+    recipientStateId: text(row.recipient_state_id, "recipient_state_id"),
+    recipientRegistrationType: registration,
+    recipientGstin: nullableText(row.recipient_gstin),
     lines,
     charges,
+    taxes,
     subtotal: text(row.subtotal, "subtotal"),
     discountTotal: text(row.discount_total, "discount_total"),
     taxableTotal: text(row.taxable_total, "taxable_total"),
+    exemptTotal: text(row.exempt_total, "exempt_total"),
+    nonGstTotal: text(row.non_gst_total, "non_gst_total"),
     taxTotal: text(row.tax_total, "tax_total"),
+    cessTotal: text(row.cess_total, "cess_total"),
+    roundingResidual: text(row.rounding_residual, "rounding_residual"),
     grandTotal: text(row.grand_total, "grand_total"),
+    ruleVersionId: nullableText(row.gst_rule_version_id),
+    notices: noticesFrom(row.calculation_notes),
     createdAt: text(row.created_at, "created_at"),
     finalizedAt: nullableText(row.finalized_at),
     updatedAt: text(row.updated_at, "updated_at"),
@@ -538,7 +629,185 @@ function readStatus(db: SchemaDatabase, id: string, businessId: string): Documen
   return documentStatus(row.status);
 }
 
+function recalculate(db: SchemaDatabase, stored: BillingDocument): BillingDocument {
+  const business = readBusinessRef(db);
+  const customer = readCustomerRef(db, stored.customerId, stored.businessId);
+  if (!business || !customer) {
+    throw new BillingError("That document was not found.");
+  }
+  const rates: Record<string, string | null> = {};
+  const categories: Record<string, TaxCategoryId> = {};
+  for (const line of stored.lines) {
+    if (!line.productId || line.productId in rates) {
+      continue;
+    }
+    const product = readProductRef(db, line.productId, stored.businessId);
+    if (product) {
+      rates[line.productId] = product.savedGstRatePercent;
+      categories[line.productId] = product.taxCategoryId;
+    }
+  }
+  const calculated = calculateGstDocument({
+    documentType: stored.documentType,
+    documentDate: stored.documentDate,
+    gstEnabled: stored.gstEnabled,
+    reverseCharge: stored.reverseCharge,
+    placeOfSupplyStateId: stored.placeOfSupplyStateId,
+    supplier: {
+      stateId: business.stateId,
+      gstRegistered: business.gstRegistered,
+      gstin: business.gstin,
+    },
+    recipient: {
+      stateId: customer.stateId,
+      registrationType: customer.registrationType,
+      gstin: customer.gstin,
+    },
+    lines: stored.lines.map((line) => ({
+      productId: line.productId,
+      description: line.description,
+      hsnSac: line.hsnSac,
+      quantity: line.quantity,
+      unit: line.unit,
+      rate: line.rate,
+      discountType: line.discountType,
+      discountValue: line.discountType === "none" ? null : line.discountValue,
+      taxInclusive: line.taxInclusive,
+      gstRatePercent: line.gstRatePercent,
+      taxCategoryId: line.taxCategoryId,
+      supplyNature: line.supplyNature,
+    })),
+    charges: stored.charges.map((charge) => ({
+      description: charge.description,
+      amount: charge.amount,
+      taxable: charge.taxable,
+      taxCategoryId: charge.taxCategoryId,
+      gstRatePercent: charge.gstRatePercent,
+    })),
+    rules: readGstRuleVersions(db),
+    states: listStateUts(db),
+    productRates: rates,
+    productCategories: categories,
+  });
+  if (
+    calculated.lines.length !== stored.lines.length ||
+    calculated.charges.length !== stored.charges.length
+  ) {
+    throw new GstError("The GST calculation did not match the document lines.");
+  }
+  const lineIds = stored.lines.map((line) => line.id);
+  const chargeIds = stored.charges.map((charge) => charge.id);
+  const taxes: DocumentTax[] = calculated.taxes.map((tax) => {
+    const sourceId = tax.source === "line" ? lineIds[tax.sourceIndex] : chargeIds[tax.sourceIndex];
+    if (!sourceId) {
+      throw new GstError("The GST calculation did not match the document lines.");
+    }
+    return {
+      id: `${sourceId}:${tax.taxType}`,
+      documentItemId: tax.source === "line" ? sourceId : null,
+      documentChargeId: tax.source === "charge" ? sourceId : null,
+      taxType: tax.taxType,
+      rate: tax.rate,
+      taxableValue: tax.taxableValue,
+      amount: tax.amount,
+      jurisdictionStateId: tax.jurisdictionStateId,
+      ruleVersionId: tax.ruleVersionId,
+      reverseCharge: tax.reverseCharge,
+    };
+  });
+  return {
+    ...stored,
+    reverseCharge: calculated.reverseCharge,
+    supplierStateId: calculated.supplierStateId,
+    supplierGstRegistered: business.gstRegistered,
+    supplierGstin: business.gstin,
+    recipientStateId: calculated.recipientStateId,
+    recipientRegistrationType: customer.registrationType,
+    recipientGstin: customer.gstin,
+    lines: calculated.lines.map((line, index) => ({ ...line, id: lineIds[index]! })),
+    charges: calculated.charges.map((charge, index) => ({ ...charge, id: chargeIds[index]! })),
+    taxes,
+    subtotal: calculated.subtotal,
+    discountTotal: calculated.discountTotal,
+    taxableTotal: calculated.taxableTotal,
+    exemptTotal: calculated.exemptTotal,
+    nonGstTotal: calculated.nonGstTotal,
+    taxTotal: calculated.taxTotal,
+    cessTotal: calculated.cessTotal,
+    roundingResidual: calculated.roundingResidual,
+    grandTotal: calculated.grandTotal,
+    ruleVersionId: calculated.ruleVersionId,
+    notices: calculated.notices,
+  };
+}
+
+function readBusinessRef(db: SchemaDatabase): BusinessRef | null {
+  const row = db
+    .prepare("SELECT id, state_id, gst_registered, gstin FROM business")
+    .get();
+  if (!row || typeof row.id !== "string") {
+    return null;
+  }
+  return {
+    id: row.id,
+    stateId: text(row.state_id, "state_id"),
+    gstRegistered: row.gst_registered === 1,
+    gstin: nullableText(row.gstin),
+  };
+}
+
+function readCustomerRef(db: SchemaDatabase, id: string, businessId: string): CustomerRef | null {
+  const row = db
+    .prepare(
+      `SELECT id, active, state_ut_id, registration_type, gstin
+       FROM customer WHERE id = ? AND business_id = ?`,
+    )
+    .get(id, businessId);
+  if (!row || typeof row.id !== "string") {
+    return null;
+  }
+  const registration = row.registration_type;
+  if (registration !== "registered" && registration !== "unregistered") {
+    throw new BillingError("The stored customer registration is invalid.");
+  }
+  return {
+    id: row.id,
+    active: row.active === 1,
+    stateId: text(row.state_ut_id, "state_ut_id"),
+    registrationType: registration,
+    gstin: nullableText(row.gstin),
+  };
+}
+
+function readProductRef(db: SchemaDatabase, id: string, businessId: string): ProductRef | null {
+  const row = db
+    .prepare(
+      `SELECT product_service.id, product_service.type, product_service.tax_category_id, saved_gst_rate.percentage
+       FROM product_service
+       LEFT JOIN saved_gst_rate ON saved_gst_rate.id = product_service.saved_gst_rate_id
+       WHERE product_service.id = ? AND product_service.business_id = ?`,
+    )
+    .get(id, businessId);
+  if (!row || typeof row.id !== "string") {
+    return null;
+  }
+  const type = row.type;
+  if (type !== "goods" && type !== "service") {
+    throw new BillingError("The stored product type is invalid.");
+  }
+  return {
+    id: row.id,
+    type,
+    taxCategoryId: taxCategory(row.tax_category_id),
+    savedGstRatePercent: nullableText(row.percentage),
+  };
+}
+
 function toLine(row: Record<string, unknown>): DocumentLine {
+  const nature = row.supply_nature;
+  if (nature !== null && nature !== undefined && nature !== "goods" && nature !== "service") {
+    throw new BillingError("The stored supply nature is invalid.");
+  }
   return {
     id: text(row.id, "id"),
     productId: nullableText(row.product_service_id),
@@ -554,6 +823,8 @@ function toLine(row: Record<string, unknown>): DocumentLine {
     taxableValue: text(row.taxable_value, "taxable_value"),
     gstRatePercent: nullableText(row.gst_rate_snapshot),
     taxInclusive: row.tax_inclusive === 1,
+    taxCategoryId: taxCategory(row.tax_category_id),
+    supplyNature: nature === "goods" || nature === "service" ? nature : null,
     sortOrder: wholeNumber(row.sort_order, "sort_order"),
   };
 }
@@ -564,8 +835,46 @@ function toCharge(row: Record<string, unknown>): DocumentCharge {
     description: text(row.description, "description"),
     amount: text(row.amount, "amount"),
     taxable: row.taxable === 1,
+    taxCategoryId: taxCategory(row.tax_category_id),
+    gstRatePercent: nullableText(row.gst_rate_snapshot),
     sortOrder: wholeNumber(row.sort_order, "sort_order"),
   };
+}
+
+function toTax(row: Record<string, unknown>): DocumentTax {
+  const taxType = row.tax_type;
+  if (taxType !== "CGST" && taxType !== "SGST" && taxType !== "UTGST" && taxType !== "IGST" && taxType !== "CESS") {
+    throw new BillingError("The stored tax type is invalid.");
+  }
+  return {
+    id: text(row.id, "id"),
+    documentItemId: nullableText(row.document_item_id),
+    documentChargeId: nullableText(row.document_charge_id),
+    taxType,
+    rate: text(row.rate, "rate"),
+    taxableValue: text(row.taxable_value, "taxable_value"),
+    amount: text(row.amount, "amount"),
+    jurisdictionStateId: text(row.jurisdiction_state_id, "jurisdiction_state_id"),
+    ruleVersionId: text(row.rule_version_id, "rule_version_id"),
+    reverseCharge: row.reverse_charge === 1,
+  };
+}
+
+function taxCategory(value: unknown): TaxCategoryId {
+  if (value === "taxable" || value === "exempt" || value === "nil-rated" || value === "non-gst") {
+    return value;
+  }
+  throw new BillingError("The stored tax category is missing.");
+}
+
+function noticesFrom(value: unknown): string[] {
+  if (value === null || value === undefined || value === "") {
+    return [];
+  }
+  if (typeof value !== "string") {
+    throw new BillingError("The stored calculation notes are invalid.");
+  }
+  return value.split("\n").filter((notice) => notice.length > 0);
 }
 
 function assertBusiness(db: SchemaDatabase, businessId: string): void {
