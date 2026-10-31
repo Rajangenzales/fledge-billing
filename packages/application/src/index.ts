@@ -58,6 +58,16 @@ export {
   type SaveDocumentInput,
   type SaveNumberSeriesInput,
 } from "./document.js";
+export {
+  getTemplate,
+  listTemplates,
+  setDefaultTemplate,
+  type InvoiceTemplate,
+  type TemplateDeps,
+  type TemplateField,
+  type TemplateRepository,
+  type TemplateSection,
+} from "./template.js";
 export { loadConfig, type AppConfig } from "./config.js";
 export { AppError, toUserFacingMessage, type ErrorCode } from "./errors.js";
 export { createLogger, type Logger } from "./logger.js";

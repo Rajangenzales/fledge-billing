@@ -21,7 +21,7 @@ These documents are the source of truth. Implementation must not silently expand
 
 ## Development status
 
-**M5: GST engine** is in progress. Tax invoices calculate CGST, SGST, UTGST or IGST from the supplier location, the place of supply, and the configured rate, using exact paise arithmetic. Finalized documents keep that tax snapshot. See [Technology Stack (M0)](./docs/09-technology-stack.md).
+**M6: Invoice templates** is in progress. Built-in layouts can be attached to a document and are snapshotted when it is finalized. A template does not calculate tax. See [Technology Stack (M0)](./docs/09-technology-stack.md).
 
 ## Quick start
 

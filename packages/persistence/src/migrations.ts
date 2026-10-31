@@ -4,6 +4,7 @@ import { businessProfile } from "./business.js";
 import { customerMaster } from "./customer.js";
 import type { Migration } from "./migrate.js";
 import { productService } from "./product.js";
+import { invoiceTemplate } from "./template.js";
 import { stateUtMaster } from "./state-ut.js";
 
 /** Schema changes shipped with this application build. */
@@ -14,4 +15,5 @@ export const migrations: readonly Migration[] = [
   productService,
   billingDocument,
   gstEngine,
+  invoiceTemplate,
 ];

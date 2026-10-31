@@ -23,6 +23,7 @@ import {
 } from "@fledge/domain";
 import type { SchemaDatabase, SqlValue } from "./connection.js";
 import { readGstRuleVersions } from "./gst.js";
+import { resolveTemplateId } from "./template.js";
 import type { Migration } from "./migrate.js";
 import { listStateUts } from "./state-ut.js";
 
@@ -320,6 +321,13 @@ export function createDocumentRepository(db: SchemaDatabase): DocumentRepository
       }
       return issuedNumber(db, businessId, documentType, financialYear);
     },
+    resolveTemplate(documentType, templateId, now) {
+      const businessId = readBusinessId(db);
+      if (!businessId) {
+        throw new BillingError("Save the business profile before creating a document.");
+      }
+      return resolveTemplateId(db, businessId, documentType, templateId, now);
+    },
   };
 }
 
@@ -334,6 +342,7 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
     record.placeOfSupplyStateId,
     record.gstEnabled ? 1 : 0,
     record.ruleVersionId,
+    record.templateId,
     record.subtotal,
     record.discountTotal,
     record.taxableTotal,
@@ -359,7 +368,7 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
       `UPDATE document SET
         customer_id = ?, document_type = ?, status = ?, document_number = ?,
         financial_year = ?, document_date = ?, place_of_supply_state_id = ?,
-        gst_enabled = ?, gst_rule_version_id = ?, subtotal = ?, discount_total = ?,
+        gst_enabled = ?, gst_rule_version_id = ?, template_id = ?, subtotal = ?, discount_total = ?,
         taxable_total = ?, tax_total = ?, grand_total = ?, finalized_at = ?, updated_at = ?,
         supplier_state_id = ?, supplier_gst_registered = ?, supplier_gstin = ?,
         recipient_state_id = ?, recipient_registration_type = ?, recipient_gstin = ?,
@@ -377,7 +386,7 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
         recipient_state_id, recipient_registration_type, recipient_gstin, reverse_charge,
         exempt_total, non_gst_total, rounding_residual, cess_total, calculation_notes,
         id, business_id, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(...values, record.id, record.businessId, record.createdAt);
   }
   const insertLine = db.prepare(
@@ -460,7 +469,7 @@ function readDocument(db: SchemaDatabase, id: string): BillingDocument {
     .prepare(
       `SELECT id, business_id, customer_id, document_type, status, document_number,
               financial_year, document_date, place_of_supply_state_id, gst_enabled,
-              gst_rule_version_id, subtotal, discount_total, taxable_total, tax_total,
+              gst_rule_version_id, template_id, subtotal, discount_total, taxable_total, tax_total,
               grand_total, created_at, finalized_at, updated_at, supplier_state_id,
               supplier_gst_registered, supplier_gstin, recipient_state_id,
               recipient_registration_type, recipient_gstin, reverse_charge, exempt_total,
@@ -537,6 +546,7 @@ function readDocument(db: SchemaDatabase, id: string): BillingDocument {
     grandTotal: text(row.grand_total, "grand_total"),
     ruleVersionId: nullableText(row.gst_rule_version_id),
     notices: noticesFrom(row.calculation_notes),
+    templateId: nullableText(row.template_id),
     createdAt: text(row.created_at, "created_at"),
     finalizedAt: nullableText(row.finalized_at),
     updatedAt: text(row.updated_at, "updated_at"),

@@ -37,6 +37,7 @@ describe("migrate", () => {
       "product-service",
       "billing-document",
       "gst-engine",
+      "invoice-template",
     ]);
   });
 
