@@ -77,6 +77,10 @@ export function createCustomerReceiptRepository(db: SchemaDatabase): CustomerRec
         ORDER BY payment_date DESC, recorded_at DESC, id DESC
       `).all(businessId, customerId).map(toReceipt);
     },
+    getById(receiptId, businessId) {
+      const row = db.prepare("SELECT * FROM customer_receipt WHERE id = ? AND business_id = ?").get(receiptId, businessId);
+      return row ? toReceipt(row) : null;
+    },
     allocatedTotal(customerId) {
       const businessId = this.getBusinessId();
       if (!businessId) return "0";
