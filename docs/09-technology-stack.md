@@ -1,7 +1,7 @@
 # Fledge Billing — Technology Stack (M0)
 
 **Status:** Adopted for foundation milestone  
-**Version:** 0.8
+**Version:** 0.9
 
 ## Decision
 
@@ -75,9 +75,23 @@ A document is a tax invoice, non-GST invoice, bill of supply, quotation, or rece
 
 Totals are calculated from stored source values. Each line discount and each line net are rounded half up to paise on their own. The subtotal is the sum of those rounded line nets and rounded discounts. The grand total is the sum of the rounded line nets plus charges, so it can differ from the subtotal minus the discount by a paise. `line_amount` and `discount_amount` are stored because `taxable_value` is not the payable amount when a price includes tax.
 
-When GST is off, the taxable total is zero and a line cannot carry a GST rate or a tax-inclusive price. When GST is on, every line stores a percentage snapshot, including zero. An inclusive taxable value is the exact net multiplied by 100 and divided by 100 plus that rate, then rounded half up to paise. `Money.dividedBy` performs that division. The tax total stays `0`. An exclusive grand total is the pre-tax amount. Component tax (CGST, SGST, UTGST, IGST) is not calculated in this milestone.
+When GST is off, the taxable total is zero and a line cannot carry a GST rate or a tax-inclusive price. When GST is on, every line stores a percentage snapshot, including zero. An inclusive taxable value is the exact net multiplied by 100 and divided by 100 plus that rate, then rounded half up to paise. `Money.dividedBy` performs that division. M4 left the tax total at `0` and treated an exclusive grand total as the pre-tax amount. M5 adds component tax for drafts and newly issued documents.
 
-Number series are separate for each business, document type, and Indian financial year (April through March, labeled `2026-27`). The default prefixes are INV, NG, BOS, QT, and RCT. A number looks like `INV/2026-27/0001`. Padding is 3 to 6 digits and defaults to 4. A sequence longer than the padding is not truncated. The next number can be set before anything is issued. After a number is issued, it can only move forward. Allocation runs inside the same write transaction as finalizing, and a draft does not consume a number.
+Number series are separate for each business, document type, and Indian financial year (April through March, labeled `2026-27`). The default prefixes are INV, NG, BOS, QT, and RCT. A number looks like `INV/2026-27/0001`. Padding is 3 to 6 digits and defaults to 4. A sequence longer than the padding is not truncated. The next number can be set before anything is issued. After a number is issued, it can only move forward. Allocation runs inside the same write transaction as finalizing, and a draft does not consume a number. M5 recalculates tax from the stored source values in that same transaction.
+
+## GST engine (M5)
+
+Migration `gst-engine` is version 6. It adds `gst_rule_version`, `gst_rule_utgst_territory` and `document_tax`, and snapshots the supplier and recipient on `document`. Finalized rows that already existed keep their stored totals. The migration does not calculate tax for them.
+
+The seeded rule `gst-structure-2017-07-01` is effective from 1 July 2017. It records how a configured percentage is split. It is not an HSN rate list. The percentage on a line is the configured rate. A difference from the product's saved rate is reported and is not overwritten.
+
+Component choice uses the supplier's GST state code and the explicit place of supply. IGST Act sections 7 and 8 treat the same State or Union territory as intra-state and different locations as inter-state. The customer's State is stored separately. IGST Act sections 10 to 13, which would derive place of supply, are not applied.
+
+Intra-state tax is half CGST and half SGST. UTGST replaces SGST only for the Union territories named in UTGST Act section 2(8): Chandigarh, Dadra and Nagar Haveli and Daman and Diu, Lakshadweep, Andaman and Nicobar Islands, and Ladakh. Delhi, Puducherry and Jammu and Kashmir take SGST. Inter-state tax is IGST at the full percentage.
+
+Each component is rounded half-up to paise from the paise taxable value. CGST Act section 170 rounds tax payable to the government to the nearest rupee and is not applied on the invoice. An intra-state split can therefore differ by one paise from IGST on the same value. For a tax-inclusive price, any difference between the embedded tax and the sum of the rounded components is stored as `rounding_residual` and is not folded into a component. Exclusive tax is added to the grand total. Inclusive tax is already inside the line amount. Reverse charge is an explicit flag: the tax is calculated and kept out of the amount payable to the supplier. Named reverse-charge categories and compensation cess are rejected until a verified rule is seeded.
+
+A tax invoice or bill of supply requires a GST-registered business. A tax invoice needs at least one taxable or nil-rated supply. Exempt and non-GST values stay out of the taxable total.
 
 ## Tooling
 

@@ -1,26 +1,62 @@
-import type { StateUt } from "@fledge/domain";
+import type { DocumentType, ProductType, StateUt, TaxCategoryId } from "@fledge/domain";
 import {
   BillingError,
+  GstError,
   assertDocumentGstMode,
   assertFinancialYearLabel,
-  calculateDocument,
+  calculateGstDocument,
   financialYearOf,
   normalizeSeriesPrefix,
-  type CalculatedCharge,
-  type CalculatedLine,
-  type ChargeInput,
-  type DocumentType,
-  type LineInput,
+  type GstChargeInput,
+  type GstDocumentCalculation,
+  type GstLineInput,
+  type GstRuleVersion,
+  type GstTaxType,
 } from "@fledge/domain";
 
 export type DocumentStatus = "draft" | "finalized" | "partial" | "paid" | "cancelled";
 
-export type DocumentLine = CalculatedLine & {
+export type DocumentLine = {
   id: string;
+  productId: string | null;
+  description: string;
+  hsnSac: string | null;
+  quantity: string;
+  unit: string;
+  rate: string;
+  discountType: GstLineInput["discountType"];
+  discountValue: string;
+  discountAmount: string;
+  lineAmount: string;
+  taxableValue: string;
+  gstRatePercent: string | null;
+  taxInclusive: boolean;
+  taxCategoryId: TaxCategoryId;
+  supplyNature: ProductType | null;
+  sortOrder: number;
 };
 
-export type DocumentCharge = CalculatedCharge & {
+export type DocumentCharge = {
   id: string;
+  description: string;
+  amount: string;
+  taxable: boolean;
+  taxCategoryId: TaxCategoryId;
+  gstRatePercent: string | null;
+  sortOrder: number;
+};
+
+export type DocumentTax = {
+  id: string;
+  documentItemId: string | null;
+  documentChargeId: string | null;
+  taxType: GstTaxType;
+  rate: string;
+  taxableValue: string;
+  amount: string;
+  jurisdictionStateId: string;
+  ruleVersionId: string;
+  reverseCharge: boolean;
 };
 
 export type BillingDocument = {
@@ -34,22 +70,58 @@ export type BillingDocument = {
   documentDate: string;
   placeOfSupplyStateId: string | null;
   gstEnabled: boolean;
+  reverseCharge: boolean;
+  supplierStateId: string;
+  supplierGstRegistered: boolean;
+  supplierGstin: string | null;
+  recipientStateId: string;
+  recipientRegistrationType: "registered" | "unregistered";
+  recipientGstin: string | null;
   lines: DocumentLine[];
   charges: DocumentCharge[];
+  taxes: DocumentTax[];
   subtotal: string;
   discountTotal: string;
   taxableTotal: string;
+  exemptTotal: string;
+  nonGstTotal: string;
   taxTotal: string;
+  cessTotal: string;
+  roundingResidual: string;
   grandTotal: string;
+  ruleVersionId: string | null;
+  notices: string[];
   createdAt: string;
   finalizedAt: string | null;
   updatedAt: string;
 };
 
+export type BusinessRef = {
+  id: string;
+  stateId: string;
+  gstRegistered: boolean;
+  gstin: string | null;
+};
+
+export type CustomerRef = {
+  id: string;
+  active: boolean;
+  stateId: string;
+  registrationType: "registered" | "unregistered";
+  gstin: string | null;
+};
+
+export type ProductRef = {
+  id: string;
+  type: ProductType;
+  taxCategoryId: TaxCategoryId;
+  savedGstRatePercent: string | null;
+};
+
 export type NumberSeries = {
   id: string;
   businessId: string;
-  documentType: DocumentType;
+  documentType: BillingDocument["documentType"];
   financialYear: string;
   prefix: string;
   nextNumber: number;
@@ -59,17 +131,19 @@ export type NumberSeries = {
 
 export type DocumentRepository = {
   getBusinessId: () => string | null;
-  getCustomer: (id: string) => { id: string; active: boolean } | null;
-  getProduct: (id: string) => { id: string } | null;
+  getBusiness: () => BusinessRef | null;
+  getCustomer: (id: string) => CustomerRef | null;
+  getProduct: (id: string) => ProductRef | null;
+  listGstRuleVersions: () => GstRuleVersion[];
   list: () => BillingDocument[];
   get: (id: string) => BillingDocument | null;
   insert: (record: BillingDocument) => void;
   replaceDraft: (record: BillingDocument) => void;
   finalize: (id: string, finalizedAt: string) => BillingDocument;
   cancel: (id: string, updatedAt: string) => BillingDocument;
-  getNumberSeries: (documentType: DocumentType, financialYear: string) => NumberSeries | null;
+  getNumberSeries: (documentType: BillingDocument["documentType"], financialYear: string) => NumberSeries | null;
   saveNumberSeries: (record: NumberSeries) => void;
-  hasIssuedNumber: (documentType: DocumentType, financialYear: string) => boolean;
+  hasIssuedNumber: (documentType: BillingDocument["documentType"], financialYear: string) => boolean;
 };
 
 export type DocumentDeps = {
@@ -81,16 +155,17 @@ export type DocumentDeps = {
 
 export type SaveDocumentInput = {
   customerId: string;
-  documentType: DocumentType;
+  documentType: BillingDocument["documentType"];
   documentDate: string;
   placeOfSupplyStateId?: string | null;
   gstEnabled: boolean;
-  lines: readonly LineInput[];
-  charges?: readonly ChargeInput[];
+  reverseCharge: boolean;
+  lines: readonly GstLineInput[];
+  charges?: readonly GstChargeInput[];
 };
 
 export type SaveNumberSeriesInput = {
-  documentType: DocumentType;
+  documentType: BillingDocument["documentType"];
   financialYear: string;
   prefix: string;
   nextNumber: number;
@@ -98,19 +173,19 @@ export type SaveNumberSeriesInput = {
 };
 
 export function listDocuments(deps: DocumentDeps): BillingDocument[] {
-  return deps.repository.list().map(presentDraft);
+  return deps.repository.list().map((document) => presentDraft(document, deps));
 }
 
 export function getDocument(id: string, deps: DocumentDeps): BillingDocument | null {
   const stored = deps.repository.get(id);
-  return stored ? presentDraft(stored) : null;
+  return stored ? presentDraft(stored, deps) : null;
 }
 
 export function createDocument(input: SaveDocumentInput, deps: DocumentDeps): BillingDocument {
-  const businessId = requireBusiness(deps);
-  const draft = buildDraft(input, deps, {
+  const business = requireBusiness(deps);
+  const draft = buildDraft(input, deps, business, {
     id: deps.createId(),
-    businessId,
+    businessId: business.id,
     status: "draft",
     documentNumber: null,
     createdAt: deps.now(),
@@ -133,7 +208,8 @@ export function updateDocument(
   if (existing.status !== "draft") {
     throw new BillingError("A finalized document cannot be changed.");
   }
-  const draft = buildDraft(input, deps, {
+  const business = requireBusiness(deps);
+  const draft = buildDraft(input, deps, business, {
     id: existing.id,
     businessId: existing.businessId,
     status: "draft",
@@ -155,7 +231,7 @@ export function cancelDocument(id: string, deps: DocumentDeps): BillingDocument 
 }
 
 export function saveNumberSeries(input: SaveNumberSeriesInput, deps: DocumentDeps): NumberSeries {
-  const businessId = requireBusiness(deps);
+  const business = requireBusiness(deps);
   assertDocumentGstMode(input.documentType, input.documentType === "tax_invoice");
   const financialYear = assertFinancialYearLabel(input.financialYear);
   const prefix = normalizeSeriesPrefix(input.prefix);
@@ -174,8 +250,8 @@ export function saveNumberSeries(input: SaveNumberSeriesInput, deps: DocumentDep
     throw new BillingError("The next number can only move forward after a document is issued.");
   }
   const record: NumberSeries = {
-    id: existing?.id ?? seriesId(businessId, input.documentType, financialYear),
-    businessId,
+    id: existing?.id ?? seriesId(business.id, input.documentType, financialYear),
+    businessId: business.id,
     documentType: input.documentType,
     financialYear,
     prefix,
@@ -187,13 +263,18 @@ export function saveNumberSeries(input: SaveNumberSeriesInput, deps: DocumentDep
   return record;
 }
 
-export function seriesId(businessId: string, documentType: DocumentType, financialYear: string): string {
+export function seriesId(
+  businessId: string,
+  documentType: BillingDocument["documentType"],
+  financialYear: string,
+): string {
   return `ns:${businessId}:${documentType}:${financialYear}`;
 }
 
 function buildDraft(
   input: SaveDocumentInput,
   deps: DocumentDeps,
+  business: BusinessRef,
   identity: {
     id: string;
     businessId: string;
@@ -204,10 +285,6 @@ function buildDraft(
     updatedAt: string;
   },
 ): BillingDocument {
-  if (typeof input.gstEnabled !== "boolean") {
-    throw new BillingError("Choose whether GST applies to this document.");
-  }
-  assertDocumentGstMode(input.documentType, input.gstEnabled);
   const financialYear = financialYearOf(input.documentDate);
   const customer = deps.repository.getCustomer(input.customerId);
   if (!customer) {
@@ -216,107 +293,245 @@ function buildDraft(
   if (!customer.active) {
     throw new BillingError("Choose an active customer.");
   }
-  const placeOfSupplyStateId = resolvePlaceOfSupply(
-    input.placeOfSupplyStateId,
-    input.gstEnabled,
-    deps.states,
-  );
-  for (const line of input.lines ?? []) {
-    if (line.productId && line.productId.trim().length > 0 && !deps.repository.getProduct(line.productId.trim())) {
-      throw new BillingError("That product was not found.");
-    }
-  }
-  const calculated = calculateDocument({
+  const lines = input.lines.map((line) => withProductNature(line, deps));
+  const context = productContext(lines, deps);
+  const calculated = calculateGstDocument({
+    documentType: input.documentType,
+    documentDate: input.documentDate,
     gstEnabled: input.gstEnabled,
-    lines: input.lines,
+    reverseCharge: input.reverseCharge,
+    placeOfSupplyStateId: input.placeOfSupplyStateId,
+    supplier: {
+      stateId: business.stateId,
+      gstRegistered: business.gstRegistered,
+      gstin: business.gstin,
+    },
+    recipient: {
+      stateId: customer.stateId,
+      registrationType: customer.registrationType,
+      gstin: customer.gstin,
+    },
+    lines,
     charges: input.charges,
+    rules: deps.repository.listGstRuleVersions(),
+    states: deps.states,
+    productRates: context.rates,
+    productCategories: context.categories,
   });
-  return {
-    ...identity,
+  const lineIds = calculated.lines.map(() => deps.createId());
+  const chargeIds = calculated.charges.map(() => deps.createId());
+  return toDocument(calculated, identity, {
     customerId: customer.id,
     documentType: input.documentType,
     financialYear,
     documentDate: input.documentDate,
-    placeOfSupplyStateId,
+    placeOfSupplyStateId: input.gstEnabled ? (input.placeOfSupplyStateId ?? "").trim() : null,
     gstEnabled: input.gstEnabled,
-    lines: calculated.lines.map((line) => ({ ...line, id: deps.createId() })),
-    charges: calculated.charges.map((charge) => ({ ...charge, id: deps.createId() })),
-    subtotal: calculated.subtotal,
-    discountTotal: calculated.discountTotal,
-    taxableTotal: calculated.taxableTotal,
-    taxTotal: calculated.taxTotal,
-    grandTotal: calculated.grandTotal,
-  };
+    business,
+    customer,
+    lineIds,
+    chargeIds,
+  });
 }
 
-function presentDraft(stored: BillingDocument): BillingDocument {
+function presentDraft(stored: BillingDocument, deps: DocumentDeps): BillingDocument {
   if (stored.status !== "draft") {
     return stored;
   }
-  const calculated = calculateDocument({
+  const business = deps.repository.getBusiness();
+  const customer = deps.repository.getCustomer(stored.customerId);
+  if (!business || !customer) {
+    throw new BillingError("That document was not found.");
+  }
+  const lines = stored.lines.map((line) => ({
+    productId: line.productId,
+    description: line.description,
+    hsnSac: line.hsnSac,
+    quantity: line.quantity,
+    unit: line.unit,
+    rate: line.rate,
+    discountType: line.discountType,
+    discountValue: line.discountType === "none" ? null : line.discountValue,
+    taxInclusive: line.taxInclusive,
+    gstRatePercent: line.gstRatePercent,
+    taxCategoryId: line.taxCategoryId,
+    supplyNature: line.supplyNature,
+  }));
+  const context = productContext(lines, deps);
+  const calculated = calculateGstDocument({
+    documentType: stored.documentType,
+    documentDate: stored.documentDate,
     gstEnabled: stored.gstEnabled,
-    lines: stored.lines.map((line) => ({
-      productId: line.productId,
-      description: line.description,
-      hsnSac: line.hsnSac,
-      quantity: line.quantity,
-      unit: line.unit,
-      rate: line.rate,
-      discountType: line.discountType,
-      discountValue: line.discountType === "none" ? null : line.discountValue,
-      taxInclusive: line.taxInclusive,
-      gstRatePercent: line.gstRatePercent,
-    })),
+    reverseCharge: stored.reverseCharge,
+    placeOfSupplyStateId: stored.placeOfSupplyStateId,
+    supplier: {
+      stateId: business.stateId,
+      gstRegistered: business.gstRegistered,
+      gstin: business.gstin,
+    },
+    recipient: {
+      stateId: customer.stateId,
+      registrationType: customer.registrationType,
+      gstin: customer.gstin,
+    },
+    lines,
     charges: stored.charges.map((charge) => ({
       description: charge.description,
       amount: charge.amount,
       taxable: charge.taxable,
+      taxCategoryId: charge.taxCategoryId,
+      gstRatePercent: charge.gstRatePercent,
     })),
+    rules: deps.repository.listGstRuleVersions(),
+    states: deps.states,
+    productRates: context.rates,
+    productCategories: context.categories,
   });
+  return toDocument(
+    calculated,
+    {
+      id: stored.id,
+      businessId: stored.businessId,
+      status: "draft",
+      documentNumber: null,
+      createdAt: stored.createdAt,
+      finalizedAt: null,
+      updatedAt: stored.updatedAt,
+    },
+    {
+      customerId: stored.customerId,
+      documentType: stored.documentType,
+      financialYear: stored.financialYear,
+      documentDate: stored.documentDate,
+      placeOfSupplyStateId: stored.placeOfSupplyStateId,
+      gstEnabled: stored.gstEnabled,
+      business,
+      customer,
+      lineIds: stored.lines.map((line) => line.id),
+      chargeIds: stored.charges.map((charge) => charge.id),
+    },
+  );
+}
+
+function toDocument(
+  calculated: GstDocumentCalculation,
+  identity: {
+    id: string;
+    businessId: string;
+    status: "draft";
+    documentNumber: null;
+    createdAt: string;
+    finalizedAt: null;
+    updatedAt: string;
+  },
+  context: {
+    customerId: string;
+    documentType: BillingDocument["documentType"];
+    financialYear: string;
+    documentDate: string;
+    placeOfSupplyStateId: string | null;
+    gstEnabled: boolean;
+    business: BusinessRef;
+    customer: CustomerRef;
+    lineIds: string[];
+    chargeIds: string[];
+  },
+): BillingDocument {
+  if (
+    calculated.lines.length !== context.lineIds.length ||
+    calculated.charges.length !== context.chargeIds.length
+  ) {
+    throw new GstError("The GST calculation did not match the document lines.");
+  }
   return {
-    ...stored,
-    lines: calculated.lines.map((line, index) => ({
-      ...line,
-      id: stored.lines[index]?.id ?? line.description,
-    })),
-    charges: calculated.charges.map((charge, index) => ({
-      ...charge,
-      id: stored.charges[index]?.id ?? charge.description,
-    })),
+    ...identity,
+    customerId: context.customerId,
+    documentType: context.documentType,
+    financialYear: context.financialYear,
+    documentDate: context.documentDate,
+    placeOfSupplyStateId: context.placeOfSupplyStateId,
+    gstEnabled: context.gstEnabled,
+    reverseCharge: calculated.reverseCharge,
+    supplierStateId: calculated.supplierStateId,
+    supplierGstRegistered: context.business.gstRegistered,
+    supplierGstin: context.business.gstin,
+    recipientStateId: calculated.recipientStateId,
+    recipientRegistrationType: context.customer.registrationType,
+    recipientGstin: context.customer.gstin,
+    lines: calculated.lines.map((line, index) => ({ ...line, id: context.lineIds[index]! })),
+    charges: calculated.charges.map((charge, index) => ({ ...charge, id: context.chargeIds[index]! })),
+    taxes: calculated.taxes.map((tax) => {
+      const sourceId = tax.source === "line" ? context.lineIds[tax.sourceIndex] : context.chargeIds[tax.sourceIndex];
+      if (!sourceId) {
+        throw new GstError("The GST calculation did not match the document lines.");
+      }
+      return {
+        id: `${sourceId}:${tax.taxType}`,
+        documentItemId: tax.source === "line" ? sourceId : null,
+        documentChargeId: tax.source === "charge" ? sourceId : null,
+        taxType: tax.taxType,
+        rate: tax.rate,
+        taxableValue: tax.taxableValue,
+        amount: tax.amount,
+        jurisdictionStateId: tax.jurisdictionStateId,
+        ruleVersionId: tax.ruleVersionId,
+        reverseCharge: tax.reverseCharge,
+      };
+    }),
     subtotal: calculated.subtotal,
     discountTotal: calculated.discountTotal,
     taxableTotal: calculated.taxableTotal,
+    exemptTotal: calculated.exemptTotal,
+    nonGstTotal: calculated.nonGstTotal,
     taxTotal: calculated.taxTotal,
+    cessTotal: calculated.cessTotal,
+    roundingResidual: calculated.roundingResidual,
     grandTotal: calculated.grandTotal,
+    ruleVersionId: calculated.ruleVersionId,
+    notices: calculated.notices,
   };
 }
 
-function resolvePlaceOfSupply(
-  stateId: string | null | undefined,
-  gstEnabled: boolean,
-  states: readonly StateUt[],
-): string | null {
-  const present = typeof stateId === "string" && stateId.trim().length > 0;
-  if (!gstEnabled) {
-    if (present) {
-      throw new BillingError("Clear the place of supply when GST is off.");
-    }
-    return null;
+function withProductNature(line: GstLineInput, deps: DocumentDeps): GstLineInput {
+  const productId = line.productId?.trim();
+  if (!productId || line.supplyNature) {
+    return line;
   }
-  if (!present || typeof stateId !== "string") {
-    throw new BillingError("Choose the place of supply.");
+  const product = deps.repository.getProduct(productId);
+  if (!product) {
+    throw new BillingError("That product was not found.");
   }
-  const state = states.find((candidate) => candidate.id === stateId.trim());
-  if (!state?.active) {
-    throw new BillingError("Choose an active place of supply.");
-  }
-  return state.id;
+  return { ...line, supplyNature: product.type };
 }
 
-function requireBusiness(deps: DocumentDeps): string {
-  const businessId = deps.repository.getBusinessId();
-  if (!businessId) {
+function productContext(
+  lines: readonly GstLineInput[],
+  deps: DocumentDeps,
+): {
+  rates: Record<string, string | null>;
+  categories: Record<string, TaxCategoryId>;
+} {
+  const rates: Record<string, string | null> = {};
+  const categories: Record<string, TaxCategoryId> = {};
+  for (const line of lines) {
+    const productId = line.productId?.trim();
+    if (!productId || productId in rates) {
+      continue;
+    }
+    const product = deps.repository.getProduct(productId);
+    if (!product) {
+      throw new BillingError("That product was not found.");
+    }
+    rates[productId] = product.savedGstRatePercent;
+    categories[productId] = product.taxCategoryId;
+  }
+  return { rates, categories };
+}
+
+function requireBusiness(deps: DocumentDeps): BusinessRef {
+  const business = deps.repository.getBusiness();
+  if (!business) {
     throw new BillingError("Save the business profile before creating a document.");
   }
-  return businessId;
+  return business;
 }
