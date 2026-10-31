@@ -228,11 +228,6 @@ function amountPaise(value: string): bigint {
   const [whole, fraction = ""] = value.split(".");
   return BigInt(whole!) * 100n + BigInt(fraction.padEnd(2, "0"));
 }
-function amountPaise(value: string): bigint {
-  if (!/^\d+(?:\.\d{1,2})?$/.test(value)) throw new CustomerReceiptError("A saved adjustment amount is invalid.");
-  const [whole, fraction = ""] = value.split(".");
-  return BigInt(whole!) * 100n + BigInt(fraction.padEnd(2, "0"));
-}
 function formatPaise(value: bigint): string {
   const whole = value / 100n;
   const fraction = (value % 100n).toString().padStart(2, "0");
