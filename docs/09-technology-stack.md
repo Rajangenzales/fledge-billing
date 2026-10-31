@@ -1,7 +1,7 @@
 # Fledge Billing — Technology Stack (M0)
 
 **Status:** Adopted for foundation milestone  
-**Version:** 0.7
+**Version:** 0.8
 
 ## Decision
 
@@ -9,7 +9,7 @@ M0 uses a **TypeScript pnpm monorepo** with strict layer boundaries:
 
 | Package | Role |
 | --- | --- |
-| `@fledge/domain` | Pure domain types and engines. Money is exact; billing/GST engines come in later milestones. |
+| `@fledge/domain` | Pure domain types and engines. Money is exact. The billing engine calculates commercial totals. GST component splits come later. |
 | `@fledge/application` | Configuration, logging, errors, future use cases. No SQLite dependency. |
 | `@fledge/persistence` | Local SQLite connection, schema migrations, and later repository implementations. |
 | `@fledge/app` | Application shell entry (CLI and local HTTP health endpoint). Opens the database on serve. |
@@ -66,6 +66,18 @@ Migration `customer` creates `customer`, linked to the local business and to `st
 Migration `product-service` creates `tax_category`, `saved_gst_rate`, and `product_service`. Tax categories are the closed set taxable, exempt, nil-rated, and non-GST. A saved GST rate is a name and an exact percentage for one business. It is user configuration. It is not the versioned `tax_rate` or GST rule table, which arrive with the GST engine.
 
 A taxable item must point at a saved rate and may be tax-inclusive. Exempt, nil-rated, and non-GST items have no saved rate and are not tax-inclusive. Prices and discounts are exact rupee amounts in paise. HSN/SAC, when present, is 4, 6, or 8 digits. This milestone does not calculate tax and does not ship an HSN master. Deactivating a product or a saved rate keeps the row.
+
+## Billing engine (M4)
+
+Migration `billing-document` creates `document`, `document_item`, `document_charge`, and `number_series`. It does not create `document_tax`. `gst_rule_version_id` and `template_id` stay empty until the GST engine and templates exist.
+
+A document is a tax invoice, non-GST invoice, bill of supply, quotation, or receipt. A tax invoice is GST-enabled. A non-GST invoice, bill of supply, or receipt is not. A quotation may be either. Drafts are editable and have no document number. Finalizing a draft assigns the next number and leaves the saved amounts unchanged. Cancelling a draft or a finalized document keeps an issued number and does not rewind the series. Status values `partial` and `paid` are reserved for payments and are not written here.
+
+Totals are calculated from stored source values. Each line discount and each line net are rounded half up to paise on their own. The subtotal is the sum of those rounded line nets and rounded discounts. The grand total is the sum of the rounded line nets plus charges, so it can differ from the subtotal minus the discount by a paise. `line_amount` and `discount_amount` are stored because `taxable_value` is not the payable amount when a price includes tax.
+
+When GST is off, the taxable total is zero and a line cannot carry a GST rate or a tax-inclusive price. When GST is on, every line stores a percentage snapshot, including zero. An inclusive taxable value is the exact net multiplied by 100 and divided by 100 plus that rate, then rounded half up to paise. `Money.dividedBy` performs that division. The tax total stays `0`. An exclusive grand total is the pre-tax amount. Component tax (CGST, SGST, UTGST, IGST) is not calculated in this milestone.
+
+Number series are separate for each business, document type, and Indian financial year (April through March, labeled `2026-27`). The default prefixes are INV, NG, BOS, QT, and RCT. A number looks like `INV/2026-27/0001`. Padding is 3 to 6 digits and defaults to 4. A sequence longer than the padding is not truncated. The next number can be set before anything is issued. After a number is issued, it can only move forward. Allocation runs inside the same write transaction as finalizing, and a draft does not consume a number.
 
 ## Tooling
 

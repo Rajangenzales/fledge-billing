@@ -21,7 +21,7 @@ These documents are the source of truth. Implementation must not silently expand
 
 ## Development status
 
-**M3: Products and services** is in progress. Items store an HSN or SAC, a unit, an exact rupee price, and a saved GST percentage that stays separate from versioned tax rules. Customers, the business profile, and the State and Union Territory master are already in place. See [Technology Stack (M0)](./docs/09-technology-stack.md).
+**M4: Billing engine** is in progress. Documents store line items, discounts, charges, commercial totals, and a draft, finalized, or cancelled lifecycle. Numbers are assigned per document type and financial year when a draft is finalized. GST component splits are not calculated yet. See [Technology Stack (M0)](./docs/09-technology-stack.md).
 
 ## Quick start
 

@@ -35,6 +35,7 @@ describe("migrate", () => {
       "business-profile",
       "customer",
       "product-service",
+      "billing-document",
     ]);
   });
 

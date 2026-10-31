@@ -39,6 +39,13 @@ describe("Money", () => {
     expect(Money.parse("-1").compare(Money.parse("-2"))).toBe(1);
   });
 
+  it("divides exact amounts without rounding", () => {
+    expect(Money.parse("10").dividedBy(Money.parse("4")).toDecimalString()).toBe("2.5");
+    const included = Money.parse("100").times(Ratio.parse("100")).dividedBy(Money.parse("118"));
+    expect(roundHalfUp(included, INR_MINOR_SCALE).toDecimalString()).toBe("84.75");
+    expect(() => Money.parse("1").dividedBy(Money.zero())).toThrow(MoneyError);
+  });
+
   it("multiplies by an exact ratio without rounding", () => {
     const tax = Money.parse("250").times(Ratio.percent("18"));
     expect(tax.toDecimalString()).toBe("45");
