@@ -85,6 +85,8 @@ export {
   shareInvoicePdf,
 } from "./export.js";
 export { buildInvoicePdf } from "./pdf.js";
+export { buildCustomerReceiptPdf } from "./customer-receipt-pdf.js";
+export { exportCustomerReceiptPdf } from "./customer-receipt-export.js";
 export { loadConfig, type AppConfig } from "./config.js";
 export { AppError, toUserFacingMessage, type ErrorCode } from "./errors.js";
 export { createLogger, type Logger } from "./logger.js";
@@ -95,11 +97,15 @@ export {
   recordCustomerReceipt,
   listCustomerReceipts,
   getCustomerAdvance,
+  renderCustomerReceipt,
+  customerReceiptPrintLines,
+  printCustomerReceipt,
   type CustomerReceipt,
   type CustomerReceiptDeps,
   type CustomerReceiptRepository,
   type PaymentMethod,
   type ReceiptIdentitySnapshot,
+  type PrintableCustomerReceipt,
   type RecordCustomerReceiptInput,
 } from "./customer-receipt.js";
 
