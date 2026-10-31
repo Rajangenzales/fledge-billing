@@ -1,7 +1,7 @@
 # Fledge Billing — Technology Stack (M0)
 
 **Status:** Adopted for foundation milestone  
-**Version:** 0.14
+**Version:** 0.15
 
 ## Decision
 
@@ -104,6 +104,14 @@ Migration `custom-field` is version 8. A template version can add up to 20 custo
 A template preview lays out the saved template, or an unsaved edit, around sample invoice data. The sample number is `Preview`. Amounts come from the GST engine for a fixed sample: a tax invoice and a quotation use ₹1000 at 18%, a non-GST invoice and a receipt use three notebooks at ₹10.10 with a 10% discount, and a bill of supply uses ₹40 exempt. The preview says it is not a saved invoice. It does not insert a document or take a document number. Restoring a template writes a new version from the built-in layout and leaves the previous version in place.
 
 An issued document renders from the template version stored on it and from the amounts, tax rows, and custom-field labels saved with the document. A later template edit does not change that render. A document saved before templates existed has a null template id. It renders with the built-in layout for its document type, and the render does not write a template id or recalculate the stored total. Supplier and customer names still come from the current master records. Reordering and brand styling are not in this slice.
+
+## PDF, print and share (M7)
+
+PDF generation uses [pdf-lib](https://pdf-lib.js.org/) 1.17.1. It is pure JavaScript, so the shell can build a PDF offline without a native addon or a network call. The embedded face is the standard Helvetica that ships inside the library. A4 is the only page size. Text that Helvetica cannot draw is rejected before a file is written.
+
+Print text, the PDF, and the saved file all start from the issued-document render. Amounts are copied from that render and shown as `INR 1,180.00`. The stored total string is left as `1180`. A long invoice continues on the next page instead of shrinking the type. Page numbers are drawn after the pages exist. A money line moves to the next page as a whole so the amount stays with its label.
+
+Export writes `tax-invoice_INV-2026-27-0001_2026-10-31.pdf` in a chosen local folder. The file is written to a temporary name and renamed into place. The name uses the document type, number, and date. Share on this shell is that same local file. Nothing is emailed or uploaded. A logo is embedded only when the caller supplies PNG or JPEG bytes under 1 MB. A web address is never fetched. A failed export leaves the issued invoice unchanged.
 
 ## Tooling
 

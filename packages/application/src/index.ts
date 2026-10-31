@@ -79,6 +79,12 @@ export {
   type TemplateRepository,
   type TemplateSection,
 } from "./template.js";
+export {
+  exportInvoicePdf,
+  printInvoice,
+  shareInvoicePdf,
+} from "./export.js";
+export { buildInvoicePdf } from "./pdf.js";
 export { loadConfig, type AppConfig } from "./config.js";
 export { AppError, toUserFacingMessage, type ErrorCode } from "./errors.js";
 export { createLogger, type Logger } from "./logger.js";

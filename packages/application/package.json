@@ -16,6 +16,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@fledge/domain": "workspace:*"
+    "@fledge/domain": "workspace:*",
+    "pdf-lib": "1.17.1"
   }
 }
