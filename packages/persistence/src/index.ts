@@ -20,4 +20,5 @@ export { listStateUts, stateUtMaster } from "./state-ut.js";
 export { createCustomerReceiptRepository, customerReceipt } from "./customer-receipt.js";
 
 export { allocationEvents, createAllocationRepository } from "./allocation.js";
+export { createPaymentAdjustmentRepository, paymentAdjustments } from "./payment-adjustment.js";
 \nexport { createPaymentAdjustmentRepository, paymentAdjustments } from "./payment-adjustment.js";\n
