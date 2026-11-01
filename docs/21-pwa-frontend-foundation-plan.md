@@ -29,7 +29,7 @@ The first browser experience must preserve these approved constraints:
 
 ## 3. Proposed implementation direction
 
-The following is a recommendation, not an approved stack decision:
+The following W0 stack and package boundary are approved:
 
 1. Add a dedicated browser package, preferably `packages/web`, rather than turning the Node CLI package into a mixed Node/browser runtime.
 2. Use React with Vite for the responsive browser UI and production asset build.
