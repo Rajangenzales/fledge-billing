@@ -155,7 +155,7 @@ export function openFledgeDatabase(factory = globalThis.indexedDB) {
   });
 }
 
-export function getBusinessIdForAssets(businessRepository) {
+function getBusinessIdForAssets(businessRepository) {
   return businessRepository.get().then((business) => business?.id ?? null);
 }
 
