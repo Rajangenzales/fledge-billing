@@ -25,3 +25,22 @@ export {
   type StoredCustomer,
   type UpdateCustomerInput,
 } from "./customer.js";
+
+export {
+  createProduct,
+  createSavedGstRate,
+  getProduct,
+  listProducts,
+  listSavedGstRates,
+  listTaxCategories,
+  updateProduct,
+  updateSavedGstRate,
+  type Product,
+  type ProductDeps,
+  type ProductRepository,
+  type SavedGstRate,
+  type StoredProduct,
+  type TaxCategory,
+  type UpdateProductInput,
+  type UpdateSavedGstRateInput,
+} from "./product.js";

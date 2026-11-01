@@ -1,6 +1,6 @@
 # Fledge Billing — W1A Async Repository & Transaction Contract
 
-**Status:** Proposed application/storage contract for review  
+**Status:** Approved and merged in PR #37  
 **Baseline:** `main` at `f4e368eaa344fdf0327f0644c6ad69a72fa61c99` (PR #36 merged)  
 **Scope:** Define asynchronous repository behaviour, atomicity boundaries and the SQLite transition. This document does not implement the migration or select an IndexedDB library.
 
@@ -191,8 +191,10 @@ These decisions require later evidence and must not be smuggled into W1A.
 - [x] Record financial, ownership, idempotency and immutable-history invariants.
 - [x] Specify a SQLite compatibility strategy without changing migrations 1–12.
 - [x] Bound W1B to business profile and customer workflows.
-- [ ] Review and merge this contract.
-- [ ] Implement W1B and verify the existing Node workflows.
+- [x] Review and merge this contract (PR #37).
+- [x] Implement the first business-profile/customer async migration (W1B, PR #38).
+- [ ] Run the repository test, typecheck and build commands in a pnpm-enabled environment.
+- [x] Implement the product/saved GST rate async migration (W1D, PR #40 pending review).
 
 ## 11. Source files inspected
 

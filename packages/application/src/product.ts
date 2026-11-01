@@ -41,16 +41,16 @@ export type StoredProduct = NormalizedProductInput & {
 };
 
 export type ProductRepository = {
-  getBusinessId: () => string | null;
-  listTaxCategories: () => TaxCategory[];
-  listSavedGstRates: () => SavedGstRate[];
-  getSavedGstRate: (id: string) => SavedGstRate | null;
-  insertSavedGstRate: (record: SavedGstRate) => void;
-  updateSavedGstRate: (record: SavedGstRate) => void;
-  listProducts: () => StoredProduct[];
-  getProduct: (id: string) => StoredProduct | null;
-  insertProduct: (record: StoredProduct) => void;
-  updateProduct: (record: StoredProduct) => void;
+  getBusinessId: () => Promise<string | null>;
+  listTaxCategories: () => Promise<TaxCategory[]>;
+  listSavedGstRates: () => Promise<SavedGstRate[]>;
+  getSavedGstRate: (id: string) => Promise<SavedGstRate | null>;
+  insertSavedGstRate: (record: SavedGstRate) => Promise<void>;
+  updateSavedGstRate: (record: SavedGstRate) => Promise<void>;
+  listProducts: () => Promise<StoredProduct[]>;
+  getProduct: (id: string) => Promise<StoredProduct | null>;
+  insertProduct: (record: StoredProduct) => Promise<void>;
+  updateProduct: (record: StoredProduct) => Promise<void>;
 };
 
 export type ProductDeps = {
@@ -67,8 +67,9 @@ export type UpdateSavedGstRateInput = SaveSavedGstRateInput & {
   active?: boolean;
 };
 
-export function listTaxCategories(deps: ProductDeps): TaxCategory[] {
-  return [...deps.repository.listTaxCategories()].sort(
+export async function listTaxCategories(deps: ProductDeps): Promise<TaxCategory[]> {
+  const categories = await deps.repository.listTaxCategories();
+  return [...categories].sort(
     (left, right) => categoryOrder(left.id) - categoryOrder(right.id),
   );
 }
@@ -78,19 +79,21 @@ function categoryOrder(id: TaxCategoryId): number {
   return index === -1 ? TAX_CATEGORIES.length : index;
 }
 
-export function listSavedGstRates(
+export async function listSavedGstRates(
   deps: ProductDeps,
   options: { includeInactive?: boolean } = {},
-): SavedGstRate[] {
-  return deps.repository
-    .listSavedGstRates()
-    .filter((rate) => options.includeInactive || rate.active);
+): Promise<SavedGstRate[]> {
+  const rates = await deps.repository.listSavedGstRates();
+  return rates.filter((rate) => options.includeInactive || rate.active);
 }
 
-export function createSavedGstRate(input: SaveSavedGstRateInput, deps: ProductDeps): SavedGstRate {
-  const businessId = requireBusiness(deps);
+export async function createSavedGstRate(
+  input: SaveSavedGstRateInput,
+  deps: ProductDeps,
+): Promise<SavedGstRate> {
+  const businessId = await requireBusiness(deps);
   const normalized = validateSavedGstRate(input);
-  assertUniqueRateName(normalized.name, null, deps);
+  await assertUniqueRateName(normalized.name, null, deps);
   const timestamp = deps.now();
   const record: SavedGstRate = {
     ...normalized,
@@ -100,21 +103,21 @@ export function createSavedGstRate(input: SaveSavedGstRateInput, deps: ProductDe
     createdAt: timestamp,
     updatedAt: timestamp,
   };
-  deps.repository.insertSavedGstRate(record);
+  await deps.repository.insertSavedGstRate(record);
   return record;
 }
 
-export function updateSavedGstRate(
+export async function updateSavedGstRate(
   id: string,
   input: UpdateSavedGstRateInput,
   deps: ProductDeps,
-): SavedGstRate {
-  const existing = deps.repository.getSavedGstRate(id);
+): Promise<SavedGstRate> {
+  const existing = await deps.repository.getSavedGstRate(id);
   if (!existing) {
     throw new ProductError("That saved GST rate was not found.");
   }
   const normalized = validateSavedGstRate(input);
-  assertUniqueRateName(normalized.name, existing.id, deps);
+  await assertUniqueRateName(normalized.name, existing.id, deps);
   const record: SavedGstRate = {
     ...normalized,
     id: existing.id,
@@ -123,33 +126,41 @@ export function updateSavedGstRate(
     createdAt: existing.createdAt,
     updatedAt: deps.now(),
   };
-  deps.repository.updateSavedGstRate(record);
+  await deps.repository.updateSavedGstRate(record);
   return record;
 }
 
-export function listProducts(
+export async function listProducts(
   deps: ProductDeps,
   options: { includeInactive?: boolean } = {},
-): Product[] {
-  return deps.repository
-    .listProducts()
-    .filter((product) => options.includeInactive || product.active)
-    .map((product) => toProduct(product, deps));
+): Promise<Product[]> {
+  const products = await deps.repository.listProducts();
+  const selected = products.filter((product) => options.includeInactive || product.active);
+  const result: Product[] = [];
+  for (const product of selected) {
+    result.push(await toProduct(product, deps));
+  }
+  return result;
 }
 
-export function getProduct(id: string, deps: ProductDeps): Product | null {
-  const stored = deps.repository.getProduct(id);
+export async function getProduct(id: string, deps: ProductDeps): Promise<Product | null> {
+  const stored = await deps.repository.getProduct(id);
   if (!stored) {
     return null;
   }
   return toProduct(stored, deps);
 }
 
-export function createProduct(input: SaveProductInput, deps: ProductDeps): Product {
-  const businessId = requireBusiness(deps);
-  const savedRate = input.savedGstRateId ? deps.repository.getSavedGstRate(input.savedGstRateId) : null;
+export async function createProduct(
+  input: SaveProductInput,
+  deps: ProductDeps,
+): Promise<Product> {
+  const businessId = await requireBusiness(deps);
+  const savedRate = input.savedGstRateId
+    ? await deps.repository.getSavedGstRate(input.savedGstRateId)
+    : null;
   const normalized = validateProductInput(input, savedRate);
-  assertUniqueCode(normalized.code, null, deps);
+  await assertUniqueCode(normalized.code, null, deps);
   const timestamp = deps.now();
   const stored: StoredProduct = {
     ...normalized,
@@ -159,20 +170,26 @@ export function createProduct(input: SaveProductInput, deps: ProductDeps): Produ
     createdAt: timestamp,
     updatedAt: timestamp,
   };
-  deps.repository.insertProduct(stored);
+  await deps.repository.insertProduct(stored);
   return toProduct(stored, deps);
 }
 
-export function updateProduct(id: string, input: UpdateProductInput, deps: ProductDeps): Product {
-  const existing = deps.repository.getProduct(id);
+export async function updateProduct(
+  id: string,
+  input: UpdateProductInput,
+  deps: ProductDeps,
+): Promise<Product> {
+  const existing = await deps.repository.getProduct(id);
   if (!existing) {
     throw new ProductError("That product was not found.");
   }
-  const savedRate = input.savedGstRateId ? deps.repository.getSavedGstRate(input.savedGstRateId) : null;
+  const savedRate = input.savedGstRateId
+    ? await deps.repository.getSavedGstRate(input.savedGstRateId)
+    : null;
   const normalized = validateProductInput(input, savedRate, {
     allowInactiveSavedRate: existing.savedGstRateId === input.savedGstRateId,
   });
-  assertUniqueCode(normalized.code, existing.id, deps);
+  await assertUniqueCode(normalized.code, existing.id, deps);
   const stored: StoredProduct = {
     ...normalized,
     id: existing.id,
@@ -181,17 +198,18 @@ export function updateProduct(id: string, input: UpdateProductInput, deps: Produ
     createdAt: existing.createdAt,
     updatedAt: deps.now(),
   };
-  deps.repository.updateProduct(stored);
+  await deps.repository.updateProduct(stored);
   return toProduct(stored, deps);
 }
 
-function toProduct(stored: StoredProduct, deps: ProductDeps): Product {
-  const taxCategory = deps.repository.listTaxCategories().find((category) => category.id === stored.taxCategoryId);
+async function toProduct(stored: StoredProduct, deps: ProductDeps): Promise<Product> {
+  const categories = await deps.repository.listTaxCategories();
+  const taxCategory = categories.find((category) => category.id === stored.taxCategoryId);
   if (!taxCategory) {
     throw new ProductError("The saved tax category is missing.");
   }
   const savedGstRate = stored.savedGstRateId
-    ? deps.repository.getSavedGstRate(stored.savedGstRateId)
+    ? await deps.repository.getSavedGstRate(stored.savedGstRateId)
     : null;
   if (stored.savedGstRateId && !savedGstRate) {
     throw new ProductError("The saved GST rate for this item is missing.");
@@ -199,30 +217,36 @@ function toProduct(stored: StoredProduct, deps: ProductDeps): Product {
   return { ...stored, taxCategory, savedGstRate };
 }
 
-function requireBusiness(deps: ProductDeps): string {
-  const businessId = deps.repository.getBusinessId();
+async function requireBusiness(deps: ProductDeps): Promise<string> {
+  const businessId = await deps.repository.getBusinessId();
   if (!businessId) {
     throw new ProductError("Save the business profile before adding a product.");
   }
   return businessId;
 }
 
-function assertUniqueRateName(name: string, currentId: string | null, deps: ProductDeps): void {
-  const clash = deps.repository
-    .listSavedGstRates()
-    .some((rate) => rate.id !== currentId && rate.name === name);
+async function assertUniqueRateName(
+  name: string,
+  currentId: string | null,
+  deps: ProductDeps,
+): Promise<void> {
+  const rates = await deps.repository.listSavedGstRates();
+  const clash = rates.some((rate) => rate.id !== currentId && rate.name === name);
   if (clash) {
     throw new ProductError("A saved GST rate with this name already exists.");
   }
 }
 
-function assertUniqueCode(code: string | null, currentId: string | null, deps: ProductDeps): void {
+async function assertUniqueCode(
+  code: string | null,
+  currentId: string | null,
+  deps: ProductDeps,
+): Promise<void> {
   if (!code) {
     return;
   }
-  const clash = deps.repository
-    .listProducts()
-    .some((product) => product.id !== currentId && product.code === code);
+  const products = await deps.repository.listProducts();
+  const clash = products.some((product) => product.id !== currentId && product.code === code);
   if (clash) {
     throw new ProductError("A product with this code already exists.");
   }
