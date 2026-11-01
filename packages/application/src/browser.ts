@@ -82,3 +82,22 @@ export {
   type IssuedRenderDeps,
   type TemplatePreviewDeps,
 } from "./preview.js";
+
+export {
+  PAYMENT_METHODS, CustomerReceiptError, recordCustomerReceipt, listCustomerReceipts, getCustomerAdvance,
+  type CustomerReceipt, type CustomerReceiptDeps, type CustomerReceiptRepository, type PaymentMethod,
+  type ReceiptIdentitySnapshot, type RecordCustomerReceiptInput,
+} from "./customer-receipt.js";
+export {
+  AllocationError, allocateReceiptToInvoice, releaseReceiptAllocation, getInvoiceSettlement, getCustomerAllocatedTotal,
+  type AllocationDeps, type AllocationEvent, type AllocationRepository, type InvoiceSettlement,
+} from "./allocation.js";
+export {
+  PaymentAdjustmentError, recordCustomerRefund, reverseCustomerReceipt, reverseCustomerRefund, listReceiptAdjustments,
+  type PaymentAdjustmentDeps, type PaymentAdjustmentEvent, type PaymentAdjustmentRepository,
+  type PaymentAdjustmentTotals, type PaymentAdjustmentType,
+} from "./payment-adjustment.js";
+export {
+  getCustomerPaymentActivity, type CustomerPaymentActivity, type CustomerPaymentActivityDeps,
+  type CustomerPaymentActivityEntry, type CustomerPaymentActivityType,
+} from "./customer-payment-activity.js";
