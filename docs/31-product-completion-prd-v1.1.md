@@ -25,12 +25,13 @@ Fledge Billing is a local-first billing application for Indian businesses. It mu
 The product must be designed around these principles:
 
 1. **Local-first operation:** Routine billing and access to saved local records must not depend on a continuous internet connection.
-2. **Financial correctness:** Money, tax, numbering, payment and document lifecycle rules belong in tested domain/application services, never in presentation code.
-3. **Document integrity:** Finalized financial documents preserve their original values and snapshots. Corrections use explicit, controlled workflows.
-4. **Data ownership:** Business records remain under the business owner's control. Backup and synchronization are distinct capabilities and must be opt-in.
-5. **GST awareness:** GST behaviour must be sourced, versioned, testable and reviewed. A user setting must never override legal treatment.
-6. **Safe evolution:** Database changes use versioned migrations. Updates must protect existing user data and provide a recoverable path.
-7. **Release discipline:** A feature is not complete merely because a screen exists. It must work through its full user journey and meet its acceptance criteria.
+2. **Calendar-date integrity:** Default document and payment dates use the device-local calendar date. The saved document date remains authoritative for invoice output and financial-year numbering.
+3. **Financial correctness:** Money, tax, numbering, payment and document lifecycle rules belong in tested domain/application services, never in presentation code.
+4. **Document integrity:** Finalized financial documents preserve their original values and snapshots. Corrections use explicit, controlled workflows.
+5. **Data ownership:** Business records remain under the business owner's control. Backup and synchronization are distinct capabilities and must be opt-in.
+6. **GST awareness:** GST behaviour must be sourced, versioned, testable and reviewed. A user setting must never override legal treatment.
+7. **Safe evolution:** Database changes use versioned migrations. Updates must protect existing user data and provide a recoverable path.
+8. **Release discipline:** A feature is not complete merely because a screen exists. It must work through its full user journey and meet its acceptance criteria.
 
 ## 3. Current implementation baseline
 

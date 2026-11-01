@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { BUSINESS_SECTOR_PRESETS, invoicePdfFilename, TAX_CATEGORIES } from "@fledge/domain";
 import IssuedDocumentOutput from "./IssuedDocumentOutput.jsx";
+import { localDateInputValue } from "./local-date.js";
 import { STATE_UTS } from "@fledge/domain";
 
 const documentTypes = [
@@ -37,7 +38,7 @@ function defaultForm(business, customers, templates) {
   const documentType = business?.gstRegistered ? "tax_invoice" : "non_gst_invoice";
   const defaultTemplate = defaultTemplateForBusiness(business, templates, documentType);
   const customer = customers.find((item) => item.active);
-  const documentDate = new Date().toISOString().slice(0, 10);
+  const documentDate = localDateInputValue();
   return {
     id: null,
     customerId: customer?.id ?? "",
