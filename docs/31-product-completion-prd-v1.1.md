@@ -25,6 +25,7 @@ Fledge Billing is a local-first billing application for Indian businesses. It mu
 The product must be designed around these principles:
 
 1. **Local-first operation:** Routine billing and access to saved local records must not depend on a continuous internet connection.
+2. **Calendar-date integrity:** Default document and payment dates use the device-local calendar date. The saved document date remains authoritative for invoice output and financial-year numbering.
 2. **Financial correctness:** Money, tax, numbering, payment and document lifecycle rules belong in tested domain/application services, never in presentation code.
 3. **Document integrity:** Finalized financial documents preserve their original values and snapshots. Corrections use explicit, controlled workflows.
 4. **Data ownership:** Business records remain under the business owner's control. Backup and synchronization are distinct capabilities and must be opt-in.
