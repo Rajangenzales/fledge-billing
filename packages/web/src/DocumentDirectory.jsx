@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { invoicePdfFilename } from "@fledge/domain";
+import { invoicePdfFilename, TAX_CATEGORIES } from "@fledge/domain";
 import IssuedDocumentOutput from "./IssuedDocumentOutput.jsx";
 import { STATE_UTS } from "@fledge/domain";
 
@@ -43,6 +43,7 @@ function defaultForm(business, customers, templates) {
     quotationGstEnabled: false,
     reverseCharge: false,
     lines: [],
+    charges: [],
   };
 }
 
@@ -59,6 +60,12 @@ function formFromDocument(document) {
     placeOfSupplyStateId: document.placeOfSupplyStateId ?? "",
     quotationGstEnabled: document.documentType === "quotation" && document.gstEnabled,
     reverseCharge: document.reverseCharge,
+    charges: (document.charges ?? []).map((charge) => ({
+      description: charge.description,
+      amount: charge.amount,
+      taxCategoryId: charge.taxCategoryId,
+      gstRatePercent: charge.gstRatePercent ?? "",
+    })),
     lines: document.lines.map((line) => ({
       productId: line.productId ?? "",
       description: line.description,
@@ -104,6 +111,13 @@ function documentInput(form) {
     placeOfSupplyStateId: gstEnabled ? form.placeOfSupplyStateId : null,
     gstEnabled,
     reverseCharge: gstEnabled && form.reverseCharge,
+    charges: form.charges.map((charge) => ({
+      description: charge.description,
+      amount: charge.amount,
+      taxable: gstEnabled && charge.taxCategoryId === "taxable",
+      taxCategoryId: gstEnabled ? charge.taxCategoryId : "non-gst",
+      gstRatePercent: gstEnabled && charge.taxCategoryId === "taxable" ? charge.gstRatePercent || null : null,
+    })),
     lines: form.lines.map((line) => ({
       ...line,
       hsnSac: line.hsnSac || null,
@@ -387,6 +401,42 @@ export default function DocumentDirectory({
     setConfirmFinalize(false);
   }
 
+  function addCharge() {
+    setForm((current) => ({
+      ...current,
+      charges: [...current.charges, { description: "", amount: "", taxCategoryId: gstEnabled ? "taxable" : "non-gst", gstRatePercent: "" }],
+    }));
+    setDirty(true);
+    setSavedPreview(null);
+    setMessage("");
+    setConfirmFinalize(false);
+  }
+
+  function updateCharge(index, field, value) {
+    setForm((current) => ({
+      ...current,
+      charges: current.charges.map((charge, chargeIndex) =>
+        chargeIndex === index ? {
+          ...charge,
+          [field]: value,
+          ...(field === "taxCategoryId" && value !== "taxable" ? { gstRatePercent: "" } : {}),
+        } : charge,
+      ),
+    }));
+    setDirty(true);
+    setSavedPreview(null);
+    setMessage("");
+    setConfirmFinalize(false);
+  }
+
+  function removeCharge(index) {
+    setForm((current) => ({ ...current, charges: current.charges.filter((_, chargeIndex) => chargeIndex !== index) }));
+    setDirty(true);
+    setSavedPreview(null);
+    setMessage("");
+    setConfirmFinalize(false);
+  }
+
   function removeLine(index) {
     setForm((current) => ({
       ...current,
@@ -462,6 +512,22 @@ export default function DocumentDirectory({
           <button className="list-action" type="button" onClick={() => removeLine(index)}>Remove</button>
         </fieldset>)}
       </div>}
+      <section className="document-charges" aria-label="Additional charges">
+        <div className="document-lines-heading">
+          <h3>Additional charges</h3>
+          <button className="secondary-button" type="button" onClick={addCharge}>Add charge</button>
+        </div>
+        {form.charges.length === 0
+          ? <p className="empty-line-note">Optional delivery, packing or other charges can be added here.</p>
+          : <div className="document-lines">{form.charges.map((charge, index) => <fieldset className="document-line" key={index}>
+            <legend>Charge {index + 1}</legend>
+            <label>Description<input required maxLength={200} value={charge.description} onChange={(event) => updateCharge(index, "description", event.target.value)} placeholder="Delivery / Packing" /></label>
+            <label>Amount (₹)<input required inputMode="decimal" value={charge.amount} onChange={(event) => updateCharge(index, "amount", event.target.value)} placeholder="0.00" /></label>
+            {gstEnabled && <label>Tax category<select value={charge.taxCategoryId} onChange={(event) => updateCharge(index, "taxCategoryId", event.target.value)}>{TAX_CATEGORIES.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>}
+            {gstEnabled && charge.taxCategoryId === "taxable" && <label>GST rate (%)<input required inputMode="decimal" value={charge.gstRatePercent} onChange={(event) => updateCharge(index, "gstRatePercent", event.target.value)} /></label>}
+            <button className="list-action" type="button" onClick={() => removeCharge(index)}>Remove charge</button>
+          </fieldset>)}</div>}
+      </section>
       {savedPreview && <section className="document-preview" aria-label="Saved draft totals">
         <h3>Draft totals</h3>
         <dl><div><dt>Subtotal</dt><dd>{money(savedPreview.subtotal)}</dd></div><div><dt>Tax</dt><dd>{money(savedPreview.taxTotal)}</dd></div><div><dt>Total</dt><dd>{money(savedPreview.grandTotal)}</dd></div></dl>
