@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { listTemplates, type InvoiceTemplate, type TemplateDeps } from "./template.js";
+import { listTemplates, setDefaultTemplate, type InvoiceTemplate, type TemplateDeps } from "./template.js";
 
 const template = {
   id: "template-1",
@@ -75,5 +75,30 @@ describe("async template application workflows", () => {
     });
 
     await expect(listTemplates(templateDeps)).resolves.toEqual([template]);
+  });
+
+  it("waits for the atomic default-template update before resolving", async () => {
+    let releaseWrite!: () => void;
+    let signalWriteStarted!: () => void;
+    const writeStarted = new Promise<void>((resolve) => { signalWriteStarted = resolve; });
+    const writeGate = new Promise<void>((resolve) => { releaseWrite = resolve; });
+    let resolved = false;
+
+    const templateDeps = deps({
+      setDefault: async () => {
+        signalWriteStarted();
+        await writeGate;
+      },
+    });
+    const result = setDefaultTemplate("template-1", templateDeps).then((saved) => {
+      resolved = true;
+      return saved;
+    });
+
+    await writeStarted;
+    expect(resolved).toBe(false);
+    releaseWrite();
+    await expect(result).resolves.toBe(template);
+    expect(resolved).toBe(true);
   });
 });
