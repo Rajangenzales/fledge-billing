@@ -61,6 +61,19 @@ describe("customer validation", () => {
     ).toThrow(/check digit/);
   });
 
+  it("defaults credit periods to zero and accepts a configured duration", () => {
+    expect(validateCustomerInput(input(), STATE_UTS).creditDays).toBe(0);
+    expect(validateCustomerInput(input({ creditDays: 30 }), STATE_UTS).creditDays).toBe(30);
+  });
+
+  it("requires a whole credit period from zero through 365 days", () => {
+    for (const creditDays of [-1, 1.5, 366, Number.NaN]) {
+      expect(() => validateCustomerInput(input({ creditDays }), STATE_UTS)).toThrow(
+        /whole number from 0 to 365 days/,
+      );
+    }
+  });
+
   it("requires an active State or Union Territory", () => {
     expect(() => validateCustomerInput(input({ stateId: "IN-DD" }), STATE_UTS)).toThrow(CustomerError);
     expect(() => validateCustomerInput(input({ name: " " }), STATE_UTS)).toThrow(/customer name/);
