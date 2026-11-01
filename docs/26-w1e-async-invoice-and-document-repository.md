@@ -1,6 +1,6 @@
 # W1E — Async Invoice and Document Repository
 
-**Status:** Implemented in PR #41; pending review and merge  
+**Status:** Merged in PR #41  
 **Depends on:** W1A async repository contract (docs/23), W1B business/customer migration (PR #38), W1C browser boundary (PR #39), W1D product/saved GST rate migration (PR #40)  
 **Scope:** Convert the document repository and its application/rendering callers to explicit Promise-based contracts while preserving existing financial transaction boundaries.
 
@@ -47,4 +47,4 @@
 
 ## 5. Next migration
 
-After W1E is reviewed and merged, migrate the template repository and its application workflows as the next focused slice. Payment repositories and payment activity composition remain for subsequent async migrations. IndexedDB remains deferred until the required application repositories and browser boundary are fully migrated and verified.
+W1E is merged. W1F now migrates the template repository and rendering workflows in PR #42. Payment repositories and payment activity composition remain for subsequent async migrations. IndexedDB remains deferred until the required application repositories and browser boundary are fully migrated and verified.
