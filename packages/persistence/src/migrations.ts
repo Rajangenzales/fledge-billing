@@ -13,6 +13,7 @@ import { paymentAdjustments } from "./payment-adjustment.js";
 import { receiptIdentitySnapshot } from "./receipt-identity-snapshot.js";
 import { documentDueDate } from "./document-due-date.js";
 import { documentPartySnapshot } from "./document-party-snapshot.js";
+import { customerCreditPeriod } from "./customer-credit-period.js";
 
 /** Schema changes shipped with this application build. */
 export const migrations: readonly Migration[] = [
@@ -30,4 +31,5 @@ export const migrations: readonly Migration[] = [
   receiptIdentitySnapshot,
   documentDueDate,
   documentPartySnapshot,
+  customerCreditPeriod,
 ];
