@@ -1009,12 +1009,12 @@ describe("browser IndexedDB repositories", () => {
       expect.objectContaining({
         documentChargeId: draft.charges[0].id,
         taxType: "CGST",
-        amount: "4.50",
+        amount: "4.5",
       }),
       expect.objectContaining({
         documentChargeId: draft.charges[0].id,
         taxType: "SGST",
-        amount: "4.50",
+        amount: "4.5",
       }),
     ]));
     expect(draft.grandTotal).toBe("295");
