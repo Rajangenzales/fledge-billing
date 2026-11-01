@@ -30,6 +30,19 @@ importers:
         specifier: workspace:*
         version: link:../persistence
 
+  packages/web:
+    dependencies:
+      react:
+        specifier: 19.2.0
+        version: 19.2.0
+      react-dom:
+        specifier: 19.2.0
+        version: 19.2.0(react@19.2.0)
+    devDependencies:
+      vite:
+        specifier: 7.3.7
+        version: 7.3.7(@types/node@22.20.5)
+
   packages/application:
     dependencies:
       '@fledge/domain':
@@ -620,7 +633,29 @@ packages:
     engines: {node: '>=8'}
     hasBin: true
 
+  react@19.2.0:
+    resolution: {integrity: sha512-tmbWg6W31tQLeB5cdIBOicJDJRR2KzXsV7uSK9iNfLWQ5bIZfxuPEHp7M8wiHyHnn0DD1i7w3Zmin0FtkrwoCQ==}
+    engines: {node: '>=0.10.0'}
+
+  react-dom@19.2.0:
+    resolution: {integrity: sha512-UlbRu4cAiGaIewkPyiRGJk0imDN2T3JjieT6spoL2UeSf5od4n5LB/mQ4ejmxhCFT1tYe8IvaFulzynWovsEFQ==}
+    engines: {node: '>=0.10.0'}
+    peerDependencies:
+      react: ^19.2.0
+
+  scheduler@0.27.0:
+    resolution: {integrity: sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==}
+    engines: {node: '>=0.10.0'}
+
 snapshots:
+
+  react@19.2.0: {}
+
+  react-dom@19.2.0(react@19.2.0):
+    dependencies:
+      scheduler: 0.27.0
+
+  scheduler@0.27.0: {}
 
   '@esbuild/aix-ppc64@0.28.2':
     optional: true
