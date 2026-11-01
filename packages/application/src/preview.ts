@@ -111,6 +111,8 @@ export async function renderIssuedDocument(id: string, deps: IssuedRenderDeps): 
       customerName: stored.recipientSnapshot?.name ?? contact?.name ?? "",
       customerPhone: stored.recipientSnapshot?.phone ?? contact?.phone ?? null,
       customerEmail: stored.recipientSnapshot?.email ?? contact?.email ?? null,
+      paymentDetails: stored.paymentDetailsSnapshot ?? null,
+      invoicePreferences: stored.invoicePreferencesSnapshot ?? null,
       placeOfSupplyName: place?.name ?? "",
       notes: stored.notices.join("\n"),
       reverseCharge: stored.reverseCharge,
