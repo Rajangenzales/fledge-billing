@@ -18,7 +18,7 @@ The frozen install ensures dependencies match the committed `pnpm-lock.yaml`. Do
 
 ## Validate changes
 
-Run the checks relevant to your change before opening a pull request:
+Run the checks relevant to your change before opening a pull request. The test and typecheck scripts first build the Node workspace dependency chain (`@fledge/domain`, `@fledge/application`, `@fledge/persistence` and `@fledge/app`) in dependency order. This ensures package export targets exist on a clean checkout; do not rely on stale local `dist/` folders.
 
 ```bash
 pnpm test
@@ -27,6 +27,6 @@ pnpm build
 pnpm web:build
 ```
 
-`pnpm build` builds the Node workspace packages and the web package. `pnpm web:build` also runs the browser production build and its dependency guard. Do not report a check as passing unless it has been run.
+`pnpm build:packages` explicitly builds the Node application package and its workspace dependencies in topological order. `pnpm build` builds all workspace packages, including the web package. `pnpm web:build` runs the browser production build and its dependency guard. Do not report a check as passing unless it has been run.
 
 For local development, use `pnpm web:dev` for the browser app or `pnpm start` for the local HTTP shell. See the [README](./README.md) and [development contract](./docs/08-roadmap-and-cursor-contract.md) for product and architecture guidance.
