@@ -15,6 +15,11 @@ const editableFieldLabels = new Set([
   "customer_email",
   "grand_total",
   "notes",
+  "item_description",
+  "item_quantity",
+  "item_unit",
+  "item_rate",
+  "item_amount",
 ]);
 const editableSectionLabels = new Set([
   "header",
@@ -261,7 +266,8 @@ export default function TemplateDirectory({ business, templates, deps, onRefresh
             <p className="template-preview-notice">{preview.notice}</p>
             <h2 style={{ color: preview.brandColor }}>{selected.name} · v{preview.version}</h2>
             {preview.sections.filter((section) => section.fields.length).map((section) => <section key={section.key}><h3>{section.label}</h3>{section.fields.map((field) => <p key={field.key}><strong>{field.label}:</strong> {field.value}</p>)}</section>)}
-            {preview.items.map((item, index) => <p key={`${item.description}-${index}`}>{item.description} · {item.quantity} {item.unit} · ₹{item.amount}</p>)}
+            {preview.items.length > 0 && <p className="template-item-column-headings">{Object.values(preview.itemColumnLabels).filter((label) => label !== preview.itemColumnLabels.hsnSac || preview.items.some((item) => item.hsnSac)).join(" | ")}</p>}
+            {preview.items.map((item, index) => <p key={`${item.description}-${index}`}>{preview.itemColumnLabels.description}: {item.description} · {preview.itemColumnLabels.quantity}: {item.quantity} · {preview.itemColumnLabels.unit}: {item.unit} · {preview.itemColumnLabels.rate}: ₹{item.rate} · {preview.itemColumnLabels.amount}: ₹{item.amount}{item.hsnSac ? ` · ${preview.itemColumnLabels.hsnSac}: ${item.hsnSac}` : ""}</p>)}
             <p><strong>Total: ₹{preview.totals.grandTotal}</strong></p>
           </> : <p>Preview a representative sample to check the selected template revision. It is not a saved billing document.</p>}
         </div>

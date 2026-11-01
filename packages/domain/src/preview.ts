@@ -36,6 +36,35 @@ export type PreviewCharge = {
   amount: string;
 };
 
+export type ItemColumnLabels = {
+  description: string;
+  quantity: string;
+  unit: string;
+  rate: string;
+  amount: string;
+  hsnSac: string;
+};
+
+const DEFAULT_ITEM_COLUMN_LABELS: ItemColumnLabels = {
+  description: "Description", quantity: "Quantity", unit: "Unit", rate: "Rate", amount: "Amount", hsnSac: "HSN/SAC",
+};
+
+function resolveItemColumnLabels(fields: readonly { key: string; label: string }[]): ItemColumnLabels {
+  const label = (key: string, fallback: string) => fields.find((field) => field.key === key)?.label ?? fallback;
+  return {
+    description: label("item_description", DEFAULT_ITEM_COLUMN_LABELS.description),
+    quantity: label("item_quantity", DEFAULT_ITEM_COLUMN_LABELS.quantity),
+    unit: label("item_unit", DEFAULT_ITEM_COLUMN_LABELS.unit),
+    rate: label("item_rate", DEFAULT_ITEM_COLUMN_LABELS.rate),
+    amount: label("item_amount", DEFAULT_ITEM_COLUMN_LABELS.amount),
+    hsnSac: label("hsn_sac", DEFAULT_ITEM_COLUMN_LABELS.hsnSac),
+  };
+}
+
+function isItemColumnKey(key: string): boolean {
+  return key === "item_description" || key === "item_quantity" || key === "item_unit" || key === "item_rate" || key === "item_amount";
+}
+
 export type TemplatePreview = {
   preview: true;
   notice: typeof PREVIEW_NOTICE;
@@ -48,6 +77,7 @@ export type TemplatePreview = {
   fontFamily: TemplateFontFamily;
   density: TemplateDensity;
   sections: PreviewSection[];
+  itemColumnLabels: ItemColumnLabels;
   items: PreviewItem[];
   charges: PreviewCharge[];
   totals: {
@@ -126,6 +156,7 @@ export function renderTemplatePreview(input: {
     fontFamily: input.template.fontFamily,
     density: input.template.density,
     sections,
+    itemColumnLabels: resolveItemColumnLabels(input.template.fields),
     items,
     charges,
     totals: {
@@ -152,7 +183,7 @@ function fieldsForSection(
   },
 ): PreviewField[] {
   const builtIn = input.template.fields
-    .filter((field) => field.sectionKey === sectionKey && field.visible)
+    .filter((field) => field.sectionKey === sectionKey && field.visible && !isItemColumnKey(field.key))
     .sort((left, right) => left.sortOrder - right.sortOrder)
     .map((field) => ({
       key: field.key,
@@ -160,7 +191,7 @@ function fieldsForSection(
       value: builtInValue(field.key, input),
     }));
   const custom = input.template.customFields
-    .filter((field) => field.sectionKey === sectionKey && field.visible)
+    .filter((field) => field.sectionKey === sectionKey && field.visible && !isItemColumnKey(field.key))
     .sort((left, right) => left.sortOrder - right.sortOrder)
     .map((field) => ({
       key: field.key,
@@ -183,6 +214,7 @@ export type IssuedRender = {
   logoMimeType?: "image/png" | "image/jpeg";
   logoDataUrl?: string;
   sections: PreviewSection[];
+  itemColumnLabels?: ItemColumnLabels;
   items: PreviewItem[];
   charges: PreviewCharge[];
   totals: {
@@ -281,6 +313,7 @@ export function renderStoredDocument(input: {
     documentDate: input.document.documentDate,
     documentType: input.document.documentType,
     sections,
+    itemColumnLabels: resolveItemColumnLabels(template?.fields ?? []),
     items,
     charges,
     totals: {
@@ -301,7 +334,7 @@ function storedFields(
 ): PreviewField[] {
   const builtIn = sectionVisible
     ? (template?.fields ?? [])
-        .filter((field) => field.sectionKey === sectionKey && field.visible)
+        .filter((field) => field.sectionKey === sectionKey && field.visible && !isItemColumnKey(field.key))
         .sort((left, right) => left.sortOrder - right.sortOrder)
         .map((field) => ({
           key: field.key,

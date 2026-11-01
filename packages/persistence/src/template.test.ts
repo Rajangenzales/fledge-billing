@@ -169,6 +169,23 @@ describe("invoice templates", () => {
     expect((await getDocument(issued.id, documentDeps))?.templateId).toBe("tpl:biz-1:gst:tax_invoice:1");
   });
 
+  it("exposes item column labels on existing templates and persists them in new revisions", async () => {
+    const db = database();
+    await prepare(db);
+    const templates = templateDeps(db);
+    const original = await getTemplate("tpl:biz-1:gst:tax_invoice:1", templates);
+    expect(original?.fields.find((field) => field.key === "item_description")).toMatchObject({ label: "Description", sectionKey: "items", required: true, protected: true });
+    const revised = await reviseTemplate("tpl:biz-1:gst:tax_invoice:1", { fields: [
+      { key: "item_description", label: "Product" }, { key: "item_quantity", label: "Cases" },
+      { key: "item_unit", label: "Pack" }, { key: "item_rate", label: "Unit price" },
+      { key: "item_amount", label: "Line total" },
+    ] }, templates);
+    expect(revised.fields.find((field) => field.key === "item_description")?.label).toBe("Product");
+    const loaded = await getTemplate(revised.id, templates);
+    expect(loaded?.fields.find((field) => field.key === "item_quantity")?.label).toBe("Cases");
+    expect(loaded?.fields.find((field) => field.key === "item_amount")?.label).toBe("Line total");
+  });
+
   it("saves a label change as a new version and leaves an issued document on the old one", async () => {
     const db = database();
     await prepare(db);

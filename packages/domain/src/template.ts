@@ -42,6 +42,11 @@ export const TEMPLATE_FIELD_KEYS = [
   "customer_phone",
   "customer_email",
   "place_of_supply",
+  "item_description",
+  "item_quantity",
+  "item_unit",
+  "item_rate",
+  "item_amount",
   "hsn_sac",
   "taxable_value",
   "tax_components",
@@ -156,6 +161,11 @@ const FIELD_LABELS: Record<TemplateFieldKey, string> = {
   customer_phone: "Phone",
   customer_email: "Email",
   place_of_supply: "Place of supply",
+  item_description: "Description",
+  item_quantity: "Quantity",
+  item_unit: "Unit",
+  item_rate: "Rate",
+  item_amount: "Amount",
   hsn_sac: "HSN/SAC",
   taxable_value: "Taxable value",
   tax_components: "Tax",
@@ -173,6 +183,11 @@ const FIELD_SECTION: Record<TemplateFieldKey, TemplateSectionKey> = {
   customer_phone: "customer",
   customer_email: "customer",
   place_of_supply: "header",
+  item_description: "items",
+  item_quantity: "items",
+  item_unit: "items",
+  item_rate: "items",
+  item_amount: "items",
   hsn_sac: "items",
   taxable_value: "tax-summary",
   tax_components: "tax-summary",
@@ -260,6 +275,11 @@ const EDITABLE_FIELD_KEYS = new Set<TemplateFieldKey>([
   "customer_email",
   "grand_total",
   "notes",
+  "item_description",
+  "item_quantity",
+  "item_unit",
+  "item_rate",
+  "item_amount",
 ]);
 
 const EDITABLE_SECTION_KEYS = new Set<TemplateSectionKey>([
@@ -548,7 +568,12 @@ function isProtectedField(key: TemplateFieldKey, documentType: DocumentType): bo
     key === "document_date" ||
     key === "supplier_legal_name" ||
     key === "customer_name" ||
-    key === "grand_total"
+    key === "grand_total" ||
+    key === "item_description" ||
+    key === "item_quantity" ||
+    key === "item_unit" ||
+    key === "item_rate" ||
+    key === "item_amount"
   ) {
     return true;
   }

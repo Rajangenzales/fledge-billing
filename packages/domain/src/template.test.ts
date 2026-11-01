@@ -105,6 +105,18 @@ describe("template label revisions", () => {
     expect(revised.fields.find((field) => field.key === "grand_total")?.label).toBe("Total Fare");
   });
 
+  it("allows business-specific item column labels while protecting GST headings", () => {
+    const revised = reviseTemplateConfiguration(gst(), { fields: [
+      { key: "item_description", label: "Product" }, { key: "item_quantity", label: "Cases" },
+      { key: "item_unit", label: "Pack" }, { key: "item_rate", label: "Unit price" },
+      { key: "item_amount", label: "Line total" },
+    ] });
+    expect(revised.fields.filter((field) => field.key.startsWith("item_")).map((field) => field.label)).toEqual(["Product", "Cases", "Pack", "Unit price", "Line total"]);
+    expect(revised.fields.filter((field) => field.key.startsWith("item_")).every((field) => field.required && field.protected)).toBe(true);
+    expect(() => reviseTemplateConfiguration(gst(), { fields: [{ key: "item_description", label: "GSTIN" }] })).toThrow(/statutory heading/);
+    expect(() => reviseTemplateConfiguration(gst(), { fields: [{ key: "hsn_sac", label: "Product code" }] })).toThrow(/Keep the label "HSN\/SAC"/);
+  });
+
   it("rejects a hidden statutory field, a renamed statutory label, and a statutory alias", () => {
     expect(() => reviseTemplateConfiguration(gst(), { fields: [{ key: "supplier_gstin", visible: false }] })).toThrow(
       /stay visible/,

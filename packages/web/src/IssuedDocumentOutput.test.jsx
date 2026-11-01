@@ -55,7 +55,8 @@ describe("issued document output", () => {
     expect(html).toContain("Supplier: Fledge Traders");
     expect(html).toContain("Customer: Harbour Stores");
     expect(html).toContain("CGST INR 90.00, SGST INR 90.00");
-    expect(html).toContain("Consulting service — 1 nos HSN 998314 — INR 1,000.00 — INR 1,000.00");
+    expect(html).toContain("Description | Quantity | Unit | Rate | Amount | HSN/SAC");
+    expect(html).toContain("Description: Consulting service | Quantity: 1 | Unit: nos | Rate: INR 1,000.00 | Amount: INR 1,000.00 | HSN/SAC: 998314");
     expect(html).toContain("Total: INR 1,180.00");
     expect(html).not.toContain("Generated");
     expect(html).toContain("Print</button>");
