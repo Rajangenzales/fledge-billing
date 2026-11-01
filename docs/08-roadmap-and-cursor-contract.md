@@ -2,7 +2,7 @@
 
 **Phase:** 8 of 8  
 **Status:** Approved implementation contract  
-**Version:** 1.4
+**Version:** 1.5
 
 ## 1. Development Rule
 
@@ -49,7 +49,7 @@ Calculation tests, lifecycle tests, migration tests, rendering tests, offline te
 ### M12 — V1 Release
 PWA deployment, production hosting, documentation, release checklist, account/payment service configuration, support/monitoring and production validation.
 
-## 2.1 Verified implementation snapshot — main after PR #30
+## 2.1 Verified implementation snapshot — main after PR #32
 
 This snapshot records merged repository work as of 1 November 2026. A merged milestone label does not mean every legal scenario, user workflow or release criterion in that milestone is complete.
 
@@ -59,7 +59,7 @@ This snapshot records merged repository work as of 1 November 2026. A merged mil
 | M5 — GST Engine | Core implementation merged (PR #12) | CGST/SGST/UTGST/IGST component calculations, explicit GST rate input, inclusive/exclusive pricing, tax snapshots and tests. No HSN/SAC rate lookup; place-of-supply determination for IGST Act sections 10–13 remains unresolved; compensation cess is not calculated; reverse-charge support is restricted. Do not describe this as complete coverage of all GST scenarios. |
 | M6 — Templates | Partially implemented (PRs #13–17) | Built-in template snapshots, safe label/visibility edits, custom-field snapshots, sample preview and historical rendering. Section/field reordering and full brand customization remain outstanding. |
 | M7 — PDF / Print / Share | Partially implemented (PR #18) | Local PDF export and printable text from the issued-document render. Full customer-facing print preview and platform share workflow remain outstanding. |
-| M8 — Payments and Adjustments | Partially implemented | M8-02A customer receipts/advances, M8-02B allocation/release history with derived invoice settlement, M8-02C refunds/receipt-refund reversals, M8-04A receipt-time identity snapshots and M8-04B ordinary payment receipt print/PDF are merged (PRs #24–26 and #29–30). Credit/debit note domain design is documented in docs/16; statutory note implementation, voucher automation and GST advance automation remain outstanding. |
+| M8 — Payments and Adjustments | Partially implemented | M8-02A customer receipts/advances, M8-02B allocation/release history with derived invoice settlement, M8-02C refunds/receipt-refund reversals, M8-04A receipt-time identity snapshots, M8-04B ordinary payment receipt print/PDF, and the read-only customer payment activity statement are merged (PRs #24–26, #29–30 and #32). Credit/debit note domain design is documented in docs/16; statutory note implementation, voucher automation and GST advance automation remain outstanding. |
 | PWA and platform foundations | Specification only | The app package remains a CLI/local HTTP health shell. No customer-facing PWA, service worker, IndexedDB adapter or browser-based offline billing is implemented. |
 | Security and accounts | Specification only | Registration, authentication, email verification, password reset, sessions and authorization are not implemented. |
 | Cloud services | Specification only | Optional cloud backup, multi-device sync, subscription gateway, Admin Control Centre and product analytics are not implemented. |
@@ -76,9 +76,9 @@ The current main-branch SQLite registry has twelve migrations, including custome
 
 **M8-03 design progress:** Credit/debit note categories, immutable record expectations, original-invoice linkage, date/numbering boundaries, customer-balance interactions and approval gates are documented in [docs/16](./16-m8-03-credit-debit-note-domain-model.md). This is design-only; no schema, migration, tax calculation or note workflow is authorized. D-05 to D-08 and note-specific decisions remain open pending owner/accountant and qualified GST-practitioner review.
 
-**M8 customer payment activity statement in progress:** A read-only customer-scoped view is being added over existing receipt, allocation, refund and reversal events. It is not a full accounting ledger and does not apply credit/debit-note effects or GST treatment.
+**M8 customer payment activity statement merged (PR #32):** A read-only customer-scoped application query combines existing receipt, allocation/release, refund and reversal events with derived summary totals. It preserves receipt/invoice references and deterministic chronological ordering. It is not a full accounting ledger and does not apply credit/debit-note effects or GST treatment.
 
-**Next implementation focus:** complete the read-only payment activity view, then resolve owner/accounting decisions and obtain qualified GST-practitioner review before authorizing credit/debit-note persistence or statutory behaviour. Do not reconcile payments against mutable or incomplete financial snapshots. Cross-cutting security and PWA foundations remain mandatory before public release. Do not claim production readiness or cross-platform offline PWA support yet.
+**Next implementation focus:** plan the next customer-facing workflow only after reviewing the current application/UI boundaries. Resolve owner/accounting decisions and obtain qualified GST-practitioner review before authorizing credit/debit-note persistence or statutory behaviour. Do not reconcile payments against mutable or incomplete financial snapshots. Cross-cutting security and PWA foundations remain mandatory before public release. Do not claim production readiness or cross-platform offline PWA support yet.
 
 
 ## 3. Cross-cutting platform and service prerequisites
@@ -217,7 +217,7 @@ Then the coding agent summarizes the relevant architecture and implementation pl
 
 ## 16. Current implementation baseline and next work
 
-Use the verified snapshot in section 2.1 as the current repository baseline. M0–M4 must not be recreated. M5 has a merged core GST component engine, but the documented statutory and product gaps remain open. M6 and M7 are partially implemented; M8 has not started.
+Use the verified snapshot in section 2.1 as the current repository baseline. M0–M4 must not be recreated. M5 has a merged core GST component engine, but the documented statutory and product gaps remain open. M6 and M7 are partially implemented. M8 is partially implemented: receipts, allocations, refunds/reversals, ordinary payment receipt print/PDF and a read-only customer payment activity statement are merged; credit/debit-note workflows and statutory GST automation remain gated.
 
 The current app is still a CLI/local HTTP health shell. Before customer-facing release, implement the customer PWA, IndexedDB persistence, offline browser workflows, authentication/security, subscription/entitlement services, Admin Control Centre, privacy controls and platform validation in focused issues. M9–M12 remain required release milestones.
 
