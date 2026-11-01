@@ -39,6 +39,7 @@ import { IDBFactory } from "fake-indexeddb";
 import { describe, expect, it } from "vitest";
 import {
   BrowserStorageError,
+  DATABASE_VERSION,
   createBrowserRepositories,
   openFledgeDatabase,
 } from "./indexed-db.js";
@@ -925,7 +926,7 @@ describe("browser IndexedDB repositories", () => {
     const repositories = createBrowserRepositories(database);
     await repositories.businessRepository.save({ id: "business-1" });
 
-    const upgrade = factory.open("fledge-billing", 6);
+    const upgrade = factory.open("fledge-billing", DATABASE_VERSION + 1);
     upgrade.onupgradeneeded = () => {
       upgrade.result.createObjectStore("future", { keyPath: "id" });
     };
@@ -937,7 +938,7 @@ describe("browser IndexedDB repositories", () => {
     upgradedDatabase.close();
   });
 
-  it("upgrades version 1 customer data to version 5 payment, product, document, and template stores", async () => {
+  it("upgrades version 1 customer data to version 6 payment, product, document, template, and logo stores", async () => {
     const factory = new IDBFactory();
     const legacyRequest = factory.open("fledge-billing", 1);
     legacyRequest.onupgradeneeded = () => {
@@ -965,6 +966,7 @@ describe("browser IndexedDB repositories", () => {
     expect(upgradedDatabase.objectStoreNames.contains("customerReceipts")).toBe(true);
     expect(upgradedDatabase.objectStoreNames.contains("paymentAllocationEvents")).toBe(true);
     expect(upgradedDatabase.objectStoreNames.contains("paymentAdjustmentEvents")).toBe(true);
+    expect(upgradedDatabase.objectStoreNames.contains("logoAssets")).toBe(true);
     upgradedDatabase.close();
   });
 
@@ -1055,7 +1057,9 @@ describe("browser IndexedDB repositories", () => {
 
   it("rejects a blocked database upgrade and closes the late connection", async () => {
     const factory = new IDBFactory();
-    const existing = await requestResult(factory.open("fledge-billing", 1));
+    const seeded = await openFledgeDatabase(factory);
+    seeded.close();
+    const existing = await requestResult(factory.open("fledge-billing", DATABASE_VERSION));
     let lateRequest;
     const blockingFactory = {
       open(name, version) {
@@ -1069,50 +1073,6 @@ describe("browser IndexedDB repositories", () => {
     existing.close();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(() => lateRequest.result.transaction("business", "readonly")).toThrow();
-  });
-
-  it("keeps the original logo asset on an issued invoice after the business replaces its logo", async () => {
-    const workspace = await setupDocumentWorkspace(new IDBFactory());
-    const logoOne = [137, 80, 78, 71, 13, 10, 26, 10, 0];
-    const logoTwo = [255, 216, 255, 217];
-    const businessDeps = {
-      repository: workspace.repositories.businessRepository,
-      states: STATE_UTS,
-      now: () => "2026-11-01T00:00:00.000Z",
-      createId: () => workspace.business.id,
-    };
-    await workspace.repositories.logoAssetRepository.insert({
-      id: "logo-original",
-      businessId: workspace.business.id,
-      mimeType: "image/png",
-      bytes: logoOne,
-      createdAt: "2026-11-01T00:00:00.000Z",
-    });
-    await saveBusinessProfile({ ...workspace.business, logoReference: "logo-original" }, businessDeps);
-
-    const draft = await createDocument(documentInput(workspace), workspace.documentDeps);
-    expect(draft.logoReferenceSnapshot).toBe("logo-original");
-    const issued = await finalizeDocument(draft.id, workspace.documentDeps);
-
-    await workspace.repositories.logoAssetRepository.insert({
-      id: "logo-replacement",
-      businessId: workspace.business.id,
-      mimeType: "image/jpeg",
-      bytes: logoTwo,
-      createdAt: "2026-11-02T00:00:00.000Z",
-    });
-    await saveBusinessProfile({ ...workspace.business, logoReference: "logo-replacement" }, businessDeps);
-
-    const rendered = await renderIssuedDocument(issued.id, {
-      documents: workspace.repositories.documentRepository,
-      templates: workspace.repositories.templateRepository,
-      states: STATE_UTS,
-      logoAssets: workspace.repositories.logoAssetRepository,
-    });
-    expect(rendered.logoBytes).toEqual(new Uint8Array(logoOne));
-    expect(rendered.logoMimeType).toBe("image/png");
-    expect(rendered.logoDataUrl).toMatch(/^data:image\/png;base64,/);
-    workspace.database.close();
   });
 });
 

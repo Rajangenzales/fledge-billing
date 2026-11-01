@@ -438,7 +438,8 @@ function applySectionChanges(
     if (!EDITABLE_SECTION_KEYS.has(key) && normalized !== sectionLabel(key, current.documentType)) {
       throw new TemplateError(`Keep the label "${sectionLabel(key, current.documentType)}".`);
     }
-    if (EDITABLE_SECTION_KEYS.has(key)) {
+    const originalLabel = existing?.label ?? sectionLabel(key, current.documentType);
+    if (EDITABLE_SECTION_KEYS.has(key) && normalized !== originalLabel) {
       assertSafeLabel(normalized);
     }
     return {
@@ -480,7 +481,8 @@ function applyFieldChanges(
     if (!EDITABLE_FIELD_KEYS.has(key) && normalized !== FIELD_LABELS[key]) {
       throw new TemplateError(`Keep the label "${FIELD_LABELS[key]}".`);
     }
-    if (EDITABLE_FIELD_KEYS.has(key)) {
+    const originalLabel = existing?.label ?? FIELD_LABELS[key];
+    if (EDITABLE_FIELD_KEYS.has(key) && normalized !== originalLabel) {
       assertSafeLabel(normalized);
     }
     return {
