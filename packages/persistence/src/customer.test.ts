@@ -102,8 +102,9 @@ describe("customers", () => {
       deps,
     );
 
+    expect(harbour.creditDays).toBe(30);
     await expect(listCustomers(deps)).resolves.toEqual(expect.arrayContaining([
-      expect.objectContaining({ name: "Alpha Traders" }),
+      expect.objectContaining({ name: "Alpha Traders", creditDays: 0 }),
       expect.objectContaining({ name: "Harbour Stores" }),
     ]));
     expect(harbour).toMatchObject({
