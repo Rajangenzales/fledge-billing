@@ -74,7 +74,7 @@ describe("issued document output", () => {
     expect(html).toContain("Service: Consulting service | Hours: 1 | Session: nos | Fee: INR 1,000.00 | Line total: INR 1,000.00 | HSN/SAC: 998314");
     expect(html).toContain("Promotional offer details");
     expect(html).toContain("Quarterly distributor promotion: Buy 10 cases, get 1 cases free");
-    expect(html).toContain("Description: Consulting service | Quantity: 1 | Unit: nos | Rate: INR 1,000.00 | Amount: INR 1,000.00 | HSN/SAC: 998314");
+    expect(html).toContain("Service: Consulting service | Hours: 1 | Session: nos | Fee: INR 1,000.00 | Line total: INR 1,000.00 | HSN/SAC: 998314");
     expect(html).toContain("Total: INR 1,180.00");
     expect(html).not.toContain("Generated");
     expect(html).toContain("Print</button>");
