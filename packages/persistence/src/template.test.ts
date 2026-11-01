@@ -171,7 +171,7 @@ describe("invoice templates", () => {
 
   it("saves a label change as a new version and leaves an issued document on the old one", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const documentDeps = deps(db);
     const templates = templateDeps(db);
     const input = {
@@ -236,7 +236,7 @@ describe("invoice templates", () => {
 
   it("stores custom field values on the document and leaves them when the template changes", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const documentDeps = deps(db);
     const templates = templateDeps(db);
     const revised = reviseTemplate(
@@ -316,7 +316,7 @@ describe("invoice templates", () => {
 
   it("previews sample invoices without saving a document or a template edit", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const templates = templateDeps(db);
     const previewDeps = { ...templates, states: listStateUts(db) };
     const gst = previewTemplate("tpl:biz-1:gst:tax_invoice:1", previewDeps);
@@ -391,7 +391,7 @@ describe("invoice templates", () => {
 
   it("renders an issued invoice from its saved template after the default changes", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const documentDeps = deps(db);
     const templates = templateDeps(db);
     const revised = reviseTemplate(
