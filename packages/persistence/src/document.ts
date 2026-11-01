@@ -429,6 +429,7 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
     record.recipientSnapshot ? JSON.stringify(record.recipientSnapshot) : null,
     record.paymentDetailsSnapshot ?? null,
     record.invoicePreferencesSnapshot ?? null,
+    JSON.stringify(record.promotionalOffers ?? []),
   ];
   if (updating) {
     db.prepare(
@@ -441,7 +442,7 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
         recipient_state_id = ?, recipient_registration_type = ?, recipient_gstin = ?,
         reverse_charge = ?, exempt_total = ?, non_gst_total = ?, rounding_residual = ?,
         cess_total = ?, calculation_notes = ?, supplier_snapshot = ?, recipient_snapshot = ?,
-        payment_details_snapshot = ?, invoice_preferences_snapshot = ?
+        payment_details_snapshot = ?, invoice_preferences_snapshot = ?, promotional_offers_snapshot = ?
        WHERE id = ? AND business_id = ?`,
     ).run(...values, record.id, record.businessId);
   } else {
@@ -454,8 +455,8 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
         recipient_state_id, recipient_registration_type, recipient_gstin, reverse_charge,
         exempt_total, non_gst_total, rounding_residual, cess_total, calculation_notes,
         supplier_snapshot, recipient_snapshot, payment_details_snapshot, invoice_preferences_snapshot,
-        id, business_id, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        promotional_offers_snapshot, id, business_id, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(...values, record.id, record.businessId, record.createdAt);
   }
   const insertLine = db.prepare(
@@ -565,7 +566,8 @@ function readDocument(db: SchemaDatabase, id: string): BillingDocument {
               supplier_gst_registered, supplier_gstin, recipient_state_id,
               recipient_registration_type, recipient_gstin, reverse_charge, exempt_total,
               non_gst_total, rounding_residual, cess_total, calculation_notes,
-              supplier_snapshot, recipient_snapshot, payment_details_snapshot, invoice_preferences_snapshot
+              supplier_snapshot, recipient_snapshot, payment_details_snapshot, invoice_preferences_snapshot,
+              promotional_offers_snapshot
        FROM document WHERE id = ?`,
     )
     .get(id);
@@ -629,6 +631,7 @@ function readDocument(db: SchemaDatabase, id: string): BillingDocument {
     recipientSnapshot: documentPartySnapshot(row.recipient_snapshot),
     paymentDetailsSnapshot: nullableText(row.payment_details_snapshot),
     invoicePreferencesSnapshot: nullableText(row.invoice_preferences_snapshot),
+    promotionalOffers: promotionalOffersFrom(row.promotional_offers_snapshot),
     lines,
     charges,
     taxes,
@@ -649,6 +652,22 @@ function readDocument(db: SchemaDatabase, id: string): BillingDocument {
     finalizedAt: nullableText(row.finalized_at),
     updatedAt: text(row.updated_at, "updated_at"),
   };
+}
+
+function promotionalOffersFrom(value: unknown): BillingDocument["promotionalOffers"] {
+  if (typeof value !== "string") throw new BillingError("The stored promotional offers are invalid.");
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) throw new Error("invalid");
+    return parsed.map((entry) => {
+      if (!entry || typeof entry !== "object") throw new Error("invalid");
+      const item = entry as Record<string, unknown>;
+      if (typeof item.description !== "string" || typeof item.qualifyingQuantity !== "string" ||
+          typeof item.freeQuantity !== "string" || typeof item.unit !== "string" ||
+          !(item.note === null || typeof item.note === "string")) throw new Error("invalid");
+      return { description: item.description, qualifyingQuantity: item.qualifyingQuantity, freeQuantity: item.freeQuantity, unit: item.unit, note: item.note };
+    });
+  } catch { throw new BillingError("The stored promotional offers are invalid."); }
 }
 
 function readDocumentCustomFields(db: SchemaDatabase, documentId: string): DocumentCustomField[] {
