@@ -2,7 +2,7 @@
 
 **Phase:** 8 of 8  
 **Status:** Approved implementation contract  
-**Version:** 1.6
+**Version:** 1.7
 
 ## 1. Development Rule
 
@@ -84,7 +84,7 @@ The current main-branch SQLite registry has twelve migrations, including custome
 
 **M8 customer payment activity statement merged (PR #32):** A read-only customer-scoped application query combines existing receipt, allocation/release, refund and reversal events with derived summary totals. It preserves receipt/invoice references and deterministic chronological ordering. It is not a full accounting ledger and does not apply credit/debit-note effects or GST treatment.
 
-**Next implementation focus:** review and merge W1A contract (PR #37), then implement the business-profile/customer async vertical slice and SQLite compatibility (W1B). Establish the curated browser-safe entry and production-bundle dependency guard (W1C) in the same or a separate implementation PR depending on dependency and test boundaries. Only then select and implement the IndexedDB adapter. The approved React/Vite package direction and delivery sequence are recorded in [docs/21](./21-pwa-frontend-foundation-plan.md). Resolve owner/accounting decisions and obtain qualified GST-practitioner review before authorizing credit/debit-note persistence or statutory behaviour. Do not reconcile payments against mutable or incomplete financial snapshots. Cross-cutting security and PWA foundations remain mandatory before public release. Do not claim production readiness or cross-platform offline PWA support yet.
+**Next implementation focus:** review and merge W1B (PR #38), then establish the curated browser-safe application entry and production-bundle dependency guard (W1C). Keep the IndexedDB adapter deferred until the async contracts and browser boundary are verified. Only then select and implement the IndexedDB adapter. The approved React/Vite package direction and delivery sequence are recorded in [docs/21](./21-pwa-frontend-foundation-plan.md). Resolve owner/accounting decisions and obtain qualified GST-practitioner review before authorizing credit/debit-note persistence or statutory behaviour. Do not reconcile payments against mutable or incomplete financial snapshots. Cross-cutting security and PWA foundations remain mandatory before public release. Do not claim production readiness or cross-platform offline PWA support yet.
 
 
 ## 3. Cross-cutting platform and service prerequisites

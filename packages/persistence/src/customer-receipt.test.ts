@@ -11,15 +11,15 @@ import { afterEach, describe, expect, it } from "vitest";
 const dbs: SchemaDatabase[] = [];
 afterEach(() => { for (const db of dbs.splice(0)) db.close(); });
 
-function setup(migrationCount = migrations.length) {
+async function setup(migrationCount = migrations.length) {
   const db = openDatabase(":memory:");
   dbs.push(db);
   migrate(db, migrations.slice(0, migrationCount));
   const states = listStateUts(db);
-  saveBusinessProfile({
+  await saveBusinessProfile({
     legalName: "Fledge Traders", address: "Market Road, Kochi", stateId: "IN-KL", gstRegistered: false,
   }, { repository: createBusinessRepository(db), states, now: () => "2026-10-31T08:00:00.000Z", createId: () => "biz-1" });
-  const customer = createCustomer({
+  const customer = await createCustomer({
     name: "Harbour Stores", billingAddress: "Beach Road, Kochi", stateId: "IN-KL", registrationType: "unregistered",
   }, { repository: createCustomerRepository(db), states, now: () => "2026-10-31T08:01:00.000Z", createId: () => "cust-1" });
   let ids = 0;
@@ -32,7 +32,7 @@ function setup(migrationCount = migrations.length) {
 }
 
 describe("customer receipts", () => {
-  it("upgrades a version-8 database through the current additive migration chain", () => {
+  it("upgrades a version-8 database through the current additive migration chain", async () => {
     const db = openDatabase(":memory:");
     dbs.push(db);
     migrate(db, migrations.slice(0, 8));
@@ -43,13 +43,13 @@ describe("customer receipts", () => {
     expect(db.prepare("SELECT name FROM schema_migration WHERE version = 12").get()).toEqual({ name: "receipt-identity-snapshot" });
   });
 
-  it("returns zero advance before any receipt", () => {
-    const { customer, deps } = setup();
+  it("returns zero advance before any receipt", async () => {
+    const { customer, deps } = await setup();
     expect(getCustomerAdvance(customer.id, deps).unallocatedAmount).toBe("0");
   });
 
-  it("records a customer receipt before any invoice exists and derives advance balance", () => {
-    const { customer, deps } = setup();
+  it("records a customer receipt before any invoice exists and derives advance balance", async () => {
+    const { customer, deps } = await setup();
     const receipt = recordCustomerReceipt({
       customerId: customer.id, amount: "1250.50", paymentDate: "2026-10-30",
       method: "upi", reference: "UPI-REF-1", idempotencyKey: "req-001",
@@ -66,8 +66,8 @@ describe("customer receipts", () => {
     });
   });
 
-  it("makes retries idempotent and rejects reuse of a key for different details", () => {
-    const { customer, deps } = setup();
+  it("makes retries idempotent and rejects reuse of a key for different details", async () => {
+    const { customer, deps } = await setup();
     const input = {
       customerId: customer.id, amount: "100", paymentDate: "2026-10-30",
       method: "cash" as const, idempotencyKey: "retry-1",
@@ -79,8 +79,8 @@ describe("customer receipts", () => {
     expect(() => recordCustomerReceipt({ ...input, amount: "101" }, deps)).toThrow();
   });
 
-  it("keeps receipt identity unchanged when business and customer masters later change", () => {
-    const { db, customer, deps } = setup();
+  it("keeps receipt identity unchanged when business and customer masters later change", async () => {
+    const { db, customer, deps } = await setup();
     const input = {
       customerId: customer.id, amount: "450", paymentDate: "2026-10-30",
       method: "upi" as const, idempotencyKey: "snapshot-retry",
@@ -94,8 +94,8 @@ describe("customer receipts", () => {
     expect(retry.identitySnapshot?.customer.name).toBe("Harbour Stores");
   });
 
-  it("prints a payment acknowledgement from the saved identity snapshot and original payment date", () => {
-    const { customer, deps } = setup();
+  it("prints a payment acknowledgement from the saved identity snapshot and original payment date", async () => {
+    const { customer, deps } = await setup();
     const receipt = recordCustomerReceipt({
       customerId: customer.id, amount: "1250.50", paymentDate: "2026-10-30",
       method: "upi", reference: "UPI-REF-1", notes: "Advance for order", idempotencyKey: "print-001",
@@ -109,8 +109,8 @@ describe("customer receipts", () => {
     expect(printed).toContain("not a tax invoice or statutory GST receipt voucher");
   });
 
-  it("blocks formal printing of legacy receipts without receipt-time identity", () => {
-    const { db, customer, deps } = setup(11);
+  it("blocks formal printing of legacy receipts without receipt-time identity", async () => {
+    const { db, customer, deps } = await setup(11);
     db.prepare(`
       INSERT INTO customer_receipt (
         id, business_id, customer_id, amount, currency, payment_date, method,
@@ -121,8 +121,8 @@ describe("customer receipts", () => {
     expect(() => printCustomerReceipt("legacy-no-snapshot", deps)).toThrow(/no receipt-time identity snapshot/);
   });
 
-  it("rejects invalid dates, zero amounts, and fractions of a paisa", () => {
-    const { customer, deps } = setup();
+  it("rejects invalid dates, zero amounts, and fractions of a paisa", async () => {
+    const { customer, deps } = await setup();
     const base = { customerId: customer.id, method: "cash" as const, idempotencyKey: "invalid" };
     expect(() => recordCustomerReceipt({ ...base, amount: "0", paymentDate: "2026-10-31" }, deps)).toThrow();
     expect(() => recordCustomerReceipt({ ...base, amount: "1.001", paymentDate: "2026-10-31" }, deps)).toThrow();

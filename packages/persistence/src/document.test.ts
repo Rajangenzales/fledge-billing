@@ -60,8 +60,8 @@ function documentDeps(db: SchemaDatabase) {
   };
 }
 
-function prepare(db: SchemaDatabase): void {
-  saveBusinessProfile(
+async function prepare(db: SchemaDatabase): Promise<void> {
+  await saveBusinessProfile(
     {
       legalName: "Fledge Traders",
       address: "12 Market Road, Kochi",
@@ -76,7 +76,7 @@ function prepare(db: SchemaDatabase): void {
       createId: () => "biz-1",
     },
   );
-  createCustomer(
+  await createCustomer(
     {
       name: "Meera",
       billingAddress: "1 Beach Road, Kochi",
@@ -104,7 +104,7 @@ const notebook = {
 };
 
 describe("billing documents", () => {
-  it("requires a business and a customer before a draft can be saved", () => {
+  it("requires a business and a customer before a draft can be saved", async () => {
     const db = database();
     expect(() =>
       createDocument(
@@ -120,9 +120,9 @@ describe("billing documents", () => {
     ).toThrow(/business profile/);
   });
 
-  it("saves a draft from source values and leaves the number unassigned", () => {
+  it("saves a draft from source values and leaves the number unassigned", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const deps = documentDeps(db);
     const draft = createDocument(
       {
@@ -150,9 +150,9 @@ describe("billing documents", () => {
     expect(db.prepare("SELECT COUNT(*) AS count FROM document_tax").get()).toMatchObject({ count: 0 });
   });
 
-  it("recalculates a draft and keeps the previous draft when a line is rejected", () => {
+  it("recalculates a draft and keeps the previous draft when a line is rejected", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const deps = documentDeps(db);
     const draft = createDocument(
       {
@@ -199,9 +199,9 @@ describe("billing documents", () => {
     expect(getDocument(draft.id, deps)?.grandTotal).toBe("10.1");
   });
 
-  it("assigns the next number only when a draft is finalized", () => {
+  it("assigns the next number only when a draft is finalized", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const deps = documentDeps(db);
     const first = createDocument(
       {
@@ -350,9 +350,9 @@ describe("billing documents", () => {
     expect(listDocuments(deps).some((document) => document.id === issued.id)).toBe(true);
   });
 
-  it("starts a series at a chosen number and refuses to move backward after issue", () => {
+  it("starts a series at a chosen number and refuses to move backward after issue", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const deps = documentDeps(db);
     saveNumberSeries(
       {
@@ -418,9 +418,9 @@ describe("billing documents", () => {
     ).toThrow(/move forward/);
   });
 
-  it("stores IGST when the place of supply is in another state", () => {
+  it("stores IGST when the place of supply is in another state", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const deps = documentDeps(db);
     const issued = finalizeDocument(
       createDocument(
@@ -455,9 +455,9 @@ describe("billing documents", () => {
     expect(issued.grandTotal).toBe("1180");
   });
 
-  it("stores UTGST for an intra-Union Territory supply in Chandigarh", () => {
+  it("stores UTGST for an intra-Union Territory supply in Chandigarh", async () => {
     const db = database();
-    saveBusinessProfile(
+    await saveBusinessProfile(
       {
         legalName: "Chandigarh Supplies",
         address: "1 Sector 17",
@@ -472,7 +472,7 @@ describe("billing documents", () => {
         createId: () => "biz-ch",
       },
     );
-    createCustomer(
+    await createCustomer(
       {
         name: "Local buyer",
         billingAddress: "2 Sector 17",
@@ -517,9 +517,9 @@ describe("billing documents", () => {
     expect(issued.grandTotal).toBe("1000");
   });
 
-  it("keeps a finalized tax snapshot when a later rule version becomes effective", () => {
+  it("keeps a finalized tax snapshot when a later rule version becomes effective", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const deps = documentDeps(db);
     const issued = finalizeDocument(
       createDocument(
@@ -600,7 +600,7 @@ describe("billing documents", () => {
 describe("PDF export", () => {
   it("saves a local PDF and print sheet without changing the issued invoice", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const deps = documentDeps(db);
     const issued = finalizeDocument(
       createDocument(
@@ -658,11 +658,11 @@ describe("PDF export", () => {
 });
 
 describe("GST migration", () => {
-  it("leaves an already finalized M4 document untaxed", () => {
+  it("leaves an already finalized M4 document untaxed", async () => {
     const db = openDatabase(":memory:");
     openDatabases.push(db);
     migrate(db, migrations.slice(0, 5));
-    saveBusinessProfile(
+    await saveBusinessProfile(
       {
         legalName: "Fledge Traders",
         address: "12 Market Road, Kochi",
@@ -677,7 +677,7 @@ describe("GST migration", () => {
         createId: () => "biz-1",
       },
     );
-    createCustomer(
+    await createCustomer(
       {
         name: "Meera",
         billingAddress: "1 Beach Road, Kochi",

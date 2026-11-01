@@ -1,6 +1,6 @@
 # Fledge Billing — PWA Frontend Foundation Plan
 
-**Status:** W0 browser shell merged (PR #35); W1 audit merged (PR #36); W1A async repository and transaction contract proposed in PR #37  
+**Status:** W0 browser shell merged (PR #35); W1 audit merged (PR #36); W1A contract merged (PR #37); W1B business-profile/customer async migration proposed in PR #38  
 **Scope:** First customer-facing browser application foundation  
 **Depends on:** docs/01–03, docs/08–11 and the existing domain/application/persistence packages
 

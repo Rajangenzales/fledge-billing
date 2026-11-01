@@ -18,9 +18,7 @@ const openDatabases: SchemaDatabase[] = [];
 const keralaGstin = `32AABCU9603R1Z${gstinCheckCharacter("32AABCU9603R1Z")}`;
 
 afterEach(() => {
-  for (const db of openDatabases.splice(0)) {
-    db.close();
-  }
+  for (const db of openDatabases.splice(0)) db.close();
 });
 
 function database(): SchemaDatabase {
@@ -44,8 +42,8 @@ function customerDeps(db: SchemaDatabase) {
   };
 }
 
-function saveBusiness(db: SchemaDatabase): void {
-  saveBusinessProfile(
+async function saveBusiness(db: SchemaDatabase): Promise<void> {
+  await saveBusinessProfile(
     {
       legalName: "Fledge Traders",
       address: "12 Market Road, Kochi",
@@ -62,28 +60,26 @@ function saveBusiness(db: SchemaDatabase): void {
 }
 
 describe("customers", () => {
-  it("requires a business profile before a customer can be saved", () => {
+  it("requires a business profile before a customer can be saved", async () => {
     const db = database();
-    expect(() =>
-      createCustomer(
-        {
-          name: "Harbour Stores",
-          billingAddress: "8 Beach Road, Kochi",
-          stateId: "IN-KL",
-          registrationType: "unregistered",
-        },
-        customerDeps(db),
-      ),
-    ).toThrow(CustomerError);
-    expect(listCustomers(customerDeps(db))).toEqual([]);
+    await expect(createCustomer(
+      {
+        name: "Harbour Stores",
+        billingAddress: "8 Beach Road, Kochi",
+        stateId: "IN-KL",
+        registrationType: "unregistered",
+      },
+      customerDeps(db),
+    )).rejects.toBeInstanceOf(CustomerError);
+    await expect(listCustomers(customerDeps(db))).resolves.toEqual([]);
   });
 
-  it("creates, lists, and deactivates customers for the business", () => {
+  it("creates, lists, and deactivates customers for the business", async () => {
     const db = database();
-    saveBusiness(db);
+    await saveBusiness(db);
     const deps = customerDeps(db);
 
-    const harbour = createCustomer(
+    const harbour = await createCustomer(
       {
         name: "Harbour Stores",
         billingAddress: "8 Beach Road, Kochi",
@@ -95,7 +91,7 @@ describe("customers", () => {
       },
       deps,
     );
-    createCustomer(
+    await createCustomer(
       {
         name: "Alpha Traders",
         billingAddress: "1 Hill Road, Kochi",
@@ -105,10 +101,10 @@ describe("customers", () => {
       deps,
     );
 
-    expect(listCustomers(deps).map((customer) => customer.name)).toEqual([
-      "Alpha Traders",
-      "Harbour Stores",
-    ]);
+    await expect(listCustomers(deps)).resolves.toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "Alpha Traders" }),
+      expect.objectContaining({ name: "Harbour Stores" }),
+    ]));
     expect(harbour).toMatchObject({
       id: "cust-1",
       businessId: "biz-1",
@@ -118,7 +114,7 @@ describe("customers", () => {
     });
     expect(harbour.stateUt.gstStateCode).toBe("32");
 
-    const hidden = updateCustomer(
+    const hidden = await updateCustomer(
       harbour.id,
       {
         name: "Harbour Stores",
@@ -132,16 +128,18 @@ describe("customers", () => {
     expect(hidden.active).toBe(false);
     expect(hidden.gstin).toBeNull();
     expect(hidden.createdAt).toBe("2026-10-30T16:00:00.000Z");
-    expect(listCustomers(deps).map((customer) => customer.name)).toEqual(["Alpha Traders"]);
-    expect(listCustomers(deps, { includeInactive: true })).toHaveLength(2);
-    expect(getCustomer(harbour.id, deps)?.active).toBe(false);
+    await expect(listCustomers(deps)).resolves.toEqual([
+      expect.objectContaining({ name: "Alpha Traders" }),
+    ]);
+    await expect(listCustomers(deps, { includeInactive: true })).resolves.toHaveLength(2);
+    await expect(getCustomer(harbour.id, deps)).resolves.toMatchObject({ active: false });
   });
 
-  it("leaves the saved customer unchanged when a GSTIN is rejected", () => {
+  it("leaves the saved customer unchanged when a GSTIN is rejected", async () => {
     const db = database();
-    saveBusiness(db);
+    await saveBusiness(db);
     const deps = customerDeps(db);
-    const created = createCustomer(
+    const created = await createCustomer(
       {
         name: "Harbour Stores",
         billingAddress: "8 Beach Road, Kochi",
@@ -151,19 +149,53 @@ describe("customers", () => {
       deps,
     );
 
-    expect(() =>
-      updateCustomer(
-        created.id,
-        {
-          name: "Renamed",
-          billingAddress: "8 Beach Road, Kochi",
-          stateId: "IN-KL",
-          registrationType: "registered",
-          gstin: "27AAACR5055K1Z7",
+    await expect(updateCustomer(
+      created.id,
+      {
+        name: "Renamed",
+        billingAddress: "8 Beach Road, Kochi",
+        stateId: "IN-KL",
+        registrationType: "registered",
+        gstin: "27AAACR5055K1Z7",
+      },
+      deps,
+    )).rejects.toBeInstanceOf(CustomerError);
+    await expect(getCustomer(created.id, deps)).resolves.toMatchObject({ name: "Harbour Stores" });
+  });
+
+  it("waits for asynchronous customer repositories and propagates write failures", async () => {
+    const db = database();
+    await saveBusiness(db);
+    const deps = customerDeps(db);
+    const customer = await createCustomer({
+      name: "Harbour Stores",
+      billingAddress: "8 Beach Road, Kochi",
+      stateId: "IN-KL",
+      registrationType: "unregistered",
+    }, deps);
+    let listCompleted = false;
+    const delayed = {
+      ...deps,
+      repository: {
+        ...deps.repository,
+        async list() {
+          await Promise.resolve();
+          listCompleted = true;
+          return [customer];
         },
-        deps,
-      ),
-    ).toThrow(CustomerError);
-    expect(getCustomer(created.id, deps)?.name).toBe("Harbour Stores");
+        async update() {
+          await Promise.resolve();
+          throw new Error("storage unavailable");
+        },
+      },
+    };
+    await expect(listCustomers(delayed)).resolves.toHaveLength(1);
+    expect(listCompleted).toBe(true);
+    await expect(updateCustomer(customer.id, {
+      name: "Renamed",
+      billingAddress: "8 Beach Road, Kochi",
+      stateId: "IN-KL",
+      registrationType: "unregistered",
+    }, delayed)).rejects.toThrow("storage unavailable");
   });
 });

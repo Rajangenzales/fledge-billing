@@ -25,11 +25,11 @@ export type StoredCustomer = NormalizedCustomerInput & {
 };
 
 export type CustomerRepository = {
-  getBusinessId: () => string | null;
-  list: () => StoredCustomer[];
-  get: (id: string) => StoredCustomer | null;
-  insert: (record: StoredCustomer) => void;
-  update: (record: StoredCustomer) => void;
+  getBusinessId: () => Promise<string | null>;
+  list: () => Promise<StoredCustomer[]>;
+  get: (id: string) => Promise<StoredCustomer | null>;
+  insert: (record: StoredCustomer) => Promise<void>;
+  update: (record: StoredCustomer) => Promise<void>;
 };
 
 export type CustomerDeps = {
@@ -43,26 +43,22 @@ export type UpdateCustomerInput = SaveCustomerInput & {
   active?: boolean;
 };
 
-export function listCustomers(
+export async function listCustomers(
   deps: CustomerDeps,
   options: { includeInactive?: boolean } = {},
-): Customer[] {
-  return deps.repository
-    .list()
+): Promise<Customer[]> {
+  return (await deps.repository.list())
     .filter((customer) => options.includeInactive || customer.active)
     .map((customer) => toCustomer(customer, deps.states));
 }
 
-export function getCustomer(id: string, deps: CustomerDeps): Customer | null {
-  const stored = deps.repository.get(id);
-  if (!stored) {
-    return null;
-  }
-  return toCustomer(stored, deps.states);
+export async function getCustomer(id: string, deps: CustomerDeps): Promise<Customer | null> {
+  const stored = await deps.repository.get(id);
+  return stored ? toCustomer(stored, deps.states) : null;
 }
 
-export function createCustomer(input: SaveCustomerInput, deps: CustomerDeps): Customer {
-  const businessId = requireBusiness(deps);
+export async function createCustomer(input: SaveCustomerInput, deps: CustomerDeps): Promise<Customer> {
+  const businessId = await requireBusiness(deps);
   const normalized = validateCustomerInput(input, deps.states);
   const timestamp = deps.now();
   const stored: StoredCustomer = {
@@ -73,16 +69,16 @@ export function createCustomer(input: SaveCustomerInput, deps: CustomerDeps): Cu
     createdAt: timestamp,
     updatedAt: timestamp,
   };
-  deps.repository.insert(stored);
+  await deps.repository.insert(stored);
   return toCustomer(stored, deps.states);
 }
 
-export function updateCustomer(
+export async function updateCustomer(
   id: string,
   input: UpdateCustomerInput,
   deps: CustomerDeps,
-): Customer {
-  const existing = deps.repository.get(id);
+): Promise<Customer> {
+  const existing = await deps.repository.get(id);
   if (!existing) {
     throw new CustomerError("That customer was not found.");
   }
@@ -95,12 +91,12 @@ export function updateCustomer(
     createdAt: existing.createdAt,
     updatedAt: deps.now(),
   };
-  deps.repository.update(stored);
+  await deps.repository.update(stored);
   return toCustomer(stored, deps.states);
 }
 
-function requireBusiness(deps: CustomerDeps): string {
-  const businessId = deps.repository.getBusinessId();
+async function requireBusiness(deps: CustomerDeps): Promise<string> {
+  const businessId = await deps.repository.getBusinessId();
   if (!businessId) {
     throw new CustomerError("Save the business profile before adding a customer.");
   }

@@ -41,8 +41,8 @@ function database(): SchemaDatabase {
   return db;
 }
 
-function prepare(db: SchemaDatabase): void {
-  saveBusinessProfile(
+async function prepare(db: SchemaDatabase): Promise<void> {
+  await saveBusinessProfile(
     {
       legalName: "Fledge Traders",
       address: "12 Market Road, Kochi",
@@ -57,7 +57,7 @@ function prepare(db: SchemaDatabase): void {
       createId: () => "biz-1",
     },
   );
-  createCustomer(
+  await createCustomer(
     {
       name: "Meera",
       billingAddress: "1 Beach Road, Kochi",
@@ -105,9 +105,9 @@ const line = {
 };
 
 describe("invoice templates", () => {
-  it("installs a default GST template without changing the invoice total", () => {
+  it("installs a default GST template without changing the invoice total", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const templates = listTemplates(templateDeps(db));
     expect(templates.some((template) => template.key === "gst:tax_invoice" && template.isDefault)).toBe(true);
     expect(templates.some((template) => template.key === "bill-of-supply:bill_of_supply")).toBe(true);
@@ -169,9 +169,9 @@ describe("invoice templates", () => {
     expect(getDocument(issued.id, documentDeps)?.templateId).toBe("tpl:biz-1:gst:tax_invoice:1");
   });
 
-  it("saves a label change as a new version and leaves an issued document on the old one", () => {
+  it("saves a label change as a new version and leaves an issued document on the old one", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const documentDeps = deps(db);
     const templates = templateDeps(db);
     const input = {
@@ -234,9 +234,9 @@ describe("invoice templates", () => {
     expect(listTemplates(templates).filter((template) => template.key === "gst:tax_invoice")).toHaveLength(2);
   });
 
-  it("stores custom field values on the document and leaves them when the template changes", () => {
+  it("stores custom field values on the document and leaves them when the template changes", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const documentDeps = deps(db);
     const templates = templateDeps(db);
     const revised = reviseTemplate(
@@ -314,9 +314,9 @@ describe("invoice templates", () => {
     expect(getTemplate(revised.id, templates)?.customFields[0]?.label).toBe("Batch No.");
   });
 
-  it("previews sample invoices without saving a document or a template edit", () => {
+  it("previews sample invoices without saving a document or a template edit", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const templates = templateDeps(db);
     const previewDeps = { ...templates, states: listStateUts(db) };
     const gst = previewTemplate("tpl:biz-1:gst:tax_invoice:1", previewDeps);
@@ -389,9 +389,9 @@ describe("invoice templates", () => {
     expect(previewTemplate(renamed.id, previewDeps).totals.grandTotal).toBe("1180");
   });
 
-  it("renders an issued invoice from its saved template after the default changes", () => {
+  it("renders an issued invoice from its saved template after the default changes", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const documentDeps = deps(db);
     const templates = templateDeps(db);
     const revised = reviseTemplate(
