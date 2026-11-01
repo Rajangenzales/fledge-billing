@@ -218,3 +218,24 @@ button{font:inherit;cursor:pointer}
 .payment-event span{color:#87938d;font-size:9px;line-height:1.45}
 @media(max-width:900px){.payment-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.payment-customer-picker{align-items:stretch;flex-direction:column}.payment-workflow-grid{grid-template-columns:1fr}.payment-event{gap:10px}.payment-event>div:last-child{max-width:45%}}
+.backup-page{max-width:1000px}
+.backup-page>.page-title{margin-bottom:20px}
+.backup-page>.page-title h1{font-family:Manrope,sans-serif;font-size:28px;letter-spacing:-.8px;margin:9px 0 6px;color:#172e28}
+.backup-page>.page-title p{font-size:11px;color:#7c8983;margin:0}
+.backup-warning{display:grid;gap:6px;border:1px solid #f0d7a8;background:#fff8e9;border-radius:10px;padding:15px 17px;color:#76571d;font-size:11px;line-height:1.6;margin-bottom:16px}
+.backup-warning strong{font-size:12px}
+.backup-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:15px}
+.backup-panel{display:grid;gap:11px}
+.backup-panel h2{margin:0;color:#20372f;font-size:16px}
+.backup-panel>p{margin:0;color:#7c8983;font-size:10px;line-height:1.65}
+.backup-field{display:flex;flex-direction:column;gap:6px;color:#46564e;font-size:10px;font-weight:650}
+.backup-field input{min-height:37px;border:1px solid #dfe6e2;border-radius:7px;background:#fff;padding:8px;color:#25382f;font:inherit;font-size:11px}
+.backup-field input[type=file]{padding:6px}
+.backup-hint{color:#87938d!important;font-size:9px!important}
+.backup-panel .primary-button,.backup-panel .danger-button{justify-self:start}
+.danger-button{height:41px;border:0;border-radius:9px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;background:#a53b36;color:#fff;font-size:11px;font-weight:700}
+.danger-button:hover{background:#852f2b}
+.primary-button:disabled,.danger-button:disabled{opacity:.55;cursor:not-allowed}
+.backup-feedback{margin:14px 0 0;padding:12px 14px;border:1px solid #d6e8dc;border-radius:8px;background:#eff8f2;color:#2d6548;font-size:11px;line-height:1.5}
+.backup-feedback.error{border-color:#f0d4d1;background:#fff2f0;color:#8f332d}
+@media(max-width:700px){.backup-grid{grid-template-columns:1fr}.backup-warning{font-size:10px}}

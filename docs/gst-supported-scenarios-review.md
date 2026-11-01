@@ -2,7 +2,7 @@
 
 **Review date:** 1 November 2026
 **Review type:** Internal engineering audit and automated-test review
-**Qualified GST-practitioner review:** Pending; no reviewer or approval is recorded
+**Qualified GST-practitioner review:** Reported complete by the project owner on 1 November 2026; reviewer and approval details are not yet recorded
 **Rule version implemented:** `gst-structure-2017-07-01`, effective 1 July 2017
 **Status:** Limited calculation scope only; not a GST compliance sign-off
 
@@ -65,13 +65,17 @@ without source-backed rules, deterministic tests and review.
 
 - Internal engineering review: completed 1 November 2026 for the implemented
   calculation paths and repository test coverage described above.
-- Qualified GST-practitioner review: **pending**. Record the reviewer's name
-  or organization, review date, transaction scope, sources/amendments checked,
-  findings and approval here before claiming V1 GST compliance.
+- Qualified GST-practitioner review: reported complete by the project owner
+  on 1 November 2026. Record the reviewer's name or organization, review date,
+  transaction scope, sources/amendments checked, findings and explicit approval
+  here. Until that evidence is recorded, this document does not establish
+  practitioner approval or V1 GST compliance sign-off.
 - No official HSN/SAC rate catalogue or exhaustive place-of-supply/RCM rule
   catalogue is part of this implementation.
-- This record does not close C1. Reopen this review when GST behavior, source
-  data or the supported transaction scope changes.
+- The practitioner review is not independently evidenced in this record and
+  C1 remains open until the review details above are documented. Reopen this
+  review when GST behavior, source data or the supported transaction scope
+  changes.
 
 ## Official source references
 

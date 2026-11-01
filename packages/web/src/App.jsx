@@ -33,6 +33,8 @@ import DocumentDirectory from "./DocumentDirectory.jsx";
 import ProductDirectory from "./ProductDirectory.jsx";
 import TemplateDirectory from "./TemplateDirectory.jsx";
 import PaymentsDirectory from "./PaymentsDirectory.jsx";
+import BackupRecovery from "./BackupRecovery.jsx";
+import { restoreEncryptedBackup } from "./backup.js";
 import {
   createBrowserRepositories,
   openFledgeDatabase,
@@ -46,6 +48,7 @@ const navigation = [
   { id: "templates", label: "Document templates", icon: "file" },
   { id: "payments", label: "Payments", icon: "wallet" },
   { id: "settings", label: "Business settings", icon: "settings" },
+  { id: "backup", label: "Backup & recovery", icon: "shield" },
 ];
 
 function Icon({ name, size = 18 }) {
@@ -279,6 +282,7 @@ export default function App() {
   const [storageError, setStorageError] = useState("");
   const [durabilityWarning, setDurabilityWarning] = useState("");
   const [repositories, setRepositories] = useState(null);
+  const [database, setDatabase] = useState(null);
   const [business, setBusiness] = useState(null);
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
@@ -326,6 +330,7 @@ export default function App() {
           return;
         }
         setRepositories(nextRepositories);
+        setDatabase(database);
         setBusiness(profile);
         setCustomers(customerList);
         setProducts(productList);
@@ -492,6 +497,28 @@ export default function App() {
     return reverseCustomerRefund(input, adjustmentDeps);
   }
 
+  async function handleRestoreBackup(contents, passphrase) {
+    await restoreEncryptedBackup(database, contents, passphrase);
+    const [profile, customerList, productList, savedRates, categories, documentList] = await Promise.all([
+      getBusinessProfile({ repository: repositories.businessRepository, states: STATE_UTS }),
+      listCustomers({ repository: repositories.customerRepository, states: STATE_UTS }),
+      listProducts({ repository: repositories.productRepository }, { includeInactive: true }),
+      listSavedGstRates({ repository: repositories.productRepository }, { includeInactive: true }),
+      listTaxCategories({ repository: repositories.productRepository }),
+      listDocuments({ repository: repositories.documentRepository, states: STATE_UTS }),
+    ]);
+    setBusiness(profile);
+    setCustomers(customerList);
+    setProducts(productList);
+    setSavedGstRates(savedRates);
+    setTaxCategories(categories);
+    setDocuments(documentList);
+    setTemplates(profile ? await listTemplates({
+      repository: repositories.templateRepository,
+      now: () => new Date().toISOString(),
+    }) : []);
+  }
+
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand-lockup"><div className="brand-symbol">f</div><div><div className="brand-name">fledge</div><div className="brand-subtitle">BILLING</div></div></div>
@@ -511,6 +538,7 @@ export default function App() {
         {status === "error" && <section className="placeholder-panel storage-error" role="alert"><div className="placeholder-icon"><Icon name="shield" /></div><div className="eyebrow">LOCAL STORAGE UNAVAILABLE</div><h1>Workspace could not be opened</h1><p>{storageError}</p><p>Your data was not loaded. Do not clear browser data or reinstall the app as a recovery step.</p><button className="secondary-button" onClick={() => window.location.reload()}>Try again</button></section>}
         {status === "ready" && active === "overview" && <Overview business={business} customers={customers} products={products} documents={documents} onNavigate={setActive} />}
         {status === "ready" && active === "settings" && <BusinessSettings business={business} onSave={handleSaveBusiness} />}
+        {status === "ready" && active === "backup" && <BackupRecovery database={database} onRestore={handleRestoreBackup} />}
         {status === "ready" && active === "templates" && <TemplateDirectory
           business={business}
           templates={templates}
@@ -552,7 +580,7 @@ export default function App() {
           onCancel={handleCancelDocument}
           onRenderIssued={handleRenderIssuedDocument}
         />}
-        {status === "ready" && !["overview", "settings", "customers", "products", "payments", "invoices", "templates"].includes(active) && <Placeholder section={active} onBack={() => setActive("overview")} />}
+        {status === "ready" && !["overview", "settings", "backup", "customers", "products", "payments", "invoices", "templates"].includes(active) && <Placeholder section={active} onBack={() => setActive("overview")} />}
       </div>
     </main>
   </div>;

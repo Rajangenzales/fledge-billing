@@ -41,22 +41,22 @@ The following is a planning snapshot of the repository as reviewed on 1 November
 | Application foundation and shell | Implemented | Stabilize the development/build workflow, CI, error handling and supported browser contract. |
 | Business setup | Implemented foundation | Verify complete create, edit, validation, persistence and reload workflows in the browser. |
 | Customer management | Implemented foundation | Verify complete browser CRUD, business scoping, validation and persistence. |
-| Products and saved GST rates | Application/domain foundations and initial browser persistence/catalog workflow implemented | Verify complete browser workflows, ownership, referenced-rate behaviour and persistence on supported browsers. |
-| Billing/document engine | Application/domain foundations and initial browser draft, edit, due-date, numbering and finalization workflow implemented | Complete remaining lifecycle and historical presentation workflows; keep template/PDF/print/share scope tracked separately. |
+| Products and saved GST rates | Browser persistence/catalog workflows implemented | Verify complete browser workflows, ownership, referenced-rate behaviour and persistence on supported browsers. |
+| Billing/document engine | Browser draft, edit, due-date, numbering, finalization and historical presentation workflows implemented | Continue lifecycle and historical-output verification. |
 | GST engine | Core calculations implemented | Close verified compliance gaps and expand scenario coverage before claiming full GST readiness. |
-| Invoice templates | Implemented foundation | Complete vendor-safe customization, persistence, preview and historical rendering workflows. |
-| PDF, print and share | Partial | Complete customer-facing preview, PDF/print output and supported share workflows. |
-| Payments and advances | Domain/application foundations implemented | Complete browser persistence and end-to-end receipt, allocation, release, refund and reversal workflows. |
-| Payment activity statement | Read-model foundation implemented | Complete user-facing presentation and browser-compatible consistent snapshot support. |
-| IndexedDB | Business/customer/product/saved-rate and initial billing-document slices implemented | Extend persistence to templates and payment entities while preserving atomic commands. |
-| Backup and recovery | Not implemented | Implement validated backup, restore, recovery and user guidance. |
+| Invoice templates | Browser customization, persistence, preview and historical rendering implemented | Continue template/output verification. |
+| PDF, print and share | Initial browser preview, PDF/print output and supported share workflows merged | Complete realistic output verification, template font/logo support and supported-platform manual checks. |
+| Payments and advances | Browser receipt, allocation, release, refund and reversal workflows implemented | Continue financial invariant and platform verification. |
+| Payment activity statement | Browser presentation and consistent snapshot support implemented | Continue user-facing and platform verification. |
+| IndexedDB | Business/customer/product/rate/document/template/payment stores implemented | Add versioned recovery workflows while preserving atomic commands. |
+| Backup and recovery | Encrypted local backup/restore implementation in progress | Validate completeness, compatibility, atomic recovery and user guidance. |
 | PWA/offline lifecycle | Not implemented as a complete product capability | Implement app manifest, service worker, offline asset lifecycle and supported-platform verification. |
 | Update and distribution system | Architecture/specification documented | Implement release metadata, update lifecycle, integrity verification and migration-safe recovery. |
 | Authentication, accounts and subscription services | Specification/architecture only | Implement the approved security, entitlement and payment-service prerequisites before public release. |
 | Automated CI and release gates | Not established as a complete pipeline | Add reproducible automated checks and enforce release gates. |
 | Production release | Not ready | Complete all mandatory scope, QA, security, operational and release criteria. |
 
-The current browser IndexedDB implementation supports business profiles, customers, products, saved GST rates and an initial billing-document workflow. It does not establish that templates, PDF/print/share, payments, backup, sync or offline first-load are complete. Existing SQLite support and its migration history must be preserved while browser persistence is extended.
+The current browser IndexedDB implementation supports business profiles, customers, products, saved GST rates, billing documents, templates and payment records. C2's initial preview/PDF/print/share implementation is merged; encrypted local backup and restore are now in progress. These implementations do not establish that all browser, output, backup, sync or offline-first acceptance criteria are complete. Existing SQLite support and its migration history must be preserved while browser persistence is extended.
 
 Refer to [W2 IndexedDB Foundation](./30-w2-indexeddb-foundation-and-local-setup.md), [W1H Audit](./29-w1h-final-async-boundary-audit.md), and the original roadmap for detailed implementation boundaries.
 
@@ -275,7 +275,7 @@ Requirements:
 - No tax calculation is implemented in UI components.
 - A compliance review record identifies the reviewer, sources, date and scope.
 
-**Current status:** An internal engineering audit, coverage expansion and browser limitations notice are recorded in [the GST supported-scenarios review](./gst-supported-scenarios-review.md). Qualified GST-practitioner review remains pending; C1 is not complete and must not be treated as V1 GST compliance sign-off.
+**Current status:** An internal engineering audit, coverage expansion and browser limitations notice are recorded in [the GST supported-scenarios review](./gst-supported-scenarios-review.md). Qualified GST-practitioner review is reported complete by the project owner on 1 November 2026; the reviewer, sources/amendments, scope, findings and explicit approval still need to be recorded. C1 remains open until the review record is complete and must not yet be treated as V1 GST compliance sign-off.
 
 ### C2 — Document rendering, PDF, print and share
 
@@ -297,7 +297,7 @@ Requirements:
 - Output is legible for realistic short and long invoices.
 - Browser production bundle checks pass.
 
-**Current status:** The browser now renders finalized documents from the canonical issued render model, with print, PDF download and native file-share/fallback download actions. C2 remains in progress: browser output verification for realistic invoices, template font/logo support and supported-platform manual checks are outstanding.
+**Current status:** The initial browser implementation is merged: finalized documents render from the canonical issued render model, with print, PDF download and native file-share/fallback download actions. C2 remains in progress; realistic browser-output verification, template font/logo support and supported-platform manual checks are outstanding.
 
 ### M9 — Backup and recovery
 
@@ -320,6 +320,8 @@ Requirements:
 - Invalid/corrupted backups are rejected without damaging current data.
 - Backup and restore operations are tested across supported schema versions.
 - User-facing guidance explains where the backup is stored and how to protect it.
+
+**Current status:** M9 is in progress. The first implementation slice is an encrypted, passphrase-protected local backup/export and validated restore workflow; cloud backup and synchronization are out of scope.
 
 ### M10 — PWA lifecycle, update system and distribution
 
@@ -442,7 +444,7 @@ The product owner has approved the following scope:
 The following decisions still require explicit confirmation before dependent work is treated as final:
 
 1. **Supported environment matrix:** Confirm exact browser versions and minimum operating-system versions for the PWA and packaged desktop targets.
-2. **Backup protection:** Confirm whether local backups must be encrypted and the expected password/key recovery model.
+2. **Backup protection:** Resolved for M9: local backups must use passphrase-based authenticated encryption. A lost passphrase cannot be reset or recovered; the export/restore workflow must make this limitation clear.
 3. **Business profiles:** Confirm whether one local installation supports one active business profile or multiple business profiles.
 4. **Credit/debit note statutory workflows:** Confirm the approved correction workflows only after accountant and qualified GST-practitioner review.
 5. **GST reference data:** Confirm source, update cadence, effective-date handling and review owner.

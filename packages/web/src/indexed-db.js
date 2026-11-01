@@ -18,7 +18,7 @@ import {
 } from "@fledge/application/browser";
 
 const DATABASE_NAME = "fledge-billing";
-const DATABASE_VERSION = 5;
+export const DATABASE_VERSION = 5;
 const BUSINESS_STORE = "business";
 const CUSTOMER_STORE = "customers";
 const SAVED_GST_RATE_STORE = "savedGstRates";
@@ -29,6 +29,18 @@ const TEMPLATE_STORE = "templates";
 const RECEIPT_STORE = "customerReceipts";
 const ALLOCATION_STORE = "paymentAllocationEvents";
 const PAYMENT_ADJUSTMENT_STORE = "paymentAdjustmentEvents";
+export const BACKUP_STORE_NAMES = Object.freeze([
+  BUSINESS_STORE,
+  CUSTOMER_STORE,
+  SAVED_GST_RATE_STORE,
+  PRODUCT_STORE,
+  DOCUMENT_STORE,
+  NUMBER_SERIES_STORE,
+  TEMPLATE_STORE,
+  RECEIPT_STORE,
+  ALLOCATION_STORE,
+  PAYMENT_ADJUSTMENT_STORE,
+]);
 
 export class BrowserStorageError extends Error {
   constructor(message) {
@@ -1797,6 +1809,67 @@ function recalculateBrowserDocument(draft, business, customer, products, rates) 
     ruleVersionId: calculated.ruleVersionId,
     notices: calculated.notices,
   };
+}
+
+export function readBackupRecords(database) {
+  return transact(database, BACKUP_STORE_NAMES, "readonly", (transaction, set) => {
+    const records = {};
+    let remaining = BACKUP_STORE_NAMES.length;
+    for (const name of BACKUP_STORE_NAMES) {
+      const request = transaction.objectStore(name).getAll();
+      request.onsuccess = () => {
+        records[name] = request.result;
+        remaining -= 1;
+        if (remaining === 0) set(records);
+      };
+    }
+  });
+}
+
+export function replaceBackupRecords(database, records) {
+  return new Promise((resolve, reject) => {
+    let transaction;
+    let settled = false;
+    let failure;
+    try {
+      transaction = database.transaction(BACKUP_STORE_NAMES, "readwrite");
+    } catch (error) {
+      reject(storageError(error, "The local database transaction could not be started."));
+      return;
+    }
+
+    transaction.oncomplete = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    transaction.onerror = () => {
+      failure ??= storageError(transaction.error, "The local database transaction failed.");
+    };
+    transaction.onabort = () => {
+      if (settled) return;
+      settled = true;
+      reject(failure ?? storageError(transaction.error, "The local database transaction was aborted."));
+    };
+
+    try {
+      for (const name of BACKUP_STORE_NAMES) {
+        const store = transaction.objectStore(name);
+        store.clear();
+        for (const record of records[name]) store.put(record);
+      }
+    } catch (error) {
+      failure = error;
+      try {
+        transaction.abort();
+      } catch {
+        if (!settled) {
+          settled = true;
+          reject(error);
+        }
+      }
+    }
+  });
 }
 
 function defaultBrowserSeries(businessId, documentType, financialYear) {
