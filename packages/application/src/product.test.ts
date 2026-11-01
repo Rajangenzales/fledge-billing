@@ -52,9 +52,12 @@ describe("async product application workflows", () => {
   it("waits for a delayed product write before resolving", async () => {
     let releaseWrite!: () => void;
     let writeCompleted = false;
+    let signalWriteStarted!: () => void;
+    const writeStarted = new Promise<void>((resolve) => { signalWriteStarted = resolve; });
     const writeGate = new Promise<void>((resolve) => { releaseWrite = resolve; });
     const productDeps = deps({
       insertProduct: async () => {
+        signalWriteStarted();
         await writeGate;
         writeCompleted = true;
       },
@@ -66,8 +69,7 @@ describe("async product application workflows", () => {
       return product;
     });
 
-    await Promise.resolve();
-    await Promise.resolve();
+    await writeStarted;
     expect(resolved).toBe(false);
     expect(writeCompleted).toBe(false);
 
