@@ -299,7 +299,7 @@ Requirements:
 - Output is legible for realistic short and long invoices.
 - Browser production bundle checks pass.
 
-**Current status:** The initial browser implementation is merged: finalized documents render from the canonical issued render model, with print, PDF download and native file-share/fallback download actions. C2 remains in progress; realistic browser-output verification, template font/logo support and supported-platform manual checks are outstanding.
+**Current status:** The browser implementation uses one canonical issued render model for preview, print and PDF, with native file-share/fallback download actions. Template revision metadata now travels with the issued render; brand colour and density are applied in browser preview/print and PDF, while the selected browser typeface preference is applied through the browser font stack. PDF generation retains its portable built-in Helvetica face because no embeddable custom font asset is bundled. PNG/JPEG logo snapshots are rendered in the browser and PDF and are included in encrypted backups. Automated tests cover canonical values, long descriptions, pagination, saved dates, logo embedding, template metadata and output actions. C2 remains open for realistic manual browser-output verification, exact visual comparison across preview/PDF/print, and supported-platform checks.
 
 ### M9 — Backup and recovery
 
