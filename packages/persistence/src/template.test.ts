@@ -108,7 +108,7 @@ describe("invoice templates", () => {
   it("installs a default GST template without changing the invoice total", async () => {
     const db = database();
     await prepare(db);
-    const templates = listTemplates(templateDeps(db));
+    const templates = await listTemplates(templateDeps(db));
     expect(templates.some((template) => template.key === "gst:tax_invoice" && template.isDefault)).toBe(true);
     expect(templates.some((template) => template.key === "bill-of-supply:bill_of_supply")).toBe(true);
 
@@ -147,7 +147,7 @@ describe("invoice templates", () => {
     const issued = await finalizeDocument(draft.id, documentDeps);
     const standard = templates.find((template) => template.key === "standard:tax_invoice");
     expect(standard).toBeDefined();
-    setDefaultTemplate(standard!.id, templateDeps(db));
+    await setDefaultTemplate(standard!.id, templateDeps(db));
     const stored = (await getDocument(issued.id, documentDeps));
     expect(stored?.templateId).toBe("tpl:biz-1:gst:tax_invoice:1");
     expect(stored?.grandTotal).toBe("1180");
@@ -189,7 +189,7 @@ describe("invoice templates", () => {
     expect(issued.grandTotal).toBe("1180");
 
     const openDraft = await createDocument(input, documentDeps);
-    const revised = reviseTemplate(
+    const revised = await reviseTemplate(
       "tpl:biz-1:gst:tax_invoice:1",
       {
         sections: [{ key: "customer", label: "Buyer" }, { key: "payment", visible: false }],
@@ -207,7 +207,7 @@ describe("invoice templates", () => {
     expect(revised.fields.find((field) => field.key === "customer_phone")?.visible).toBe(false);
     expect(revised.sections.find((section) => section.key === "payment")?.visible).toBe(false);
 
-    const original = getTemplate("tpl:biz-1:gst:tax_invoice:1", templates);
+    const original = await getTemplate("tpl:biz-1:gst:tax_invoice:1", templates);
     expect(original?.fields.find((field) => field.key === "customer_name")?.label).toBe("Customer");
     expect(original?.fields.find((field) => field.key === "customer_phone")?.visible).toBe(true);
     expect(original?.isDefault).toBe(false);
@@ -224,14 +224,14 @@ describe("invoice templates", () => {
     expect(next.templateId).toBe("tpl:biz-1:gst:tax_invoice:2");
     expect(next.grandTotal).toBe("1180");
 
-    expect(() =>
+    await expect(
       reviseTemplate("tpl:biz-1:gst:tax_invoice:1", { fields: [{ key: "notes", label: "Remarks" }] }, templates),
-    ).toThrow(/current version/);
-    expect(() =>
+    ).rejects.toThrow(/current version/);
+    await expect(
       reviseTemplate(revised.id, { fields: [{ key: "supplier_gstin", visible: false }] }, templates),
-    ).toThrow(TemplateError);
-    expect(getTemplate(revised.id, templates)?.version).toBe(2);
-    expect(listTemplates(templates).filter((template) => template.key === "gst:tax_invoice")).toHaveLength(2);
+    ).rejects.toThrow(TemplateError);
+    expect((await getTemplate(revised.id, templates))?.version).toBe(2);
+    expect((await listTemplates(templates)).filter((template) => template.key === "gst:tax_invoice")).toHaveLength(2);
   });
 
   it("stores custom field values on the document and leaves them when the template changes", async () => {
@@ -239,7 +239,7 @@ describe("invoice templates", () => {
     await prepare(db);
     const documentDeps = deps(db);
     const templates = templateDeps(db);
-    const revised = reviseTemplate(
+    const revised = await reviseTemplate(
       "tpl:biz-1:gst:tax_invoice:1",
       {
         sections: [{ key: "custom-details", visible: true }],
@@ -251,7 +251,7 @@ describe("invoice templates", () => {
       templates,
     );
     expect(revised.customFields.map((field) => field.key)).toEqual(["batch-no", "delivery-date"]);
-    expect(getTemplate("tpl:biz-1:gst:tax_invoice:1", templates)?.customFields).toEqual([]);
+    expect((await getTemplate("tpl:biz-1:gst:tax_invoice:1", templates))?.customFields).toEqual([]);
 
     const input = {
       customerId: "cust-1",
@@ -290,7 +290,7 @@ describe("invoice templates", () => {
       { key: "delivery-date", label: "Delivery date", value: "2026-11-02", type: "date" },
     ]);
 
-    const renamed = reviseTemplate(
+    const renamed = await reviseTemplate(
       revised.id,
       {
         sections: [{ key: "custom-details", visible: true }],
@@ -311,7 +311,7 @@ describe("invoice templates", () => {
       label: "Batch No.",
       value: "A-12",
     });
-    expect(getTemplate(revised.id, templates)?.customFields[0]?.label).toBe("Batch No.");
+    expect((await getTemplate(revised.id, templates))?.customFields[0]?.label).toBe("Batch No.");
   });
 
   it("previews sample invoices without saving a document or a template edit", async () => {
@@ -319,7 +319,7 @@ describe("invoice templates", () => {
     await prepare(db);
     const templates = templateDeps(db);
     const previewDeps = { ...templates, states: listStateUts(db) };
-    const gst = previewTemplate("tpl:biz-1:gst:tax_invoice:1", previewDeps);
+    const gst = await previewTemplate("tpl:biz-1:gst:tax_invoice:1", previewDeps);
     expect(gst.notice).toBe("Preview. This is not a saved invoice.");
     expect(gst.saved).toBe(true);
     expect(gst.totals).toMatchObject({ taxTotal: "180", grandTotal: "1180" });
@@ -333,22 +333,22 @@ describe("invoice templates", () => {
       "not cut off",
     );
 
-    const quotation = previewTemplate("tpl:biz-1:quotation:quotation:1", previewDeps);
+    const quotation = await previewTemplate("tpl:biz-1:quotation:quotation:1", previewDeps);
     expect(quotation.totals.grandTotal).toBe("1180");
     expect(quotation.sections.flatMap((section) => section.fields).some((field) => field.key === "tax_components")).toBe(
       false,
     );
-    expect(previewTemplate("tpl:biz-1:standard:non_gst_invoice:1", previewDeps).totals.grandTotal).toBe("27.27");
-    expect(previewTemplate("tpl:biz-1:receipt:receipt:1", previewDeps).totals).toMatchObject({
+    expect((await previewTemplate("tpl:biz-1:standard:non_gst_invoice:1", previewDeps)).totals.grandTotal).toBe("27.27");
+    expect((await previewTemplate("tpl:biz-1:receipt:receipt:1", previewDeps)).totals).toMatchObject({
       taxTotal: "0",
       grandTotal: "27.27",
     });
-    expect(previewTemplate("tpl:biz-1:bill-of-supply:bill_of_supply:1", previewDeps).totals).toMatchObject({
+    expect((await previewTemplate("tpl:biz-1:bill-of-supply:bill_of_supply:1", previewDeps)).totals).toMatchObject({
       taxTotal: "0",
       grandTotal: "40",
     });
 
-    const edited = previewTemplate("tpl:biz-1:gst:tax_invoice:1", previewDeps, {
+    const edited = await previewTemplate("tpl:biz-1:gst:tax_invoice:1", previewDeps, {
       sections: [{ key: "customer", label: "Buyer" }],
       fields: [{ key: "customer_phone", visible: false }],
     });
@@ -358,35 +358,35 @@ describe("invoice templates", () => {
       false,
     );
     expect(edited.totals.grandTotal).toBe("1180");
-    expect(getTemplate("tpl:biz-1:gst:tax_invoice:1", templates)?.sections.find((section) => section.key === "customer")?.label).toBe(
+    expect((await getTemplate("tpl:biz-1:gst:tax_invoice:1", templates))?.sections.find((section) => section.key === "customer")?.label).toBe(
       "Customer",
     );
-    expect(() =>
+    await expect(
       previewTemplate("tpl:biz-1:gst:tax_invoice:1", previewDeps, { fields: [{ key: "supplier_gstin", visible: false }] }),
-    ).toThrow(TemplateError);
+    ).rejects.toThrow(TemplateError);
 
     const documents = db.prepare("SELECT COUNT(*) AS count FROM document").get();
     const series = db.prepare("SELECT COUNT(*) AS count FROM number_series").get();
     expect(Number(documents?.count)).toBe(0);
     expect(Number(series?.count)).toBe(0);
-    expect(listTemplates(templates).filter((template) => template.key === "gst:tax_invoice")).toHaveLength(1);
+    expect((await listTemplates(templates)).filter((template) => template.key === "gst:tax_invoice")).toHaveLength(1);
 
-    const renamed = reviseTemplate(
+    const renamed = await reviseTemplate(
       "tpl:biz-1:gst:tax_invoice:1",
       { sections: [{ key: "customer", label: "Buyer" }] },
       templates,
     );
-    expect(previewTemplate("tpl:biz-1:gst:tax_invoice:1", previewDeps).sections.find((section) => section.key === "customer")?.label).toBe(
+    expect((await previewTemplate("tpl:biz-1:gst:tax_invoice:1", previewDeps)).sections.find((section) => section.key === "customer")?.label).toBe(
       "Customer",
     );
-    expect(previewTemplate(renamed.id, previewDeps).sections.find((section) => section.key === "customer")?.label).toBe(
+    expect((await previewTemplate(renamed.id, previewDeps)).sections.find((section) => section.key === "customer")?.label).toBe(
       "Buyer",
     );
-    const restored = restoreTemplate(renamed.id, templates);
+    const restored = await restoreTemplate(renamed.id, templates);
     expect(restored.version).toBe(3);
     expect(restored.sections.find((section) => section.key === "customer")?.label).toBe("Customer");
-    expect(getTemplate(renamed.id, templates)?.sections.find((section) => section.key === "customer")?.label).toBe("Buyer");
-    expect(previewTemplate(renamed.id, previewDeps).totals.grandTotal).toBe("1180");
+    expect((await getTemplate(renamed.id, templates))?.sections.find((section) => section.key === "customer")?.label).toBe("Buyer");
+    expect((await previewTemplate(renamed.id, previewDeps)).totals.grandTotal).toBe("1180");
   });
 
   it("renders an issued invoice from its saved template after the default changes", async () => {
@@ -394,7 +394,7 @@ describe("invoice templates", () => {
     await prepare(db);
     const documentDeps = deps(db);
     const templates = templateDeps(db);
-    const revised = reviseTemplate(
+    const revised = await reviseTemplate(
       "tpl:biz-1:gst:tax_invoice:1",
       {
         sections: [{ key: "custom-details", visible: true }],
@@ -417,7 +417,7 @@ describe("invoice templates", () => {
     expect(issued.documentNumber).toBe("INV/2026-27/0001");
     expect(issued.grandTotal).toBe("1180");
 
-    reviseTemplate(
+    await reviseTemplate(
       revised.id,
       {
         sections: [

@@ -60,3 +60,25 @@ export {
   type SaveDocumentInput,
   type SaveNumberSeriesInput,
 } from "./document.js";
+
+export {
+  getTemplate,
+  listTemplates,
+  reviseTemplate,
+  setDefaultTemplate,
+  type InvoiceTemplate,
+  type TemplateBusiness,
+  type TemplateDeps,
+  type TemplateField,
+  type TemplateCustomField,
+  type TemplateRepository,
+  type TemplateSection,
+} from "./template.js";
+
+export {
+  previewTemplate,
+  renderIssuedDocument,
+  restoreTemplate,
+  type IssuedRenderDeps,
+  type TemplatePreviewDeps,
+} from "./preview.js";

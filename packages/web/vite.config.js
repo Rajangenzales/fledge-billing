@@ -30,6 +30,13 @@ const requiredBrowserExports = [
   "listDocuments",
   "saveNumberSeries",
   "updateDocument",
+  "getTemplate",
+  "listTemplates",
+  "reviseTemplate",
+  "setDefaultTemplate",
+  "previewTemplate",
+  "renderIssuedDocument",
+  "restoreTemplate",
 ];
 
 function browserDependencyGuard() {

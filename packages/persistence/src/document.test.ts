@@ -146,7 +146,7 @@ describe("billing documents", () => {
       grandTotal: "27.27",
     });
     expect(draft.lines[0]).toMatchObject({ lineAmount: "27.27", taxableValue: "27.27" });
-    expect(deps.repository.getNumberSeries("non_gst_invoice", "2026-27")).toBeNull();
+    expect(await deps.repository.getNumberSeries("non_gst_invoice", "2026-27")).toBeNull();
     expect(db.prepare("SELECT COUNT(*) AS count FROM document_tax").get()).toMatchObject({ count: 0 });
   });
 
@@ -375,7 +375,7 @@ describe("billing documents", () => {
           {
             description: "Service",
             hsnSac: "998311",
-            productId: createProduct(
+            productId: (await createProduct(
               {
                 type: "service",
                 name: "Support",
@@ -389,7 +389,7 @@ describe("billing documents", () => {
                 now: () => "2026-10-31T02:30:00.000Z",
                 createId: () => "item-1",
               },
-            ).id,
+            )).id,
             quantity: "1",
             unit: "hrs",
             rate: "100",
