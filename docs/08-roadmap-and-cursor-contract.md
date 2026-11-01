@@ -49,9 +49,9 @@ Calculation tests, lifecycle tests, migration tests, rendering tests, offline te
 ### M12 — V1 Release
 PWA deployment, production hosting, documentation, release checklist, account/payment service configuration, support/monitoring and production validation.
 
-## 2.1 Verified implementation snapshot — main after PR #29
+## 2.1 Verified implementation snapshot — main after PR #30
 
-This snapshot records merged repository work as of 31 October 2026. A merged milestone label does not mean every legal scenario, user workflow or release criterion in that milestone is complete.
+This snapshot records merged repository work as of 1 November 2026. A merged milestone label does not mean every legal scenario, user workflow or release criterion in that milestone is complete.
 
 | Area | Repository status | Verified scope and remaining boundary |
 | --- | --- | --- |
@@ -59,7 +59,7 @@ This snapshot records merged repository work as of 31 October 2026. A merged mil
 | M5 — GST Engine | Core implementation merged (PR #12) | CGST/SGST/UTGST/IGST component calculations, explicit GST rate input, inclusive/exclusive pricing, tax snapshots and tests. No HSN/SAC rate lookup; place-of-supply determination for IGST Act sections 10–13 remains unresolved; compensation cess is not calculated; reverse-charge support is restricted. Do not describe this as complete coverage of all GST scenarios. |
 | M6 — Templates | Partially implemented (PRs #13–17) | Built-in template snapshots, safe label/visibility edits, custom-field snapshots, sample preview and historical rendering. Section/field reordering and full brand customization remain outstanding. |
 | M7 — PDF / Print / Share | Partially implemented (PR #18) | Local PDF export and printable text from the issued-document render. Full customer-facing print preview and platform share workflow remain outstanding. |
-| M8 — Payments and Adjustments | Partially implemented | M8-02A customer receipts/advances, M8-02B allocation/release history with derived invoice settlement, M8-02C refunds/receipt-refund reversals, and M8-04A receipt-time identity snapshots are merged (PRs #24–26 and #29). Credit/debit note domain design is documented in docs/16; statutory note implementation, voucher automation and GST advance automation remain outstanding. |
+| M8 — Payments and Adjustments | Partially implemented | M8-02A customer receipts/advances, M8-02B allocation/release history with derived invoice settlement, M8-02C refunds/receipt-refund reversals, M8-04A receipt-time identity snapshots and M8-04B ordinary payment receipt print/PDF are merged (PRs #24–26 and #29–30). Credit/debit note domain design is documented in docs/16; statutory note implementation, voucher automation and GST advance automation remain outstanding. |
 | PWA and platform foundations | Specification only | The app package remains a CLI/local HTTP health shell. No customer-facing PWA, service worker, IndexedDB adapter or browser-based offline billing is implemented. |
 | Security and accounts | Specification only | Registration, authentication, email verification, password reset, sessions and authorization are not implemented. |
 | Cloud services | Specification only | Optional cloud backup, multi-device sync, subscription gateway, Admin Control Centre and product analytics are not implemented. |
@@ -72,11 +72,11 @@ The current main-branch SQLite registry has twelve migrations, including custome
 
 **M8-04A implementation merged (PR #29):** Receipt-time business/customer identity snapshot capture and migration 12 are documented in [docs/18](./18-m8-04a-receipt-identity-snapshots.md). Existing receipts intentionally remain without fabricated snapshots.
 
-**M8-04B implementation in progress:** Ordinary payment receipt print text and local PDF export are proposed in [docs/19](./19-m8-04b-payment-receipt-print-pdf.md). Legacy receipts without identity snapshots are blocked from formal print/PDF. No human-facing receipt serial number or statutory GST voucher behaviour is included.
+**M8-04B implementation merged (PR #30):** Ordinary payment receipt print text and local A4 PDF export use persisted receipt events and immutable receipt-time identity snapshots. Legacy receipts without identity snapshots are blocked from formal print/PDF. No human-facing receipt serial number or statutory GST voucher behaviour is included.
 
 **M8-03 design progress:** Credit/debit note categories, immutable record expectations, original-invoice linkage, date/numbering boundaries, customer-balance interactions and approval gates are documented in [docs/16](./16-m8-03-credit-debit-note-domain-model.md). This is design-only; no schema, migration, tax calculation or note workflow is authorized. D-05 to D-08 and note-specific decisions remain open pending owner/accountant and qualified GST-practitioner review.
 
-**Next implementation focus:** complete ordinary payment receipt rendering/export, then obtain the required owner/accounting decisions and qualified GST-practitioner review before authorizing note persistence or statutory behaviour. Do not reconcile payments against mutable or incomplete financial snapshots. Cross-cutting security and PWA foundations remain mandatory before public release. Do not claim production readiness or cross-platform offline PWA support yet.
+**Next implementation focus:** resolve the owner/accounting decisions and obtain qualified GST-practitioner review before authorizing credit/debit-note persistence or statutory behaviour. Keep customer-ledger effects and statutory tax treatment blocked until approved. Do not reconcile payments against mutable or incomplete financial snapshots. Cross-cutting security and PWA foundations remain mandatory before public release. Do not claim production readiness or cross-platform offline PWA support yet.
 
 
 ## 3. Cross-cutting platform and service prerequisites
