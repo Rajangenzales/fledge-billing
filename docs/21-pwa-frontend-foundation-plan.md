@@ -1,6 +1,6 @@
 # Fledge Billing — PWA Frontend Foundation Plan
 
-**Status:** Approved direction; W0 browser shell implemented in PR (pending merge)  
+**Status:** Approved direction; W0 browser shell implemented in PR #35 (pending merge)  
 **Scope:** First customer-facing browser application foundation  
 **Depends on:** docs/01–03, docs/08–11 and the existing domain/application/persistence packages
 
@@ -48,6 +48,7 @@ The product owner approved React + Vite and the dedicated `packages/web` boundar
 - A simple overview screen and clearly marked placeholder navigation for unfinished areas.
 - Local-mode messaging that does not claim business data persistence or synchronization.
 - Root `web:dev` and `web:build` commands and pnpm workspace lockfile entries.
+- A server-rendered smoke test for the overview shell, included in the existing Vitest suite.
 - No service worker, manifest, IndexedDB, business-data writes, authentication, analytics, cloud requests or SQLite changes.
 
 The shell uses system fonts and local assets only. It does not fetch remote fonts or images. The browser UI is a presentation foundation, not a usable billing workflow or completed PWA. Runtime/build/typecheck tests must be confirmed by CI before merge; no local test execution is claimed in this environment.
@@ -132,6 +133,6 @@ The browser must not import Node built-ins, `node:sqlite`, filesystem APIs or se
 - Tests cover the browser entry/build smoke path and any interactive navigation behaviour.
 - Documentation distinguishes a browser shell from a completed PWA or offline billing product.
 
-## 10. Decisions required before implementation
+## 10. Remaining decision
 
 The product owner has confirmed React + Vite and `packages/web`. The IndexedDB adapter decision remains open and must be made during W1 after repository contract and transaction requirements are audited. Do not create a browser persistence schema before that audit.
