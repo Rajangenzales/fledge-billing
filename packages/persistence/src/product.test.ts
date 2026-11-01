@@ -91,7 +91,7 @@ describe("products and services", () => {
         defaultPrice: "100.50",
         defaultDiscount: "0",
         taxCategoryId: "taxable",
-        savedGstRateId: rate.id,
+        savedGstRateId: "foreign-rate",
         taxInclusive: true,
       },
       deps,
@@ -186,14 +186,22 @@ describe("products and services", () => {
     expect((await getProduct(created.id, deps))?.defaultPrice).toBe("40");
   });
 
-  it("rejects a saved GST rate owned by a different business at the storage boundary", async () => {
+  it("rejects a product that references a saved GST rate owned by another business", async () => {
     const db = database();
     await saveBusiness(db);
     const deps = productDeps(db);
-    const rate = await createSavedGstRate({ name: "GST 5", percentage: "5" }, deps);
+    await createSavedGstRate({ name: "GST 5", percentage: "5" }, deps);
+    db.exec("PRAGMA foreign_keys = OFF");
+    db.prepare(`INSERT INTO saved_gst_rate (
+      id, business_id, name, percentage, active, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, 1, ?, ?)`).run(
+      "foreign-rate", "another-business", "Foreign GST 5", "5",
+      "2026-10-31T02:00:00.000Z", "2026-10-31T02:00:00.000Z",
+    );
+    db.exec("PRAGMA foreign_keys = ON");
     const foreignRecord = {
       id: "foreign-product",
-      businessId: "another-business",
+      businessId: "biz-1",
       type: "goods" as const,
       name: "Foreign",
       code: null,
