@@ -215,6 +215,9 @@ export type IssuedRender = {
   documentNumber: string | null;
   documentDate: string;
   documentType: DocumentType;
+  brandColor?: string;
+  fontFamily?: TemplateFontFamily;
+  density?: TemplateDensity;
   logoBytes?: Uint8Array;
   logoMimeType?: "image/png" | "image/jpeg";
   logoDataUrl?: string;
@@ -319,6 +322,9 @@ export function renderStoredDocument(input: {
     documentNumber: input.document.documentNumber,
     documentDate: input.document.documentDate,
     documentType: input.document.documentType,
+    brandColor: template?.brandColor,
+    fontFamily: template?.fontFamily,
+    density: template?.density,
     sections,
     itemColumnLabels: resolveItemColumnLabels(template?.fields ?? []),
     items,
