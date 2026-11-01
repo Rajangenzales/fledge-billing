@@ -108,7 +108,7 @@ function toCustomer(stored: StoredCustomer, states: readonly StateUt[]): Custome
   if (!stateUt) {
     throw new CustomerError("The saved customer State or Union Territory is missing from the master.");
   }
-  return { ...stored, stateUt };
+  return { ...stored, creditDays: stored.creditDays ?? 0, stateUt };
 }
 
 export type { CustomerRegistrationType };
