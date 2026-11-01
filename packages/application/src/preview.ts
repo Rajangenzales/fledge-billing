@@ -72,8 +72,8 @@ export function previewTemplate(
   return renderStoredTemplate(template, business, deps.states, edited === null);
 }
 
-export function renderIssuedDocument(id: string, deps: IssuedRenderDeps): IssuedRender {
-  const stored = deps.documents.get(id);
+export async function renderIssuedDocument(id: string, deps: IssuedRenderDeps): Promise<IssuedRender> {
+  const stored = await deps.documents.get(id);
   if (!stored) {
     throw new BillingError("That document was not found.");
   }
@@ -96,7 +96,7 @@ export function renderIssuedDocument(id: string, deps: IssuedRenderDeps): Issued
   if (!template) {
     throw new TemplateError("Choose a template for this document.");
   }
-  const contact = deps.documents.getCustomerContact(stored.customerId);
+  const contact = await deps.documents.getCustomerContact(stored.customerId);
   const place = stored.placeOfSupplyStateId ? findStateUtById(stored.placeOfSupplyStateId, deps.states) : null;
   return renderStoredDocument({
     fallback: saved === null,
