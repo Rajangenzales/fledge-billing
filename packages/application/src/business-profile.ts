@@ -20,8 +20,8 @@ export type StoredBusiness = NormalizedBusinessInput & {
 };
 
 export type BusinessRepository = {
-  get: () => StoredBusiness | null;
-  save: (record: StoredBusiness) => void;
+  get: () => Promise<StoredBusiness | null>;
+  save: (record: StoredBusiness) => Promise<void>;
 };
 
 export type BusinessProfileDeps = {
@@ -31,20 +31,17 @@ export type BusinessProfileDeps = {
   createId: () => string;
 };
 
-export function getBusinessProfile(deps: BusinessProfileDeps): BusinessProfile | null {
-  const stored = deps.repository.get();
-  if (!stored) {
-    return null;
-  }
-  return toProfile(stored, deps.states);
+export async function getBusinessProfile(deps: BusinessProfileDeps): Promise<BusinessProfile | null> {
+  const stored = await deps.repository.get();
+  return stored ? toProfile(stored, deps.states) : null;
 }
 
-export function saveBusinessProfile(
+export async function saveBusinessProfile(
   input: SaveBusinessProfileInput,
   deps: BusinessProfileDeps,
-): BusinessProfile {
+): Promise<BusinessProfile> {
   const normalized = validateBusinessInput(input, deps.states);
-  const existing = deps.repository.get();
+  const existing = await deps.repository.get();
   const timestamp = deps.now();
   const stored: StoredBusiness = {
     ...normalized,
@@ -52,7 +49,7 @@ export function saveBusinessProfile(
     createdAt: existing?.createdAt ?? timestamp,
     updatedAt: timestamp,
   };
-  deps.repository.save(stored);
+  await deps.repository.save(stored);
   return toProfile(stored, deps.states);
 }
 
