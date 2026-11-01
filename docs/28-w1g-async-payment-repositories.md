@@ -1,6 +1,6 @@
 # W1G — Async Payment Repository and Application Workflows
 
-**Status:** Implemented on `feat/w1g-async-payment-repositories`; pending review and merge  
+**Status:** Merged in PR #43 on 1 November 2026  
 **Depends on:** W1A async repository contract, W1B business/customer migration, W1C browser boundary, W1D product/saved-rate migration, W1E document migration, and W1F template migration.
 
 ## 1. Scope
@@ -56,6 +56,6 @@ Customer payment activity composes asynchronous repository reads. The current re
 - [x] Browser-safe payment exports and Vite contract checks are updated.
 - [x] Existing payment tests await asynchronous operations.
 - [ ] Full tests, typecheck and production builds pass in a pnpm-enabled environment.
-- [ ] PR reviewed and merged.
+- [x] PR reviewed and merged (PR #43).
 
 After W1G is verified and merged, audit the complete application/browser boundary. IndexedDB remains deferred until the asynchronous application/repository boundary is complete and verified.
