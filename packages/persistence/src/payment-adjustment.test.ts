@@ -28,7 +28,7 @@ async function setup() {
   const customer = await createCustomer({ name: "Harbour Stores", billingAddress: "Beach Road, Kochi", stateId: "IN-KL", registrationType: "unregistered" },
     { repository: createCustomerRepository(db), states, now: () => "2026-10-31T08:01:00.000Z", createId: () => "cust-1" });
   const receiptDeps = { repository: createCustomerReceiptRepository(db), now: () => "2026-10-31T08:02:00.000Z", createId: () => "receipt-1" };
-  const receipt = recordCustomerReceipt({ customerId: customer.id, amount: "150", paymentDate: "2026-10-30", method: "upi", idempotencyKey: "receipt-1" }, receiptDeps);
+  const receipt = await recordCustomerReceipt({ customerId: customer.id, amount: "150", paymentDate: "2026-10-30", method: "upi", idempotencyKey: "receipt-1" }, receiptDeps);
   let documentSequence = 0;
   const documentDeps = { repository: createDocumentRepository(db), states, now: () => "2026-10-31T08:03:00.000Z", createId: () => `invoice-${++documentSequence}` };
   const draft = await createDocument({ customerId: customer.id, documentType: "non_gst_invoice", documentDate: "2026-10-31", gstEnabled: false, reverseCharge: false,
@@ -52,52 +52,52 @@ describe("customer refunds and receipt reversals", () => {
 
   it("records partial refunds and reduces the customer advance", async () => {
     const { customer, receipt, receiptDeps, adjustmentDeps } = await setup();
-    const refund = recordCustomerRefund({ receiptId: receipt.id, amount: "50", paymentDate: "2026-10-31", method: "bank_transfer", reason: "Order cancelled", idempotencyKey: "refund-1" }, adjustmentDeps);
+    const refund = await recordCustomerRefund({ receiptId: receipt.id, amount: "50", paymentDate: "2026-10-31", method: "bank_transfer", reason: "Order cancelled", idempotencyKey: "refund-1" }, adjustmentDeps);
     expect(refund).toMatchObject({ eventType: "refund", amount: "50", receiptId: receipt.id, paymentDate: "2026-10-31" });
-    const retry = recordCustomerRefund({ receiptId: receipt.id, amount: "50", paymentDate: "2026-10-31", method: "bank_transfer", reason: "Order cancelled", idempotencyKey: "refund-1" }, adjustmentDeps);
+    const retry = await recordCustomerRefund({ receiptId: receipt.id, amount: "50", paymentDate: "2026-10-31", method: "bank_transfer", reason: "Order cancelled", idempotencyKey: "refund-1" }, adjustmentDeps);
     expect(retry.id).toBe(refund.id);
-    expect(getCustomerAdvance(customer.id, receiptDeps).unallocatedAmount).toBe("100");
-    expect(() => recordCustomerRefund({ receiptId: receipt.id, amount: "101", paymentDate: "2026-10-31", method: "cash", reason: "Excess", idempotencyKey: "refund-too-much" }, adjustmentDeps)).toThrow(/remaining refundable/);
+    expect((await getCustomerAdvance(customer.id, receiptDeps)).unallocatedAmount).toBe("100");
+    await expect(recordCustomerRefund({ receiptId: receipt.id, amount: "101", paymentDate: "2026-10-31", method: "cash", reason: "Excess", idempotencyKey: "refund-too-much" }, adjustmentDeps)).rejects.toThrow(/remaining refundable/);
   });
 
   it("requires active allocations to be released before a refund", async () => {
     const { customer, receipt, invoice, receiptDeps, adjustmentDeps, allocationDeps } = await setup();
-    const allocation = allocateReceiptToInvoice({ receiptId: receipt.id, invoiceId: invoice.id, amount: "60", idempotencyKey: "alloc-1" }, allocationDeps);
-    expect(() => recordCustomerRefund({ receiptId: receipt.id, amount: "20", paymentDate: "2026-10-31", method: "cash", reason: "Return", idempotencyKey: "refund-blocked" }, adjustmentDeps)).toThrow(/Release.*allocations/);
-    releaseReceiptAllocation({ allocationId: allocation.id, reason: "Customer requested refund", idempotencyKey: "release-1" }, allocationDeps);
-    recordCustomerRefund({ receiptId: receipt.id, amount: "50", paymentDate: "2026-10-31", method: "cash", reason: "Return", idempotencyKey: "refund-after-release" }, adjustmentDeps);
-    expect(getCustomerAdvance(customer.id, receiptDeps).unallocatedAmount).toBe("100");
+    const allocation = await allocateReceiptToInvoice({ receiptId: receipt.id, invoiceId: invoice.id, amount: "60", idempotencyKey: "alloc-1" }, allocationDeps);
+    await expect(recordCustomerRefund({ receiptId: receipt.id, amount: "20", paymentDate: "2026-10-31", method: "cash", reason: "Return", idempotencyKey: "refund-blocked" }, adjustmentDeps)).rejects.toThrow(/Release.*allocations/);
+    await releaseReceiptAllocation({ allocationId: allocation.id, reason: "Customer requested refund", idempotencyKey: "release-1" }, allocationDeps);
+    await recordCustomerRefund({ receiptId: receipt.id, amount: "50", paymentDate: "2026-10-31", method: "cash", reason: "Return", idempotencyKey: "refund-after-release" }, adjustmentDeps);
+    expect((await getCustomerAdvance(customer.id, receiptDeps)).unallocatedAmount).toBe("100");
   });
 
   it("reverses a refund entry without pretending money was returned, and supports receipt reversal", async () => {
     const { customer, receipt, receiptDeps, adjustmentDeps } = await setup();
-    const refund = recordCustomerRefund({ receiptId: receipt.id, amount: "50", paymentDate: "2026-10-31", method: "upi", reason: "Duplicate refund entry", idempotencyKey: "refund-1" }, adjustmentDeps);
-    expect(getCustomerAdvance(customer.id, receiptDeps).unallocatedAmount).toBe("100");
-    const reversal = reverseCustomerRefund({ refundEventId: refund.id, reason: "Refund was entered in error", idempotencyKey: "refund-reversal-1" }, adjustmentDeps);
+    const refund = await recordCustomerRefund({ receiptId: receipt.id, amount: "50", paymentDate: "2026-10-31", method: "upi", reason: "Duplicate refund entry", idempotencyKey: "refund-1" }, adjustmentDeps);
+    expect((await getCustomerAdvance(customer.id, receiptDeps)).unallocatedAmount).toBe("100");
+    const reversal = await reverseCustomerRefund({ refundEventId: refund.id, reason: "Refund was entered in error", idempotencyKey: "refund-reversal-1" }, adjustmentDeps);
     expect(reversal).toMatchObject({ eventType: "reverse_refund", amount: "50", originalEventId: refund.id });
-    expect(getCustomerAdvance(customer.id, receiptDeps).unallocatedAmount).toBe("150");
-    expect(() => reverseCustomerRefund({ refundEventId: refund.id, reason: "Again", idempotencyKey: "refund-reversal-2" }, adjustmentDeps)).toThrow(/already been reversed/);
-    const receiptReversal = reverseCustomerReceipt({ receiptId: receipt.id, reason: "Receipt was recorded in error", idempotencyKey: "receipt-reversal-1" }, adjustmentDeps);
+    expect((await getCustomerAdvance(customer.id, receiptDeps)).unallocatedAmount).toBe("150");
+    await expect(reverseCustomerRefund({ refundEventId: refund.id, reason: "Again", idempotencyKey: "refund-reversal-2" }, adjustmentDeps)).rejects.toThrow(/already been reversed/);
+    const receiptReversal = await reverseCustomerReceipt({ receiptId: receipt.id, reason: "Receipt was recorded in error", idempotencyKey: "receipt-reversal-1" }, adjustmentDeps);
     expect(receiptReversal).toMatchObject({ eventType: "reverse_receipt", amount: "150" });
-    expect(getCustomerAdvance(customer.id, receiptDeps).unallocatedAmount).toBe("0");
+    expect((await getCustomerAdvance(customer.id, receiptDeps)).unallocatedAmount).toBe("0");
   });
 
   it("limits later allocations to the unrefunded receipt balance", async () => {
     const { customer, receipt, invoice, documentDeps, adjustmentDeps, allocationDeps } = await setup();
-    recordCustomerRefund({ receiptId: receipt.id, amount: "50", paymentDate: "2026-10-31", method: "cash", reason: "Partial return", idempotencyKey: "refund-1" }, adjustmentDeps);
-    allocateReceiptToInvoice({ receiptId: receipt.id, invoiceId: invoice.id, amount: "100", idempotencyKey: "alloc-after-refund" }, allocationDeps);
+    await recordCustomerRefund({ receiptId: receipt.id, amount: "50", paymentDate: "2026-10-31", method: "cash", reason: "Partial return", idempotencyKey: "refund-1" }, adjustmentDeps);
+    await allocateReceiptToInvoice({ receiptId: receipt.id, invoiceId: invoice.id, amount: "100", idempotencyKey: "alloc-after-refund" }, allocationDeps);
     const secondDraft = await createDocument({ customerId: customer.id, documentType: "non_gst_invoice", documentDate: "2026-10-31", gstEnabled: false, reverseCharge: false,
       lines: [{ description: "Second invoice", quantity: "1", unit: "nos", rate: "100", discountType: "none", taxInclusive: false, taxCategoryId: "non-gst" }] }, documentDeps);
     const secondInvoice = await finalizeDocument(secondDraft.id, documentDeps);
-    expect(() => allocateReceiptToInvoice({ receiptId: receipt.id, invoiceId: secondInvoice.id, amount: "1", idempotencyKey: "alloc-over-refund" }, allocationDeps)).toThrow(/available balance/);
+    await expect(allocateReceiptToInvoice({ receiptId: receipt.id, invoiceId: secondInvoice.id, amount: "1", idempotencyKey: "alloc-over-refund" }, allocationDeps)).rejects.toThrow(/available balance/);
   });
 
   it("rejects receipt reversal while allocations or net refunds remain", async () => {
     const { receipt, invoice, adjustmentDeps, allocationDeps } = await setup();
-    const allocation = allocateReceiptToInvoice({ receiptId: receipt.id, invoiceId: invoice.id, amount: "20", idempotencyKey: "alloc-1" }, allocationDeps);
-    expect(() => reverseCustomerReceipt({ receiptId: receipt.id, reason: "Wrong receipt", idempotencyKey: "reverse-blocked-1" }, adjustmentDeps)).toThrow(/Release.*allocations/);
-    releaseReceiptAllocation({ allocationId: allocation.id, reason: "Clear before reversal", idempotencyKey: "release-1" }, allocationDeps);
-    recordCustomerRefund({ receiptId: receipt.id, amount: "10", paymentDate: "2026-10-31", method: "cash", reason: "Partial return", idempotencyKey: "refund-1" }, adjustmentDeps);
-    expect(() => reverseCustomerReceipt({ receiptId: receipt.id, reason: "Wrong receipt", idempotencyKey: "reverse-blocked-2" }, adjustmentDeps)).toThrow(/refunds/);
+    const allocation = await allocateReceiptToInvoice({ receiptId: receipt.id, invoiceId: invoice.id, amount: "20", idempotencyKey: "alloc-1" }, allocationDeps);
+    await expect(reverseCustomerReceipt({ receiptId: receipt.id, reason: "Wrong receipt", idempotencyKey: "reverse-blocked-1" }, adjustmentDeps)).rejects.toThrow(/Release.*allocations/);
+    await releaseReceiptAllocation({ allocationId: allocation.id, reason: "Clear before reversal", idempotencyKey: "release-1" }, allocationDeps);
+    await recordCustomerRefund({ receiptId: receipt.id, amount: "10", paymentDate: "2026-10-31", method: "cash", reason: "Partial return", idempotencyKey: "refund-1" }, adjustmentDeps);
+    await expect(reverseCustomerReceipt({ receiptId: receipt.id, reason: "Wrong receipt", idempotencyKey: "reverse-blocked-2" }, adjustmentDeps)).rejects.toThrow(/refunds/);
   });
 });
