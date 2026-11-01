@@ -14,7 +14,6 @@ export type CustomerReceipt = {
 export type RecordCustomerReceiptInput = { customerId: string; amount: string; paymentDate: string; method: PaymentMethod; reference?: string | null; notes?: string | null; idempotencyKey: string };
 export type CustomerReceiptRepository = {
   getBusinessId(): Promise<string | null>;
-  customerExists(customerId: string, businessId: string): Promise<boolean>;
   insert(record: CustomerReceipt): Promise<CustomerReceipt>;
   list(customerId: string): Promise<CustomerReceipt[]>;
   getById(receiptId: string, businessId: string): Promise<CustomerReceipt | null>;
