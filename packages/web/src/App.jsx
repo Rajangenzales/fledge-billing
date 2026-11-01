@@ -24,6 +24,7 @@ import {
   reverseCustomerReceipt,
   reverseCustomerRefund,
   renderIssuedDocument,
+  updateCustomer,
   updateProduct,
   updateSavedGstRate,
   updateDocument,
@@ -186,9 +187,11 @@ function BusinessSettings({ business, onSave }) {
   </section>;
 }
 
-function CustomerDirectory({ business, customers, onCreate, onNavigate }) {
+function CustomerDirectory({ business, customers, onSave, onNavigate }) {
+  const emptyValues = () => ({ name: "", billingAddress: "", shippingAddress: "", stateId: business?.stateId ?? "", pinCode: "", phone: "", email: "", registrationType: "unregistered", gstin: "", notes: "", active: true });
   const [showForm, setShowForm] = useState(false);
-  const [values, setValues] = useState({ name: "", billingAddress: "", shippingAddress: "", stateId: business?.stateId ?? "", pinCode: "", phone: "", email: "", registrationType: "unregistered", gstin: "", notes: "" });
+  const [editingCustomer, setEditingCustomer] = useState(null);
+  const [values, setValues] = useState(emptyValues);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [saved, setSaved] = useState(false);
@@ -205,8 +208,9 @@ function CustomerDirectory({ business, customers, onCreate, onNavigate }) {
     setMessage("");
     setSaved(false);
     try {
-      await onCreate(values);
-      setValues({ name: "", billingAddress: "", shippingAddress: "", stateId: business?.stateId ?? "", pinCode: "", phone: "", email: "", registrationType: "unregistered", gstin: "", notes: "" });
+      await onSave(values, editingCustomer?.id ?? null);
+      setValues(emptyValues());
+      setEditingCustomer(null);
       setSaved(true);
       setShowForm(false);
     } catch (error) {
@@ -218,11 +222,11 @@ function CustomerDirectory({ business, customers, onCreate, onNavigate }) {
 
   return <section className="workflow-page">
     <div className="page-title"><div><div className="eyebrow">YOUR BUSINESS</div><h1>Customers</h1><p>Customer records are scoped to your local business profile.</p></div>
-      {business && <button className="primary-button" onClick={() => { setShowForm((open) => !open); setMessage(""); }}><Icon name="plus" size={17} /> {showForm ? "Close form" : "Add customer"}</button>}
+      {business && <button className="primary-button" onClick={() => { const nextOpen = !showForm; setShowForm(nextOpen); setEditingCustomer(null); setValues(emptyValues()); setMessage(""); setSaved(false); }}><Icon name="plus" size={17} /> {showForm ? "Close form" : "Add customer"}</button>}
     </div>
     {!business && <div className="panel empty-state"><div className="placeholder-icon"><Icon name="settings" /></div><h2>Set up your business first</h2><p>A business profile is required before customer records can be added.</p><button className="primary-button" onClick={() => onNavigate("settings")}>Add business details</button></div>}
     {business && showForm && <form className="panel form-panel customer-form" onSubmit={submit}>
-      <h2>New customer</h2>
+      <h2>{editingCustomer ? "Edit customer" : "New customer"}</h2>
       <div className="form-grid">
         <label>Customer name<input required autoComplete="name" maxLength={200} value={values.name} onChange={(event) => update("name", event.target.value)} /></label>
         <label>State / Union Territory<select required value={values.stateId} onChange={(event) => update("stateId", event.target.value)}><option value="">Choose State / UT</option>{STATE_UTS.filter((state) => state.active).map((state) => <option key={state.id} value={state.id}>{state.name}</option>)}</select></label>
@@ -233,14 +237,16 @@ function CustomerDirectory({ business, customers, onCreate, onNavigate }) {
         <label>GST registration<select value={values.registrationType} onChange={(event) => update("registrationType", event.target.value)}><option value="unregistered">Unregistered</option><option value="registered">Registered</option></select></label>
         {values.registrationType === "registered" && <label>GSTIN<input autoCapitalize="characters" maxLength={15} value={values.gstin} onChange={(event) => update("gstin", event.target.value)} /></label>}
         <label>PIN code<input inputMode="numeric" autoComplete="postal-code" maxLength={6} value={values.pinCode} onChange={(event) => update("pinCode", event.target.value)} /></label>
+        <label className="form-span">Notes (optional)<textarea rows="2" maxLength={2000} value={values.notes} onChange={(event) => update("notes", event.target.value)} /></label>
+        {editingCustomer && <label className="checkbox-field form-span"><input type="checkbox" checked={values.active} onChange={(event) => update("active", event.target.checked)} /> Active customer</label>}
       </div>
       {message && <p className="form-message error-message" role="alert">{message}</p>}
-      <div className="form-actions"><span>Saving writes to this device's IndexedDB.</span><button className="primary-button" type="submit" disabled={saving}>{saving ? "Saving…" : "Save customer"}</button></div>
+      <div className="form-actions"><span>Saving writes to this device's IndexedDB.</span><button className="primary-button" type="submit" disabled={saving}>{saving ? "Saving…" : editingCustomer ? "Save changes" : "Save customer"}</button></div>
     </form>}
     {business && <div className="panel customer-list-panel">
       <div className="panel-heading"><div><div className="eyebrow">CUSTOMER DIRECTORY</div><h2>{customers.length ? `${customers.length} saved` : "Your customer list"}</h2></div></div>
       {customers.length === 0 ? <div className="empty-list"><div className="placeholder-icon"><Icon name="users" /></div><h3>No customers yet</h3><p>Add your first customer. The record will remain on this device.</p><button className="secondary-button" onClick={() => setShowForm(true)}>Add first customer</button></div> :
-        <ul className="customer-list">{customers.map((customer) => <li key={customer.id}><span className="customer-avatar">{customer.name.slice(0, 1).toUpperCase()}</span><span className="customer-list-main"><strong>{customer.name}</strong><small>{customer.stateUt.name} · {customer.registrationType === "registered" ? "GST registered" : "Unregistered"}</small></span><span className="customer-contact">{customer.phone || customer.email || customer.billingAddress}</span></li>)}</ul>}
+        <ul className="customer-list">{customers.map((customer) => <li key={customer.id}><span className="customer-avatar">{customer.name.slice(0, 1).toUpperCase()}</span><span className="customer-list-main"><strong>{customer.name}</strong><small>{customer.stateUt.name} · {customer.registrationType === "registered" ? "GST registered" : "Unregistered"}</small></span><span className="customer-contact">{customer.phone || customer.email || customer.billingAddress}</span><button className="list-action" onClick={() => { setEditingCustomer(customer); setValues({ name: customer.name, billingAddress: customer.billingAddress, shippingAddress: customer.shippingAddress ?? "", stateId: customer.stateId, pinCode: customer.pinCode ?? "", phone: customer.phone ?? "", email: customer.email ?? "", registrationType: customer.registrationType, gstin: customer.gstin ?? "", notes: customer.notes ?? "", active: customer.active }); setShowForm(true); setMessage(""); setSaved(false); }}>Edit</button></li>)}</ul>}
     </div>}
     {saved && <p className="form-message success-message" role="status">Customer saved on this device.</p>}
   </section>;
@@ -436,8 +442,12 @@ export default function App() {
     setTemplates(await listTemplates(templateDeps));
   }
 
-  async function handleCreateCustomer(input) {
-    await createCustomer(input, customerDeps);
+  async function handleSaveCustomer(input, id) {
+    if (id) {
+      await updateCustomer(id, input, customerDeps);
+    } else {
+      await createCustomer(input, customerDeps);
+    }
     setCustomers(await listCustomers(customerDeps));
   }
 
@@ -581,7 +591,7 @@ export default function App() {
           deps={templateDeps}
           onRefresh={handleRefreshTemplates}
         />}
-        {status === "ready" && active === "customers" && <CustomerDirectory business={business} customers={customers} onCreate={handleCreateCustomer} onNavigate={setActive} />}
+        {status === "ready" && active === "customers" && <CustomerDirectory business={business} customers={customers} onSave={handleSaveCustomer} onNavigate={setActive} />}
         {status === "ready" && active === "products" && <ProductDirectory
           business={business}
           products={products}
