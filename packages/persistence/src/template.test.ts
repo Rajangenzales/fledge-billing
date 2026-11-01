@@ -110,6 +110,18 @@ describe("invoice templates", () => {
     await prepare(db);
     const templates = await listTemplates(templateDeps(db));
     expect(templates.some((template) => template.key === "gst:tax_invoice" && template.isDefault)).toBe(true);
+    const taxiPreset = templates.find((template) =>
+      template.key === "sector:taxi-cab:tax_invoice",
+    );
+    expect(taxiPreset?.customFields.map((field) => field.label)).toContain("Driver name");
+    expect(taxiPreset?.customFields.map((field) => field.label)).toContain("Driver contact number");
+    expect(taxiPreset?.customFields.map((field) => field.label)).toContain("Vehicle registration number");
+    expect(taxiPreset?.sections.find((section) => section.key === "custom-details")?.visible).toBe(true);
+    const goodsTransportPreset = templates.find((template) =>
+      template.key === "sector:goods-transport-agency:tax_invoice",
+    );
+    expect(goodsTransportPreset?.customFields.map((field) => field.label)).toContain("Consignment note / LR number");
+    expect(templates.filter((template) => template.key.startsWith("sector:"))).toHaveLength(14);
     expect(templates.some((template) => template.key === "bill-of-supply:bill_of_supply")).toBe(true);
 
     const documentDeps = deps(db);
