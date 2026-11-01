@@ -2,7 +2,7 @@
 
 **Phase:** 8 of 8  
 **Status:** Approved implementation contract  
-**Version:** 1.5
+**Version:** 1.6
 
 ## 1. Development Rule
 
@@ -68,7 +68,9 @@ The current main-branch SQLite registry has twelve migrations, including custome
 
 **W0 browser shell (PR #35 merged):** Product owner approved React + Vite with a dedicated `packages/web` package. The initial shell is responsive and uses placeholder navigation; it does not persist or transmit business data.
 
-**W1 browser compatibility and repository audit:** Completed in [docs/22](./22-w1-browser-compatibility-and-repository-audit.md). The domain layer is the browser-reuse candidate; the application root barrel includes Node-only exports; persistence is Node/SQLite-specific. Current application repository contracts are synchronous and cannot be implemented directly over asynchronous IndexedDB. Next: design async repository/transaction contracts, migrate one application vertical slice while preserving SQLite, then add a curated browser entry and bundle guard. IndexedDB schema and wrapper remain deferred. See [docs/21](./21-pwa-frontend-foundation-plan.md).
+**W1 browser compatibility and repository audit:** Merged in PR #36 and recorded in [docs/22](./22-w1-browser-compatibility-and-repository-audit.md). The domain layer is the browser-reuse candidate; the application root barrel includes Node-only exports; persistence is Node/SQLite-specific. Current application repository contracts are synchronous and cannot be implemented directly over asynchronous IndexedDB.
+
+**W1A async repository and transaction contract:** Proposed in PR #37 and recorded in [docs/23](./23-w1a-async-repository-and-transaction-contract.md). It defines Promise semantics, atomic repository commands, explicit unit-of-work boundaries, the financial/ownership invariants that must remain atomic, and the SQLite compatibility strategy. W1B migrates business-profile/customer workflows; W1C establishes the browser-safe entry and production-bundle guard. These are checkpoints and may be combined where reviewable and safe. IndexedDB schema and wrapper remain deferred. See [docs/21](./21-pwa-frontend-foundation-plan.md).
 
 **M8 design progress (31 October 2026):** M8-01 product direction has owner approval, with statutory automation still gated on qualified GST-practitioner review. M8-02 payment and customer-advance domain design is documented in [docs/14](./14-m8-02-payment-advance-domain-model.md). M8-02A adds customer receipt persistence, idempotent receipt recording and a derived unallocated customer advance. Allocation/release history and derived invoice settlement are merged in M8-02B. M8-02C implements append-only refund, receipt reversal and refund reversal events, derived advance adjustments and allocation guards. Credit/debit notes, statutory receipt/refund vouchers and GST advance automation remain out of scope.
 
@@ -82,7 +84,7 @@ The current main-branch SQLite registry has twelve migrations, including custome
 
 **M8 customer payment activity statement merged (PR #32):** A read-only customer-scoped application query combines existing receipt, allocation/release, refund and reversal events with derived summary totals. It preserves receipt/invoice references and deterministic chronological ordering. It is not a full accounting ledger and does not apply credit/debit-note effects or GST treatment.
 
-**Next implementation focus:** complete W1A asynchronous repository and transaction-contract design, then W1B migrate business-profile/customer use cases and the SQLite compatibility adapter, followed by W1C a curated browser-safe application entry and production-bundle dependency guard. Only then select and implement the IndexedDB adapter. The approved React/Vite package direction and delivery sequence are recorded in [docs/21](./21-pwa-frontend-foundation-plan.md). Resolve owner/accounting decisions and obtain qualified GST-practitioner review before authorizing credit/debit-note persistence or statutory behaviour. Do not reconcile payments against mutable or incomplete financial snapshots. Cross-cutting security and PWA foundations remain mandatory before public release. Do not claim production readiness or cross-platform offline PWA support yet.
+**Next implementation focus:** review and merge W1A contract (PR #37), then implement the business-profile/customer async vertical slice and SQLite compatibility (W1B). Establish the curated browser-safe entry and production-bundle dependency guard (W1C) in the same or a separate implementation PR depending on dependency and test boundaries. Only then select and implement the IndexedDB adapter. The approved React/Vite package direction and delivery sequence are recorded in [docs/21](./21-pwa-frontend-foundation-plan.md). Resolve owner/accounting decisions and obtain qualified GST-practitioner review before authorizing credit/debit-note persistence or statutory behaviour. Do not reconcile payments against mutable or incomplete financial snapshots. Cross-cutting security and PWA foundations remain mandatory before public release. Do not claim production readiness or cross-platform offline PWA support yet.
 
 
 ## 3. Cross-cutting platform and service prerequisites
