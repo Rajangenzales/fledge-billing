@@ -192,7 +192,7 @@ function BusinessSettings({ business, onSave }) {
 }
 
 function CustomerDirectory({ business, customers, onSave, onNavigate }) {
-  const emptyValues = () => ({ name: "", billingAddress: "", shippingAddress: "", stateId: business?.stateId ?? "", pinCode: "", phone: "", email: "", registrationType: "unregistered", gstin: "", notes: "", active: true });
+  const emptyValues = () => ({ name: "", billingAddress: "", shippingAddress: "", stateId: business?.stateId ?? "", pinCode: "", phone: "", email: "", registrationType: "unregistered", gstin: "", notes: "", creditDays: "0", active: true });
   const [showForm, setShowForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [values, setValues] = useState(emptyValues);
@@ -216,7 +216,7 @@ function CustomerDirectory({ business, customers, onSave, onNavigate }) {
     setMessage("");
     setSaved(false);
     try {
-      await onSave(values, editingCustomer?.id ?? null);
+      await onSave({ ...values, creditDays: Number(values.creditDays || 0) }, editingCustomer?.id ?? null);
       setValues(emptyValues());
       setEditingCustomer(null);
       setSaved(true);
@@ -245,6 +245,7 @@ function CustomerDirectory({ business, customers, onSave, onNavigate }) {
         <label>GST registration<select value={values.registrationType} onChange={(event) => update("registrationType", event.target.value)}><option value="unregistered">Unregistered</option><option value="registered">Registered</option></select></label>
         {values.registrationType === "registered" && <label>GSTIN<input autoCapitalize="characters" maxLength={15} value={values.gstin} onChange={(event) => update("gstin", event.target.value)} /></label>}
         <label>PIN code<input inputMode="numeric" autoComplete="postal-code" maxLength={6} value={values.pinCode} onChange={(event) => update("pinCode", event.target.value)} /></label>
+        <label>Credit period (days)<input type="number" min="0" max="365" step="1" inputMode="numeric" value={values.creditDays} onChange={(event) => update("creditDays", event.target.value)} /><small>0 means payment is due immediately. Maximum 365 days.</small></label>
         <label className="form-span">Notes (optional)<textarea rows="2" maxLength={2000} value={values.notes} onChange={(event) => update("notes", event.target.value)} /></label>
         {editingCustomer && <label className="checkbox-field form-span"><input type="checkbox" checked={values.active} onChange={(event) => update("active", event.target.checked)} /> Active customer</label>}
       </div>
@@ -254,7 +255,7 @@ function CustomerDirectory({ business, customers, onSave, onNavigate }) {
     {business && <div className="panel customer-list-panel">
       <div className="panel-heading"><div><div className="eyebrow">CUSTOMER DIRECTORY</div><h2>{customers.length ? `${customers.length} saved` : "Your customer list"}</h2></div></div>
       {customers.length === 0 ? <div className="empty-list"><div className="placeholder-icon"><Icon name="users" /></div><h3>No customers yet</h3><p>Add your first customer. The record will remain on this device.</p><button className="secondary-button" onClick={() => setShowForm(true)}>Add first customer</button></div> :
-        <ul className="customer-list">{customers.map((customer) => <li key={customer.id}><span className="customer-avatar">{customer.name.slice(0, 1).toUpperCase()}</span><span className="customer-list-main"><strong>{customer.name}{!customer.active && <span className="inactive-badge">Inactive</span>}</strong><small>{customer.stateUt.name} · {customer.registrationType === "registered" ? "GST registered" : "Unregistered"}</small></span><span className="customer-contact">{customer.phone || customer.email || customer.billingAddress}</span><button className="list-action" onClick={() => { setEditingCustomer(customer); setValues({ name: customer.name, billingAddress: customer.billingAddress, shippingAddress: customer.shippingAddress ?? "", stateId: customer.stateId, pinCode: customer.pinCode ?? "", phone: customer.phone ?? "", email: customer.email ?? "", registrationType: customer.registrationType, gstin: customer.gstin ?? "", notes: customer.notes ?? "", active: customer.active }); setShowForm(true); setMessage(""); setSaved(false); }}>Edit</button></li>)}</ul>}
+        <ul className="customer-list">{customers.map((customer) => <li key={customer.id}><span className="customer-avatar">{customer.name.slice(0, 1).toUpperCase()}</span><span className="customer-list-main"><strong>{customer.name}{!customer.active && <span className="inactive-badge">Inactive</span>}</strong><small>{customer.stateUt.name} · {customer.registrationType === "registered" ? "GST registered" : "Unregistered"}</small></span><span className="customer-contact">{customer.phone || customer.email || customer.billingAddress}</span><button className="list-action" onClick={() => { setEditingCustomer(customer); setValues({ name: customer.name, billingAddress: customer.billingAddress, shippingAddress: customer.shippingAddress ?? "", stateId: customer.stateId, pinCode: customer.pinCode ?? "", phone: customer.phone ?? "", email: customer.email ?? "", registrationType: customer.registrationType, gstin: customer.gstin ?? "", notes: customer.notes ?? "", creditDays: String(customer.creditDays ?? 0), active: customer.active }); setShowForm(true); setMessage(""); setSaved(false); }}>Edit</button></li>)}</ul>}
     </div>}
     {saved && <p className="form-message success-message" role="status">Customer saved on this device.</p>}
   </section>;
