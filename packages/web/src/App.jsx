@@ -6,14 +6,23 @@ import {
   createSavedGstRate,
   cancelDocument,
   finalizeDocument,
+  allocateReceiptToInvoice,
   getBusinessProfile,
+  getCustomerPaymentActivity,
+  getInvoiceSettlement,
   listCustomers,
+  listCustomerReceipts,
   listDocuments,
   listProducts,
   listSavedGstRates,
   listTemplates,
   listTaxCategories,
   saveBusinessProfile,
+  recordCustomerReceipt,
+  recordCustomerRefund,
+  releaseReceiptAllocation,
+  reverseCustomerReceipt,
+  reverseCustomerRefund,
   updateProduct,
   updateSavedGstRate,
   updateDocument,
@@ -22,6 +31,7 @@ import { STATE_UTS } from "@fledge/domain";
 import DocumentDirectory from "./DocumentDirectory.jsx";
 import ProductDirectory from "./ProductDirectory.jsx";
 import TemplateDirectory from "./TemplateDirectory.jsx";
+import PaymentsDirectory from "./PaymentsDirectory.jsx";
 import {
   createBrowserRepositories,
   openFledgeDatabase,
@@ -364,6 +374,24 @@ export default function App() {
     repository: repositories.templateRepository,
     now: () => new Date().toISOString(),
   };
+  const receiptDeps = repositories && {
+    repository: repositories.customerReceiptRepository,
+    now: () => new Date().toISOString(),
+    createId,
+  };
+  const allocationDeps = repositories && {
+    repository: repositories.allocationRepository,
+    now: () => new Date().toISOString(),
+    createId,
+  };
+  const adjustmentDeps = repositories && {
+    repository: repositories.paymentAdjustmentRepository,
+    now: () => new Date().toISOString(),
+    createId,
+  };
+  const paymentActivityDeps = repositories && ({
+    repository: repositories.customerPaymentActivityRepository,
+  });
 
   async function handleSaveBusiness(input) {
     const profile = await saveBusinessProfile(input, businessDeps);
@@ -419,6 +447,42 @@ export default function App() {
     setTemplates(await listTemplates(templateDeps));
   }
 
+  async function handleLoadPaymentActivity(customerId) {
+    const [activity, receipts] = await Promise.all([
+      getCustomerPaymentActivity(customerId, paymentActivityDeps),
+      listCustomerReceipts(customerId, receiptDeps),
+    ]);
+    return { activity, receipts };
+  }
+
+  async function handleGetInvoiceSettlement(invoiceId) {
+    return getInvoiceSettlement(invoiceId, allocationDeps);
+  }
+
+  async function handleRecordReceipt(input) {
+    return recordCustomerReceipt(input, receiptDeps);
+  }
+
+  async function handleAllocate(input) {
+    return allocateReceiptToInvoice(input, allocationDeps);
+  }
+
+  async function handleReleaseAllocation(input) {
+    return releaseReceiptAllocation(input, allocationDeps);
+  }
+
+  async function handleRecordRefund(input) {
+    return recordCustomerRefund(input, adjustmentDeps);
+  }
+
+  async function handleReverseReceipt(input) {
+    return reverseCustomerReceipt(input, adjustmentDeps);
+  }
+
+  async function handleReverseRefund(input) {
+    return reverseCustomerRefund(input, adjustmentDeps);
+  }
+
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand-lockup"><div className="brand-symbol">f</div><div><div className="brand-name">fledge</div><div className="brand-subtitle">BILLING</div></div></div>
@@ -455,6 +519,19 @@ export default function App() {
           onSaveProduct={handleSaveProduct}
           onSaveRate={handleSaveRate}
         />}
+        {status === "ready" && active === "payments" && <PaymentsDirectory
+          business={business}
+          customers={customers}
+          documents={documents}
+          onLoadActivity={handleLoadPaymentActivity}
+          onGetInvoiceSettlement={handleGetInvoiceSettlement}
+          onRecordReceipt={handleRecordReceipt}
+          onAllocate={handleAllocate}
+          onReleaseAllocation={handleReleaseAllocation}
+          onRecordRefund={handleRecordRefund}
+          onReverseReceipt={handleReverseReceipt}
+          onReverseRefund={handleReverseRefund}
+        />}
         {status === "ready" && active === "invoices" && <DocumentDirectory
           business={business}
           customers={customers}
@@ -465,7 +542,7 @@ export default function App() {
           onFinalize={handleFinalizeDocument}
           onCancel={handleCancelDocument}
         />}
-        {status === "ready" && !["overview", "settings", "customers", "products", "invoices", "templates"].includes(active) && <Placeholder section={active} onBack={() => setActive("overview")} />}
+        {status === "ready" && !["overview", "settings", "customers", "products", "payments", "invoices", "templates"].includes(active) && <Placeholder section={active} onBack={() => setActive("overview")} />}
       </div>
     </main>
   </div>;
