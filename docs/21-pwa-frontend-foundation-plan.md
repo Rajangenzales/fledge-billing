@@ -1,6 +1,6 @@
 # Fledge Billing — PWA Frontend Foundation Plan
 
-**Status:** Proposed technical plan; framework and package decisions require product-owner approval  
+**Status:** Approved direction; W0 browser shell implemented in PR (pending merge)  
 **Scope:** First customer-facing browser application foundation  
 **Depends on:** docs/01–03, docs/08–11 and the existing domain/application/persistence packages
 
@@ -40,7 +40,19 @@ The following is a recommendation, not an approved stack decision:
 
 React/Vite is recommended because it is a conventional, well-supported TypeScript browser stack with a straightforward static build and no need to replace the existing Node application. This recommendation does not imply that React/Vite or a particular IndexedDB library has already been approved or installed.
 
-## 4. Alternatives considered
+## 4. W0 implementation record
+
+The product owner approved React + Vite and the dedicated `packages/web` boundary. The W0 branch adds:
+
+- A React 19 + Vite browser package with a responsive Fledge Billing shell.
+- A simple overview screen and clearly marked placeholder navigation for unfinished areas.
+- Local-mode messaging that does not claim business data persistence or synchronization.
+- Root `web:dev` and `web:build` commands and pnpm workspace lockfile entries.
+- No service worker, manifest, IndexedDB, business-data writes, authentication, analytics, cloud requests or SQLite changes.
+
+The shell uses system fonts and local assets only. It does not fetch remote fonts or images. The browser UI is a presentation foundation, not a usable billing workflow or completed PWA. Runtime/build/typecheck tests must be confirmed by CI before merge; no local test execution is claimed in this environment.
+
+## 5. Alternatives considered
 
 | Option | Advantages | Trade-offs | Position |
 | --- | --- | --- | --- |
@@ -49,7 +61,7 @@ React/Vite is recommended because it is a conventional, well-supported TypeScrip
 | Next.js | Integrated routing and server-rendering options | Server-oriented capabilities add complexity for a local-first app whose routine billing must run entirely in the browser | Not recommended for the first local-first shell |
 | Keep extending Node HTTP shell | Minimal new dependencies | Couples browser delivery to Node server and does not provide a true installable/offline browser application | Not suitable as the target PWA |
 
-## 5. Dependency and package boundary
+## 6. Dependency and package boundary
 
 Proposed package responsibilities:
 
@@ -61,7 +73,7 @@ Proposed package responsibilities:
 
 The browser must not import Node built-ins, `node:sqlite`, filesystem APIs or server-only configuration. A browser dependency audit is a mandatory gate before wiring application use cases into the UI.
 
-## 6. Recommended delivery slices
+## 7. Recommended delivery slices
 
 ### W0 — Browser package and static shell
 
@@ -101,7 +113,7 @@ The browser must not import Node built-ins, `node:sqlite`, filesystem APIs or se
 - Test first online load followed by offline reopen, browser restart and update.
 - Add clear storage durability and backup warnings; browser storage is not an indestructible backup.
 
-## 7. Security and privacy boundaries
+## 8. Security and privacy boundaries
 
 - The first local-only shell must not transmit business or customer data.
 - Do not add analytics collection, account registration, authentication, payment gateway or remote admin APIs in W0.
@@ -109,7 +121,7 @@ The browser must not import Node built-ins, `node:sqlite`, filesystem APIs or se
 - Browser storage protection and account security require separate design and review before public deployment.
 - Never treat hidden UI controls as authorization. Server-side authorization is required for any future remote service.
 
-## 8. Acceptance criteria for W0
+## 9. Acceptance criteria for W0
 
 - A separate browser package builds without importing Node-only modules.
 - The existing `@fledge/app` CLI and `/health` endpoint remain unchanged.
@@ -120,12 +132,6 @@ The browser must not import Node built-ins, `node:sqlite`, filesystem APIs or se
 - Tests cover the browser entry/build smoke path and any interactive navigation behaviour.
 - Documentation distinguishes a browser shell from a completed PWA or offline billing product.
 
-## 9. Decisions required before implementation
+## 10. Decisions required before implementation
 
-The product owner should confirm:
-
-1. React + Vite as the browser UI/build stack.
-2. `packages/web` as the dedicated browser package.
-3. Whether the first IndexedDB adapter should use a small wrapper library or the native IndexedDB API behind an internal repository adapter.
-
-Until these are confirmed, this document is a proposal only. Do not install dependencies, introduce a framework, or create a browser persistence schema based solely on this recommendation.
+The product owner has confirmed React + Vite and `packages/web`. The IndexedDB adapter decision remains open and must be made during W1 after repository contract and transaction requirements are audited. Do not create a browser persistence schema before that audit.
