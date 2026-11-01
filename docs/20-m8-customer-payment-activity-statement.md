@@ -1,6 +1,6 @@
 # Fledge Billing — M8 Customer Payment Activity Statement
 
-**Status:** Implementation proposed in PR  
+**Status:** Implemented and merged in PR #32  
 **Scope:** Read-only customer-scoped payment activity and summary  
 **Depends on:** docs/14, docs/15, docs/17, docs/18 and docs/19
 
