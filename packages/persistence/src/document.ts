@@ -232,6 +232,9 @@ export function createDocumentRepository(db: SchemaDatabase): DocumentRepository
           throw new BillingError("That document was not found.");
         }
         const status = readStatus(db, id, businessId);
+        if (status === "finalized") {
+          return readDocument(db, id);
+        }
         if (status !== "draft") {
           throw new BillingError("Only a draft can be finalized.");
         }
@@ -397,6 +400,7 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
     record.documentNumber,
     record.financialYear,
     record.documentDate,
+    record.dueDate,
     record.placeOfSupplyStateId,
     record.gstEnabled ? 1 : 0,
     record.ruleVersionId,
@@ -425,7 +429,7 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
     db.prepare(
       `UPDATE document SET
         customer_id = ?, document_type = ?, status = ?, document_number = ?,
-        financial_year = ?, document_date = ?, place_of_supply_state_id = ?,
+        financial_year = ?, document_date = ?, due_date = ?, place_of_supply_state_id = ?,
         gst_enabled = ?, gst_rule_version_id = ?, template_id = ?, subtotal = ?, discount_total = ?,
         taxable_total = ?, tax_total = ?, grand_total = ?, finalized_at = ?, updated_at = ?,
         supplier_state_id = ?, supplier_gst_registered = ?, supplier_gstin = ?,
@@ -438,13 +442,13 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
     db.prepare(
       `INSERT INTO document (
         customer_id, document_type, status, document_number, financial_year, document_date,
-        place_of_supply_state_id, gst_enabled, gst_rule_version_id, template_id,
+        due_date, place_of_supply_state_id, gst_enabled, gst_rule_version_id, template_id,
         subtotal, discount_total, taxable_total, tax_total, grand_total,
         finalized_at, updated_at, supplier_state_id, supplier_gst_registered, supplier_gstin,
         recipient_state_id, recipient_registration_type, recipient_gstin, reverse_charge,
         exempt_total, non_gst_total, rounding_residual, cess_total, calculation_notes,
         id, business_id, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(...values, record.id, record.businessId, record.createdAt);
   }
   const insertLine = db.prepare(
@@ -548,7 +552,7 @@ function readDocument(db: SchemaDatabase, id: string): BillingDocument {
   const row = db
     .prepare(
       `SELECT id, business_id, customer_id, document_type, status, document_number,
-              financial_year, document_date, place_of_supply_state_id, gst_enabled,
+              financial_year, document_date, due_date, place_of_supply_state_id, gst_enabled,
               gst_rule_version_id, template_id, subtotal, discount_total, taxable_total, tax_total,
               grand_total, created_at, finalized_at, updated_at, supplier_state_id,
               supplier_gst_registered, supplier_gstin, recipient_state_id,
@@ -603,6 +607,7 @@ function readDocument(db: SchemaDatabase, id: string): BillingDocument {
     documentNumber: nullableText(row.document_number),
     financialYear: text(row.financial_year, "financial_year"),
     documentDate: text(row.document_date, "document_date"),
+    dueDate: nullableText(row.due_date),
     placeOfSupplyStateId: nullableText(row.place_of_supply_state_id),
     gstEnabled: row.gst_enabled === 1,
     reverseCharge: row.reverse_charge === 1,

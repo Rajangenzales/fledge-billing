@@ -43,6 +43,7 @@ describe("migrate", () => {
       "payment-allocation-events",
       "payment-refund-reversal-events",
       "receipt-identity-snapshot",
+      "document-due-date",
     ]);
   });
 

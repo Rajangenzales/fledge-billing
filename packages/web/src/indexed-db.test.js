@@ -1,17 +1,24 @@
 import {
+  cancelDocument,
   createCustomer,
+  createDocument,
   createProduct,
   createSavedGstRate,
+  finalizeDocument,
   getBusinessProfile,
+  getDocument,
   getProduct,
   listCustomers,
+  listDocuments,
   listProducts,
   listSavedGstRates,
   saveBusinessProfile,
+  saveNumberSeries,
+  updateDocument,
   updateProduct,
   updateSavedGstRate,
 } from "@fledge/application/browser";
-import { STATE_UTS } from "@fledge/domain";
+import { STATE_UTS, gstinCheckCharacter } from "@fledge/domain";
 import { IDBFactory } from "fake-indexeddb";
 import { describe, expect, it } from "vitest";
 import {
@@ -117,6 +124,181 @@ describe("browser IndexedDB repositories", () => {
       taxCategory: { id: "taxable" },
     });
     reopenedDatabase.close();
+  });
+
+  it("persists and edits a draft document across database reopen", async () => {
+    const factory = new IDBFactory();
+    const workspace = await setupDocumentWorkspace(factory);
+    const draft = await createDocument({
+      ...documentInput(workspace),
+      dueDate: "2026-11-30",
+    }, workspace.documentDeps);
+    workspace.database.close();
+
+    const reopened = await openFledgeDatabase(factory);
+    const repositories = createBrowserRepositories(reopened);
+    const deps = documentDeps(repositories.documentRepository);
+    expect(await getDocument(draft.id, deps)).toMatchObject({
+      id: draft.id,
+      status: "draft",
+      customerId: workspace.customer.id,
+      dueDate: "2026-11-30",
+      lines: [{ productId: workspace.product.id, quantity: "2", taxCategoryId: "taxable" }],
+      financialYear: "2026-27",
+      templateId: expect.any(String),
+    });
+
+    const updated = await updateDocument(
+      draft.id,
+      { ...documentInput(workspace), documentDate: "2027-03-31" },
+      deps,
+    );
+    expect(updated).toMatchObject({ status: "draft", financialYear: "2026-27" });
+    expect(await listDocuments(deps)).toHaveLength(1);
+    reopened.close();
+  });
+
+  it("recalculates and finalizes atomically using date-based numbering", async () => {
+    const factory = new IDBFactory();
+    const workspace = await setupDocumentWorkspace(factory);
+    const draft = await createDocument(
+      {
+        ...documentInput(workspace),
+        documentDate: "2027-04-01",
+        dueDate: "2027-04-15",
+      },
+      workspace.documentDeps,
+    );
+    await saveNumberSeries({
+      documentType: "tax_invoice",
+      financialYear: "2027-28",
+      prefix: "BILL",
+      nextNumber: 12,
+      padding: 4,
+    }, workspace.documentDeps);
+
+    const finalized = await finalizeDocument(draft.id, workspace.documentDeps);
+    expect(finalized).toMatchObject({
+      status: "finalized",
+      financialYear: "2027-28",
+      dueDate: "2027-04-15",
+      documentNumber: "BILL/2027-28/0012",
+      grandTotal: "236",
+      taxTotal: "36",
+      lines: [{ taxableValue: "200" }],
+    });
+    expect(await workspace.repositories.documentRepository.getNumberSeries(
+      "tax_invoice",
+      "2027-28",
+    )).toMatchObject({ nextNumber: 13 });
+
+    await expect(finalizeDocument(draft.id, workspace.documentDeps))
+      .resolves.toMatchObject({ status: "finalized", documentNumber: finalized.documentNumber });
+    expect(await workspace.repositories.documentRepository.getNumberSeries(
+      "tax_invoice",
+      "2027-28",
+    )).toMatchObject({ nextNumber: 13 });
+    workspace.database.close();
+
+    const reopened = await openFledgeDatabase(factory);
+    const reopenedRepositories = createBrowserRepositories(reopened);
+    expect(await getDocument(finalized.id, documentDeps(reopenedRepositories.documentRepository)))
+      .toMatchObject({
+        status: "finalized",
+        documentNumber: finalized.documentNumber,
+        dueDate: "2027-04-15",
+        grandTotal: "236",
+      });
+    expect(await reopenedRepositories.documentRepository.getNumberSeries(
+      "tax_invoice",
+      "2027-28",
+    )).toMatchObject({ nextNumber: 13 });
+    reopened.close();
+  });
+
+  it("does not consume a document number when finalization cannot revalidate its product", async () => {
+    const workspace = await setupDocumentWorkspace(new IDBFactory());
+    const draft = await createDocument(documentInput(workspace), workspace.documentDeps);
+    await saveNumberSeries({
+      documentType: "tax_invoice",
+      financialYear: "2026-27",
+      prefix: "BILL",
+      nextNumber: 7,
+      padding: 4,
+    }, workspace.documentDeps);
+    const transaction = workspace.database.transaction("products", "readwrite");
+    transaction.objectStore("products").delete(workspace.product.id);
+    await transactionDone(transaction);
+
+    await expect(finalizeDocument(draft.id, workspace.documentDeps))
+      .rejects.toThrow(/product was not found/);
+    expect(await requestResult(workspace.database.transaction("documents", "readonly")
+      .objectStore("documents").get(draft.id))).toMatchObject({
+      status: "draft",
+      documentNumber: null,
+    });
+    expect(await workspace.repositories.documentRepository.getNumberSeries(
+      "tax_invoice",
+      "2026-27",
+    )).toMatchObject({ nextNumber: 7 });
+    workspace.database.close();
+  });
+
+  it("allocates distinct document numbers for concurrent finalizations", async () => {
+    const workspace = await setupDocumentWorkspace(new IDBFactory());
+    const first = await createDocument(documentInput(workspace), workspace.documentDeps);
+    const second = await createDocument(documentInput(workspace), workspace.documentDeps);
+
+    const finalized = await Promise.all([
+      finalizeDocument(first.id, workspace.documentDeps),
+      finalizeDocument(second.id, workspace.documentDeps),
+    ]);
+
+    expect(finalized.map((document) => document.documentNumber).sort()).toEqual([
+      "INV/2026-27/0001",
+      "INV/2026-27/0002",
+    ]);
+    expect(await workspace.repositories.documentRepository.getNumberSeries(
+      "tax_invoice",
+      "2026-27",
+    )).toMatchObject({ nextNumber: 3 });
+    workspace.database.close();
+  });
+
+  it("rejects missing customers and products without storing a draft", async () => {
+    const workspace = await setupDocumentWorkspace(new IDBFactory());
+    await expect(createDocument({
+      ...documentInput(workspace),
+      customerId: "missing-customer",
+    }, workspace.documentDeps)).rejects.toThrow(/Choose a customer/);
+    await expect(createDocument({
+      ...documentInput(workspace),
+      lines: documentInput(workspace).lines.map((line) => ({
+        ...line,
+        productId: "missing-product",
+      })),
+    }, workspace.documentDeps)).rejects.toThrow(/product was not found/);
+    expect(await listDocuments(workspace.documentDeps)).toHaveLength(0);
+    workspace.database.close();
+  });
+
+  it("cancels drafts and finalized documents without allowing history edits", async () => {
+    const workspace = await setupDocumentWorkspace(new IDBFactory());
+    const draft = await createDocument(documentInput(workspace), workspace.documentDeps);
+    const cancelledDraft = await cancelDocument(draft.id, workspace.documentDeps);
+    expect(cancelledDraft.status).toBe("cancelled");
+    await expect(updateDocument(draft.id, documentInput(workspace), workspace.documentDeps))
+      .rejects.toThrow(/finalized document cannot be changed/);
+
+    const secondDraft = await createDocument(documentInput(workspace), workspace.documentDeps);
+    const finalized = await finalizeDocument(secondDraft.id, workspace.documentDeps);
+    const cancelledFinal = await cancelDocument(finalized.id, workspace.documentDeps);
+    expect(cancelledFinal).toMatchObject({
+      status: "cancelled",
+      documentNumber: finalized.documentNumber,
+      grandTotal: finalized.grandTotal,
+    });
+    workspace.database.close();
   });
 
   it("supports updates and activation changes for products and saved rates", async () => {
@@ -332,7 +514,7 @@ describe("browser IndexedDB repositories", () => {
     const repositories = createBrowserRepositories(database);
     await repositories.businessRepository.save({ id: "business-1" });
 
-    const upgrade = factory.open("fledge-billing", 3);
+    const upgrade = factory.open("fledge-billing", 4);
     upgrade.onupgradeneeded = () => {
       upgrade.result.createObjectStore("future", { keyPath: "id" });
     };
@@ -344,7 +526,7 @@ describe("browser IndexedDB repositories", () => {
     upgradedDatabase.close();
   });
 
-  it("upgrades version 1 customer data to version 2 product stores", async () => {
+  it("upgrades version 1 customer data to version 3 product and document stores", async () => {
     const factory = new IDBFactory();
     const legacyRequest = factory.open("fledge-billing", 1);
     legacyRequest.onupgradeneeded = () => {
@@ -366,6 +548,8 @@ describe("browser IndexedDB repositories", () => {
     expect(await repositories.customerRepository.list()).toHaveLength(1);
     expect(upgradedDatabase.objectStoreNames.contains("products")).toBe(true);
     expect(upgradedDatabase.objectStoreNames.contains("savedGstRates")).toBe(true);
+    expect(upgradedDatabase.objectStoreNames.contains("documents")).toBe(true);
+    expect(upgradedDatabase.objectStoreNames.contains("numberSeries")).toBe(true);
     upgradedDatabase.close();
   });
 
@@ -415,6 +599,104 @@ function productDeps(repository) {
     repository,
     now: () => "2026-11-01T00:00:00.000Z",
     createId: () => `product-record-${++sequence}`,
+  };
+}
+
+async function setupDocumentWorkspace(factory) {
+  const database = await openFledgeDatabase(factory);
+  const repositories = createBrowserRepositories(database);
+  const timestamp = "2026-11-01T00:00:00.000Z";
+  const business = await saveBusinessProfile(
+    {
+      legalName: "Fledge Traders",
+      displayName: "Fledge",
+      address: "Market Road",
+      stateId: "IN-KL",
+      gstRegistered: true,
+      gstin: `32AABCU9603R1Z${gstinCheckCharacter("32AABCU9603R1Z")}`,
+    },
+    {
+      repository: repositories.businessRepository,
+      states: STATE_UTS,
+      now: () => timestamp,
+      createId: () => "business-1",
+    },
+  );
+  const customer = await createCustomer(
+    {
+      name: "Harbour Stores",
+      billingAddress: "Beach Road",
+      stateId: "IN-KL",
+      registrationType: "unregistered",
+    },
+    {
+      repository: repositories.customerRepository,
+      states: STATE_UTS,
+      now: () => timestamp,
+      createId: () => "customer-1",
+    },
+  );
+  const productDependencies = productDeps(repositories.productRepository);
+  const rate = await createSavedGstRate(
+    { name: "GST 18", percentage: "18" },
+    productDependencies,
+  );
+  const product = await createProduct(
+    {
+      type: "goods",
+      name: "Notebook",
+      code: "NB-1",
+      hsnSac: "482010",
+      unit: "nos",
+      defaultPrice: "100",
+      defaultDiscount: "0",
+      taxCategoryId: "taxable",
+      savedGstRateId: rate.id,
+      taxInclusive: false,
+    },
+    productDependencies,
+  );
+  const documentDependencies = documentDeps(repositories.documentRepository);
+  return {
+    database,
+    repositories,
+    business,
+    customer,
+    product,
+    documentDeps: documentDependencies,
+  };
+}
+
+function documentDeps(repository) {
+  let sequence = 0;
+  return {
+    repository,
+    states: STATE_UTS,
+    now: () => "2026-11-01T00:00:00.000Z",
+    createId: () => `document-record-${++sequence}`,
+  };
+}
+
+function documentInput(workspace) {
+  return {
+    customerId: workspace.customer.id,
+    documentType: "tax_invoice",
+    documentDate: "2026-11-01",
+    placeOfSupplyStateId: "IN-KL",
+    gstEnabled: true,
+    reverseCharge: false,
+    lines: [{
+      productId: workspace.product.id,
+      description: "Notebook",
+      hsnSac: "482010",
+      quantity: "2",
+      unit: "nos",
+      rate: "100",
+      discountType: "none",
+      taxInclusive: false,
+      gstRatePercent: "18",
+      taxCategoryId: "taxable",
+    }],
   };
 }
 

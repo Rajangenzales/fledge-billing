@@ -11,6 +11,7 @@ import { customerReceipt } from "./customer-receipt.js";
 import { allocationEvents } from "./allocation.js";
 import { paymentAdjustments } from "./payment-adjustment.js";
 import { receiptIdentitySnapshot } from "./receipt-identity-snapshot.js";
+import { documentDueDate } from "./document-due-date.js";
 
 /** Schema changes shipped with this application build. */
 export const migrations: readonly Migration[] = [
@@ -26,4 +27,5 @@ export const migrations: readonly Migration[] = [
   allocationEvents,
   paymentAdjustments,
   receiptIdentitySnapshot,
+  documentDueDate,
 ];

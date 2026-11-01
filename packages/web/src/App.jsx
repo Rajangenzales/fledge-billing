@@ -1,18 +1,24 @@
 import React, { useEffect, useState } from "react";
 import {
   createCustomer,
+  createDocument,
   createProduct,
   createSavedGstRate,
+  cancelDocument,
+  finalizeDocument,
   getBusinessProfile,
   listCustomers,
+  listDocuments,
   listProducts,
   listSavedGstRates,
   listTaxCategories,
   saveBusinessProfile,
   updateProduct,
   updateSavedGstRate,
+  updateDocument,
 } from "@fledge/application/browser";
 import { STATE_UTS } from "@fledge/domain";
+import DocumentDirectory from "./DocumentDirectory.jsx";
 import ProductDirectory from "./ProductDirectory.jsx";
 import {
   createBrowserRepositories,
@@ -52,7 +58,7 @@ function Metric({ label, value, note, icon }) {
   </article>;
 }
 
-function Overview({ business, customers, products, onNavigate }) {
+function Overview({ business, customers, products, documents, onNavigate }) {
   const setupCount = Number(Boolean(business)) + Number(customers.length > 0) + Number(products.length > 0);
   return <>
     <section className="welcome-row">
@@ -60,7 +66,11 @@ function Overview({ business, customers, products, onNavigate }) {
       <button className="primary-button" onClick={() => onNavigate(business ? "invoices" : "settings")}><Icon name="plus" size={17} /> {business ? "View invoices" : "Set up business"}</button>
     </section>
     <section className="metrics-grid">
-      <Metric label="Total invoices" value="—" note="Not connected yet" icon="file" />
+      <Metric label="Total invoices" value={String(documents.filter((document) =>
+        ["tax_invoice", "non_gst_invoice"].includes(document.documentType) &&
+        document.documentNumber !== null &&
+        document.status !== "cancelled",
+      ).length)} note="Issued on this device" icon="file" />
       <Metric label="Outstanding" value="—" note="Not connected yet" icon="wallet" />
       <Metric label="Customers" value={String(customers.length)} note={customers.length ? "Saved on this device" : "Ready to add"} icon="users" />
       <Metric label="Products & services" value={String(products.length)} note={products.length ? "Saved on this device" : "Ready to add"} icon="box" />
@@ -258,6 +268,7 @@ export default function App() {
   const [business, setBusiness] = useState(null);
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
+  const [documents, setDocuments] = useState([]);
   const [savedGstRates, setSavedGstRates] = useState([]);
   const [taxCategories, setTaxCategories] = useState([]);
   const selected = navigation.find((item) => item.id === active);
@@ -281,12 +292,14 @@ export default function App() {
         const deps = { repository: nextRepositories.businessRepository, states: STATE_UTS };
         const customerDeps = { repository: nextRepositories.customerRepository, states: STATE_UTS };
         const productDeps = { repository: nextRepositories.productRepository };
-        const [profile, customerList, productList, savedRates, categories] = await Promise.all([
+        const documentDeps = { repository: nextRepositories.documentRepository, states: STATE_UTS };
+        const [profile, customerList, productList, savedRates, categories, documentList] = await Promise.all([
           getBusinessProfile(deps),
           listCustomers(customerDeps),
           listProducts(productDeps, { includeInactive: true }),
           listSavedGstRates(productDeps, { includeInactive: true }),
           listTaxCategories(productDeps),
+          listDocuments(documentDeps),
         ]);
         if (disposed) {
           database.close();
@@ -296,6 +309,7 @@ export default function App() {
         setBusiness(profile);
         setCustomers(customerList);
         setProducts(productList);
+        setDocuments(documentList);
         setSavedGstRates(savedRates);
         setTaxCategories(categories);
         setDurabilityWarning(warning);
@@ -330,6 +344,12 @@ export default function App() {
     now: () => new Date().toISOString(),
     createId,
   };
+  const documentDeps = repositories && {
+    repository: repositories.documentRepository,
+    states: STATE_UTS,
+    now: () => new Date().toISOString(),
+    createId,
+  };
 
   async function handleSaveBusiness(input) {
     const profile = await saveBusinessProfile(input, businessDeps);
@@ -360,6 +380,26 @@ export default function App() {
     setProducts(await listProducts(productDeps, { includeInactive: true }));
   }
 
+  async function handleSaveDocument(id, input) {
+    const document = id
+      ? await updateDocument(id, input, documentDeps)
+      : await createDocument(input, documentDeps);
+    setDocuments(await listDocuments(documentDeps));
+    return document;
+  }
+
+  async function handleFinalizeDocument(id) {
+    const document = await finalizeDocument(id, documentDeps);
+    setDocuments(await listDocuments(documentDeps));
+    return document;
+  }
+
+  async function handleCancelDocument(id) {
+    const document = await cancelDocument(id, documentDeps);
+    setDocuments(await listDocuments(documentDeps));
+    return document;
+  }
+
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand-lockup"><div className="brand-symbol">f</div><div><div className="brand-name">fledge</div><div className="brand-subtitle">BILLING</div></div></div>
@@ -377,7 +417,7 @@ export default function App() {
         {status === "ready" && durabilityWarning && <p className="storage-warning" role="status">{durabilityWarning}</p>}
         {status === "loading" && <section className="placeholder-panel" role="status"><div className="placeholder-icon"><Icon name="shield" /></div><h1>Opening your local workspace</h1><p>Connecting to this browser's IndexedDB database. Your records stay on this device.</p></section>}
         {status === "error" && <section className="placeholder-panel storage-error" role="alert"><div className="placeholder-icon"><Icon name="shield" /></div><div className="eyebrow">LOCAL STORAGE UNAVAILABLE</div><h1>Workspace could not be opened</h1><p>{storageError}</p><p>Your data was not loaded. Do not clear browser data or reinstall the app as a recovery step.</p><button className="secondary-button" onClick={() => window.location.reload()}>Try again</button></section>}
-        {status === "ready" && active === "overview" && <Overview business={business} customers={customers} products={products} onNavigate={setActive} />}
+        {status === "ready" && active === "overview" && <Overview business={business} customers={customers} products={products} documents={documents} onNavigate={setActive} />}
         {status === "ready" && active === "settings" && <BusinessSettings business={business} onSave={handleSaveBusiness} />}
         {status === "ready" && active === "customers" && <CustomerDirectory business={business} customers={customers} onCreate={handleCreateCustomer} onNavigate={setActive} />}
         {status === "ready" && active === "products" && <ProductDirectory
@@ -389,7 +429,17 @@ export default function App() {
           onSaveProduct={handleSaveProduct}
           onSaveRate={handleSaveRate}
         />}
-        {status === "ready" && !["overview", "settings", "customers", "products"].includes(active) && <Placeholder section={active} onBack={() => setActive("overview")} />}
+        {status === "ready" && active === "invoices" && <DocumentDirectory
+          business={business}
+          customers={customers}
+          products={products}
+          documents={documents}
+          onNavigate={setActive}
+          onSave={handleSaveDocument}
+          onFinalize={handleFinalizeDocument}
+          onCancel={handleCancelDocument}
+        />}
+        {status === "ready" && !["overview", "settings", "customers", "products", "invoices"].includes(active) && <Placeholder section={active} onBack={() => setActive("overview")} />}
       </div>
     </main>
   </div>;

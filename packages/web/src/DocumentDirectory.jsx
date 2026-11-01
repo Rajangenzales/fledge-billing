@@ -1,0 +1,312 @@
+import React, { useState } from "react";
+import { STATE_UTS } from "@fledge/domain";
+
+const documentTypes = [
+  ["tax_invoice", "Tax invoice"],
+  ["non_gst_invoice", "Non-GST invoice"],
+  ["bill_of_supply", "Bill of supply"],
+  ["quotation", "Quotation"],
+];
+
+function defaultForm(business, customers) {
+  return {
+    id: null,
+    customerId: customers.find((customer) => customer.active)?.id ?? "",
+    documentType: business?.gstRegistered ? "tax_invoice" : "non_gst_invoice",
+    documentDate: new Date().toISOString().slice(0, 10),
+    dueDate: "",
+    placeOfSupplyStateId: business?.stateId ?? "",
+    quotationGstEnabled: false,
+    reverseCharge: false,
+    lines: [],
+  };
+}
+
+function formFromDocument(document) {
+  return {
+    id: document.id,
+    customerId: document.customerId,
+    documentType: document.documentType,
+    documentDate: document.documentDate,
+    dueDate: document.dueDate ?? "",
+    placeOfSupplyStateId: document.placeOfSupplyStateId ?? "",
+    quotationGstEnabled: document.documentType === "quotation" && document.gstEnabled,
+    reverseCharge: document.reverseCharge,
+    lines: document.lines.map((line) => ({
+      productId: line.productId ?? "",
+      description: line.description,
+      hsnSac: line.hsnSac ?? "",
+      quantity: line.quantity,
+      unit: line.unit,
+      rate: line.rate,
+      discountType: line.discountType,
+      discountValue: line.discountType === "none" ? "0" : line.discountValue,
+      taxInclusive: line.taxInclusive,
+      gstRatePercent: line.gstRatePercent ?? "",
+      taxCategoryId: line.taxCategoryId,
+    })),
+  };
+}
+
+function lineFromProduct(product) {
+  return {
+    productId: product.id,
+    description: product.description || product.name,
+    hsnSac: product.hsnSac ?? "",
+    quantity: "1",
+    unit: product.unit,
+    rate: product.defaultPrice,
+    discountType: Number(product.defaultDiscount) > 0 ? "amount" : "none",
+    discountValue: product.defaultDiscount,
+    taxInclusive: product.taxInclusive,
+    gstRatePercent: product.savedGstRate?.percentage ?? "",
+    taxCategoryId: product.taxCategoryId,
+  };
+}
+
+function documentInput(form) {
+  const gstEnabled = form.documentType === "tax_invoice" ||
+    (form.documentType === "quotation" && form.quotationGstEnabled);
+  return {
+    customerId: form.customerId,
+    documentType: form.documentType,
+    documentDate: form.documentDate,
+    dueDate: form.dueDate || null,
+    placeOfSupplyStateId: gstEnabled ? form.placeOfSupplyStateId : null,
+    gstEnabled,
+    reverseCharge: gstEnabled && form.reverseCharge,
+    lines: form.lines.map((line) => ({
+      ...line,
+      hsnSac: line.hsnSac || null,
+      discountValue: line.discountType === "none" ? null : line.discountValue,
+      gstRatePercent: line.gstRatePercent || null,
+      supplyNature: null,
+    })),
+  };
+}
+
+function money(value) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 2,
+  }).format(Number(value));
+}
+
+export default function DocumentDirectory({
+  business,
+  customers,
+  products,
+  documents,
+  onNavigate,
+  onSave,
+  onFinalize,
+  onCancel,
+}) {
+  const [form, setForm] = useState(null);
+  const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [confirmFinalize, setConfirmFinalize] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [savedPreview, setSavedPreview] = useState(null);
+  const [selectedDocumentId, setSelectedDocumentId] = useState(null);
+  const activeProducts = products.filter((product) => product.active);
+  const activeCustomers = customers.filter((customer) => customer.active);
+  const selectedDocument = documents.find((document) => document.id === selectedDocumentId);
+  const gstEnabled = form && (
+    form.documentType === "tax_invoice" ||
+    (form.documentType === "quotation" && form.quotationGstEnabled)
+  );
+
+  function startNew() {
+    setForm(defaultForm(business, activeCustomers));
+    setSelectedDocumentId(null);
+    setConfirmCancel(false);
+    setConfirmFinalize(false);
+    setMessage("");
+    setDirty(true);
+    setSavedPreview(null);
+  }
+
+  function editDraft(document) {
+    setForm(formFromDocument(document));
+    setSelectedDocumentId(null);
+    setConfirmCancel(false);
+    setConfirmFinalize(false);
+    setMessage("");
+    setDirty(false);
+    setSavedPreview(document);
+  }
+
+  function updateForm(field, value) {
+    setForm((current) => ({ ...current, [field]: value }));
+    setMessage("");
+    setDirty(true);
+    setSavedPreview(null);
+    setConfirmFinalize(false);
+  }
+
+  function updateLine(index, field, value) {
+    setForm((current) => ({
+      ...current,
+      lines: current.lines.map((line, lineIndex) =>
+        lineIndex === index ? { ...line, [field]: value } : line,
+      ),
+    }));
+    setMessage("");
+    setDirty(true);
+    setSavedPreview(null);
+    setConfirmFinalize(false);
+  }
+
+  async function saveDraft(event) {
+    event.preventDefault();
+    setSaving(true);
+    setMessage("");
+    try {
+      const saved = await onSave(form.id, documentInput(form));
+      setForm((current) => ({ ...current, id: saved.id }));
+      setDirty(false);
+      setSavedPreview(saved);
+      setMessage("Draft saved on this device. Totals are recalculated when saved.");
+    } catch (error) {
+      setMessage(error?.userMessage || error?.message || "The draft could not be saved.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function finalize() {
+    setSaving(true);
+    setMessage("");
+    try {
+      await onFinalize(form.id);
+      setForm(null);
+      setMessage("");
+    } catch (error) {
+      setMessage(error?.userMessage || error?.message || "The document could not be finalized.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function cancelDocument() {
+    setSaving(true);
+    setMessage("");
+    try {
+      await onCancel(form.id);
+      setForm(null);
+      setConfirmCancel(false);
+    } catch (error) {
+      setMessage(error?.userMessage || error?.message || "The document could not be cancelled.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function addProductLine(product) {
+    setForm((current) => ({ ...current, lines: [...current.lines, lineFromProduct(product)] }));
+    setDirty(true);
+    setSavedPreview(null);
+    setMessage("");
+    setConfirmFinalize(false);
+  }
+
+  function removeLine(index) {
+    setForm((current) => ({
+      ...current,
+      lines: current.lines.filter((_, lineIndex) => lineIndex !== index),
+    }));
+    setDirty(true);
+    setSavedPreview(null);
+    setMessage("");
+    setConfirmFinalize(false);
+  }
+
+  return <section className="workflow-page">
+    <div className="page-title">
+      <div><div className="eyebrow">YOUR BUSINESS</div><h1>Invoices &amp; documents</h1><p>Create drafts, review calculated totals, and issue numbered billing documents.</p></div>
+      {business && activeCustomers.length > 0 && activeProducts.length > 0 &&
+        <button className="primary-button" onClick={startNew}>＋ New document</button>}
+    </div>
+    <p className="template-limitation">Built-in templates are used. Custom templates and custom fields are not yet available in this browser workflow.</p>
+    {!business && <div className="panel empty-state"><h2>Set up your business first</h2><p>A business profile is required before billing documents can be created.</p><button className="primary-button" onClick={() => onNavigate("settings")}>Add business details</button></div>}
+    {business && activeCustomers.length === 0 && <div className="panel empty-state"><h2>Add a customer first</h2><p>Choose an active customer for each billing document.</p><button className="primary-button" onClick={() => onNavigate("customers")}>Add customer</button></div>}
+    {business && activeCustomers.length > 0 && activeProducts.length === 0 && <div className="panel empty-state"><h2>Add a product or service first</h2><p>Document lines are selected from your active business catalog.</p><button className="primary-button" onClick={() => onNavigate("products")}>Add product or service</button></div>}
+
+    {form && <form className="panel form-panel document-form" onSubmit={saveDraft}>
+      <div className="panel-heading"><div><div className="eyebrow">{form.id ? "SAVED DRAFT" : "NEW DOCUMENT"}</div><h2>{form.id ? "Edit draft" : "Create billing document"}</h2></div><button className="list-action" type="button" onClick={() => setForm(null)}>Close</button></div>
+      <div className="form-grid">
+        <label>Document type<select value={form.documentType} onChange={(event) => {
+          updateForm("documentType", event.target.value);
+          if (event.target.value !== "quotation") updateForm("quotationGstEnabled", false);
+        }}>{documentTypes.filter(([type]) => type !== "tax_invoice" || business.gstRegistered).map(([type, label]) => <option key={type} value={type}>{label}</option>)}</select></label>
+        <label>Document date<input required type="date" value={form.documentDate} onChange={(event) => updateForm("documentDate", event.target.value)} /></label>
+        <label>Due date (optional)<input type="date" min={form.documentDate} value={form.dueDate} onChange={(event) => updateForm("dueDate", event.target.value)} /></label>
+        <label>Customer<select required value={form.customerId} onChange={(event) => updateForm("customerId", event.target.value)}><option value="">Choose customer</option>{activeCustomers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
+        {gstEnabled && <label>Place of supply<select required value={form.placeOfSupplyStateId} onChange={(event) => updateForm("placeOfSupplyStateId", event.target.value)}><option value="">Choose State / UT</option>{STATE_UTS.filter((state) => state.active).map((state) => <option key={state.id} value={state.id}>{state.name}</option>)}</select></label>}
+        {form.documentType === "quotation" && business.gstRegistered && <label className="checkbox-field"><input type="checkbox" checked={form.quotationGstEnabled} onChange={(event) => updateForm("quotationGstEnabled", event.target.checked)} /> Calculate GST on this quotation</label>}
+        {gstEnabled && <label className="checkbox-field"><input type="checkbox" checked={form.reverseCharge} onChange={(event) => updateForm("reverseCharge", event.target.checked)} /> Reverse charge applies</label>}
+      </div>
+      <div className="document-lines-heading"><h3>Items</h3><select aria-label="Choose a product to add" value="" onChange={(event) => {
+        const product = activeProducts.find((item) => item.id === event.target.value);
+        if (product) addProductLine(product);
+      }}><option value="">Add item from catalog…</option>{activeProducts.map((product) => <option key={product.id} value={product.id}>{product.name} · {money(product.defaultPrice)}</option>)}</select></div>
+      {form.lines.length === 0 ? <p className="empty-line-note">Select an active product or service to add the first line.</p> : <div className="document-lines">
+        {form.lines.map((line, index) => <fieldset className="document-line" key={`${line.productId || "custom"}-${index}`}>
+          <legend>Item {index + 1}</legend>
+          <label>Description<input required maxLength={200} value={line.description} onChange={(event) => updateLine(index, "description", event.target.value)} /></label>
+          <label>Quantity<input required inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(index, "quantity", event.target.value)} /></label>
+          <label>Unit<input required maxLength={16} value={line.unit} onChange={(event) => updateLine(index, "unit", event.target.value)} /></label>
+          <label>Rate (₹)<input required inputMode="decimal" value={line.rate} onChange={(event) => updateLine(index, "rate", event.target.value)} /></label>
+          <label>Discount<select value={line.discountType} onChange={(event) => updateLine(index, "discountType", event.target.value)}><option value="none">None</option><option value="amount">Amount</option><option value="percent">Percent</option></select></label>
+          {line.discountType !== "none" && <label>Discount value<input required inputMode="decimal" value={line.discountValue} onChange={(event) => updateLine(index, "discountValue", event.target.value)} /></label>}
+          <label>GST rate (%)<input inputMode="decimal" value={line.gstRatePercent} disabled={line.taxCategoryId !== "taxable"} onChange={(event) => updateLine(index, "gstRatePercent", event.target.value)} /></label>
+          <label>HSN / SAC<input maxLength={8} value={line.hsnSac} onChange={(event) => updateLine(index, "hsnSac", event.target.value)} /></label>
+          <label className="checkbox-field"><input type="checkbox" checked={line.taxInclusive} onChange={(event) => updateLine(index, "taxInclusive", event.target.checked)} /> Rate includes GST</label>
+          <button className="list-action" type="button" onClick={() => removeLine(index)}>Remove</button>
+        </fieldset>)}
+      </div>}
+      {savedPreview && <section className="document-preview" aria-label="Saved draft totals">
+        <h3>Draft totals</h3>
+        <dl><div><dt>Subtotal</dt><dd>{money(savedPreview.subtotal)}</dd></div><div><dt>Tax</dt><dd>{money(savedPreview.taxTotal)}</dd></div><div><dt>Total</dt><dd>{money(savedPreview.grandTotal)}</dd></div></dl>
+        {savedPreview.notices.map((notice, index) => <p key={`${notice}-${index}`}>{notice}</p>)}
+      </section>}
+      {message && <p className="form-message" role="status">{message}</p>}
+      <div className="form-actions"><span>{form.id ? "Save changes before finalizing. Finalized documents are immutable." : "Save as a draft before issuing a document number."}</span><div className="button-row">
+        <button className="secondary-button" type="button" onClick={() => setForm(null)}>Close</button>
+        <button className="primary-button" type="submit" disabled={saving || form.lines.length === 0 || !form.customerId}>{saving ? "Saving…" : "Save draft"}</button>
+      </div></div>
+      {form.id && <div className="document-final-actions">
+        {!confirmCancel && !confirmFinalize && <><button className="primary-button" type="button" disabled={saving || dirty} onClick={() => setConfirmFinalize(true)}>Finalize and issue number</button><button className="list-action" type="button" disabled={saving} onClick={() => setConfirmCancel(true)}>Cancel document</button>{dirty && <span className="form-message">Save your changes before finalizing.</span>}</>}
+        {confirmFinalize && <div className="confirmation-row" role="group" aria-label="Confirm document finalization"><span>Issue this document now? Its number and financial snapshot will be locked.</span><button className="list-action" type="button" disabled={saving} onClick={() => setConfirmFinalize(false)}>Keep draft</button><button className="primary-button" type="button" disabled={saving || dirty} onClick={finalize}>Confirm finalization</button></div>}
+        {confirmCancel && <div className="confirmation-row" role="group" aria-label="Confirm document cancellation"><span>Cancel this document? It will remain in the local history.</span><button className="list-action" type="button" disabled={saving} onClick={() => setConfirmCancel(false)}>Keep draft</button><button className="list-action destructive-action" type="button" disabled={saving} onClick={cancelDocument}>Confirm cancellation</button></div>}
+      </div>}
+    </form>}
+
+    {selectedDocument && <section className="panel selected-document">
+      <div className="panel-heading"><div><div className="eyebrow">DOCUMENT DETAILS</div><h2>{selectedDocument.documentNumber || "Draft"} · {selectedDocument.documentDate}</h2></div><button className="list-action" onClick={() => setSelectedDocumentId(null)}>Close</button></div>
+      {selectedDocument.dueDate && <p>Due {selectedDocument.dueDate}</p>}
+      <p>{selectedDocument.lines.map((line) => line.description).join(", ")}</p>
+      <strong>Total {money(selectedDocument.grandTotal)}</strong>
+    </section>}
+
+    {business && <div className="panel customer-list-panel document-list-panel">
+      <div className="panel-heading"><div><div className="eyebrow">LOCAL DOCUMENTS</div><h2>{documents.length ? `${documents.length} saved` : "Your billing documents"}</h2></div></div>
+      {documents.length === 0 ? <div className="empty-list"><h3>No documents yet</h3><p>Create a draft from your active customers and product catalog.</p>{activeCustomers.length > 0 && activeProducts.length > 0 && <button className="secondary-button" onClick={startNew}>Create first document</button>}</div> :
+        <ul className="customer-list">{documents.map((document) => {
+          const customer = customers.find((item) => item.id === document.customerId);
+          const status = document.status === "draft" ? "Draft" : document.status === "cancelled" ? "Cancelled" : document.status;
+          return <li key={document.id}>
+            <span className="customer-avatar">{customer?.name.slice(0, 1).toUpperCase() || "D"}</span>
+            <span className="customer-list-main"><strong>{document.documentNumber || documentTypes.find(([type]) => type === document.documentType)?.[1]}{document.status === "cancelled" && <span className="inactive-badge">Cancelled</span>}</strong><small>{customer?.name || "Customer"} · {document.documentDate}{document.dueDate ? ` · Due ${document.dueDate}` : ""} · {status}</small></span>
+            <span className="document-total">{money(document.grandTotal)}</span>
+            {document.status === "draft"
+              ? <button className="list-action" onClick={() => editDraft(document)}>Edit</button>
+              : <button className="list-action" onClick={() => setSelectedDocumentId(document.id)}>View</button>}
+          </li>;
+        })}</ul>}
+    </div>}
+  </section>;
+}
