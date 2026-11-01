@@ -20,7 +20,7 @@ export type CustomerPaymentActivityEntry = {
   amount: string;
   method: string | null;
   reference: string | null;
-  reason: string | null;
+  description: string | null;
 };
 
 export type CustomerPaymentActivity = {
@@ -66,7 +66,7 @@ export function getCustomerPaymentActivity(
       amount: receipt.amount,
       method: receipt.method,
       reference: receipt.reference,
-      reason: receipt.notes,
+      description: receipt.notes,
     });
 
     for (const event of deps.allocations.repository.listReceiptEvents(receipt.id)) {
@@ -80,7 +80,7 @@ export function getCustomerPaymentActivity(
         amount: event.amount,
         method: null,
         reference: event.allocationId,
-        reason: event.reason,
+        description: event.reason,
       });
     }
 
