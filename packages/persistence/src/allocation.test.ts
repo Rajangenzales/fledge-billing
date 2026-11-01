@@ -90,7 +90,7 @@ describe("payment allocations", () => {
       allocatedAmount: "100", outstandingAmount: "0", paymentStatus: "paid",
     });
     expect(await getCustomerAllocatedTotal("cust-1", allocationDeps)).toBe("100");
-    expect(getCustomerAdvance("cust-1", receiptDeps).unallocatedAmount).toBe("50");
+    expect((await getCustomerAdvance("cust-1", receiptDeps)).unallocatedAmount).toBe("50");
   });
 
   it("releases an allocation as a compensating event without deleting history", async () => {
