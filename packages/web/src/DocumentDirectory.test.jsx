@@ -16,6 +16,7 @@ describe("browser document directory", () => {
       business: null,
       customers: [],
       products: [],
+      templates: [],
       documents: [],
       ...callbacks,
     }));
@@ -24,11 +25,12 @@ describe("browser document directory", () => {
     expect(html).not.toContain("New document");
   });
 
-  it("lists saved documents and communicates browser template limitations", () => {
+  it("lists saved documents and explains template selection", () => {
     const html = renderToStaticMarkup(React.createElement(DocumentDirectory, {
       business: { id: "business-1", gstRegistered: true, stateId: "IN-KL" },
       customers: [{ id: "customer-1", active: true, name: "Harbour Stores" }],
       products: [{ id: "product-1", active: true, name: "Notebook", defaultPrice: "100" }],
+      templates: [],
       documents: [{
         id: "document-1",
         customerId: "customer-1",
@@ -47,7 +49,7 @@ describe("browser document directory", () => {
     expect(html).toContain("INV/2026-27/0001");
     expect(html).toContain("Harbour Stores");
     expect(html).toContain("Due 2026-11-30");
-    expect(html).toContain("Built-in templates are used");
+    expect(html).toContain("Choose a saved template revision");
     expect(html).not.toContain("No documents yet");
   });
 });

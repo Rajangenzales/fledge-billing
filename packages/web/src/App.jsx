@@ -11,6 +11,7 @@ import {
   listDocuments,
   listProducts,
   listSavedGstRates,
+  listTemplates,
   listTaxCategories,
   saveBusinessProfile,
   updateProduct,
@@ -20,6 +21,7 @@ import {
 import { STATE_UTS } from "@fledge/domain";
 import DocumentDirectory from "./DocumentDirectory.jsx";
 import ProductDirectory from "./ProductDirectory.jsx";
+import TemplateDirectory from "./TemplateDirectory.jsx";
 import {
   createBrowserRepositories,
   openFledgeDatabase,
@@ -30,6 +32,7 @@ const navigation = [
   { id: "invoices", label: "Invoices", icon: "file" },
   { id: "customers", label: "Customers", icon: "users" },
   { id: "products", label: "Products & services", icon: "box" },
+  { id: "templates", label: "Document templates", icon: "file" },
   { id: "payments", label: "Payments", icon: "wallet" },
   { id: "settings", label: "Business settings", icon: "settings" },
 ];
@@ -271,6 +274,7 @@ export default function App() {
   const [documents, setDocuments] = useState([]);
   const [savedGstRates, setSavedGstRates] = useState([]);
   const [taxCategories, setTaxCategories] = useState([]);
+  const [templates, setTemplates] = useState([]);
   const selected = navigation.find((item) => item.id === active);
 
   useEffect(() => {
@@ -301,6 +305,11 @@ export default function App() {
           listTaxCategories(productDeps),
           listDocuments(documentDeps),
         ]);
+        const templateDeps = {
+          repository: nextRepositories.templateRepository,
+          now: () => new Date().toISOString(),
+        };
+        const templateList = profile ? await listTemplates(templateDeps) : [];
         if (disposed) {
           database.close();
           return;
@@ -312,6 +321,7 @@ export default function App() {
         setDocuments(documentList);
         setSavedGstRates(savedRates);
         setTaxCategories(categories);
+        setTemplates(templateList);
         setDurabilityWarning(warning);
         setStatus("ready");
       } catch (error) {
@@ -350,10 +360,15 @@ export default function App() {
     now: () => new Date().toISOString(),
     createId,
   };
+  const templateDeps = repositories && {
+    repository: repositories.templateRepository,
+    now: () => new Date().toISOString(),
+  };
 
   async function handleSaveBusiness(input) {
     const profile = await saveBusinessProfile(input, businessDeps);
     setBusiness(profile);
+    setTemplates(await listTemplates(templateDeps));
   }
 
   async function handleCreateCustomer(input) {
@@ -400,6 +415,10 @@ export default function App() {
     return document;
   }
 
+  async function handleRefreshTemplates() {
+    setTemplates(await listTemplates(templateDeps));
+  }
+
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand-lockup"><div className="brand-symbol">f</div><div><div className="brand-name">fledge</div><div className="brand-subtitle">BILLING</div></div></div>
@@ -419,10 +438,17 @@ export default function App() {
         {status === "error" && <section className="placeholder-panel storage-error" role="alert"><div className="placeholder-icon"><Icon name="shield" /></div><div className="eyebrow">LOCAL STORAGE UNAVAILABLE</div><h1>Workspace could not be opened</h1><p>{storageError}</p><p>Your data was not loaded. Do not clear browser data or reinstall the app as a recovery step.</p><button className="secondary-button" onClick={() => window.location.reload()}>Try again</button></section>}
         {status === "ready" && active === "overview" && <Overview business={business} customers={customers} products={products} documents={documents} onNavigate={setActive} />}
         {status === "ready" && active === "settings" && <BusinessSettings business={business} onSave={handleSaveBusiness} />}
+        {status === "ready" && active === "templates" && <TemplateDirectory
+          business={business}
+          templates={templates}
+          deps={templateDeps}
+          onRefresh={handleRefreshTemplates}
+        />}
         {status === "ready" && active === "customers" && <CustomerDirectory business={business} customers={customers} onCreate={handleCreateCustomer} onNavigate={setActive} />}
         {status === "ready" && active === "products" && <ProductDirectory
           business={business}
           products={products}
+          templates={templates}
           rates={savedGstRates}
           categories={taxCategories}
           onNavigate={setActive}
@@ -439,7 +465,7 @@ export default function App() {
           onFinalize={handleFinalizeDocument}
           onCancel={handleCancelDocument}
         />}
-        {status === "ready" && !["overview", "settings", "customers", "products", "invoices"].includes(active) && <Placeholder section={active} onBack={() => setActive("overview")} />}
+        {status === "ready" && !["overview", "settings", "customers", "products", "invoices", "templates"].includes(active) && <Placeholder section={active} onBack={() => setActive("overview")} />}
       </div>
     </main>
   </div>;

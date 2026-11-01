@@ -232,6 +232,8 @@ Requirements:
 - Invalid or unsafe field configuration is rejected.
 - Tests prove template changes cannot modify financial values.
 
+**Implementation status:** Browser template persistence, defaults, safe customization, revision history, custom-field snapshots, document template selection and representative preview are implemented on the current feature branch. IndexedDB upgrade, cross-business ownership, reload persistence, invalid configuration and historical-render behavior have focused coverage. Merge and release status must be tracked separately.
+
 ### B4 — Payment persistence and customer payment activity
 
 **Objective:** Complete the browser payment workflow without weakening financial invariants.
