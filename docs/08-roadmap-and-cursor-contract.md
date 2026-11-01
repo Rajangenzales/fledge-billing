@@ -78,12 +78,12 @@ The current main-branch SQLite registry has twelve migrations, including custome
 
 **M8 customer payment activity statement merged (PR #32):** A read-only customer-scoped application query combines existing receipt, allocation/release, refund and reversal events with derived summary totals. It preserves receipt/invoice references and deterministic chronological ordering. It is not a full accounting ledger and does not apply credit/debit-note effects or GST treatment.
 
-**Next implementation focus:** plan the next customer-facing workflow only after reviewing the current application/UI boundaries. Resolve owner/accounting decisions and obtain qualified GST-practitioner review before authorizing credit/debit-note persistence or statutory behaviour. Do not reconcile payments against mutable or incomplete financial snapshots. Cross-cutting security and PWA foundations remain mandatory before public release. Do not claim production readiness or cross-platform offline PWA support yet.
+**Next implementation focus:** establish the customer-facing browser foundation through small, reviewed slices. The proposed framework/package direction and dependency order are recorded in [docs/21](./21-pwa-frontend-foundation-plan.md); it remains a proposal until the product owner confirms the framework, package boundary and IndexedDB adapter direction. Resolve owner/accounting decisions and obtain qualified GST-practitioner review before authorizing credit/debit-note persistence or statutory behaviour. Do not reconcile payments against mutable or incomplete financial snapshots. Cross-cutting security and PWA foundations remain mandatory before public release. Do not claim production readiness or cross-platform offline PWA support yet.
 
 
 ## 3. Cross-cutting platform and service prerequisites
 
-The product direction and detailed contracts are defined in docs/11-pwa-offline-sync-and-platform-operations.md. These are cross-cutting capabilities, not a reason to implement every subsystem in one PR.
+The product direction and detailed contracts are defined in docs/11-pwa-offline-sync-and-platform-operations.md. The first browser implementation proposal is in docs/21-pwa-frontend-foundation-plan.md. These are cross-cutting capabilities, not a reason to implement every subsystem in one PR.
 
 Before public V1 release, plan and implement focused issues for:
 
