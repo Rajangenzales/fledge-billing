@@ -1,6 +1,6 @@
 # W1C — Browser-Safe Application Entry and Production Bundle Guard
 
-**Status:** Implemented in PR #39; pending review and merge  
+**Status:** Merged in PR #39  
 **Depends on:** W1 audit (docs/22), W1A async repository contract (docs/23), W1B business/customer async migration (PR #38)  
 **Scope:** Establish a deliberately small browser import boundary and make the production web build enforce it.
 
