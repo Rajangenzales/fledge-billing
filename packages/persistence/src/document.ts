@@ -427,8 +427,8 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
     record.notices.join("\n"),
     record.supplierSnapshot ? JSON.stringify(record.supplierSnapshot) : null,
     record.recipientSnapshot ? JSON.stringify(record.recipientSnapshot) : null,
-    record.paymentDetailsSnapshot,
-    record.invoicePreferencesSnapshot,
+    record.paymentDetailsSnapshot ?? null,
+    record.invoicePreferencesSnapshot ?? null,
   ];
   if (updating) {
     db.prepare(
