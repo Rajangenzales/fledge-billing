@@ -88,6 +88,7 @@ describe("customers", () => {
         registrationType: "registered",
         gstin: keralaGstin,
         notes: "Pays weekly",
+        creditDays: 30,
       },
       deps,
     );
@@ -111,6 +112,7 @@ describe("customers", () => {
       gstin: keralaGstin,
       registrationType: "registered",
       active: true,
+      creditDays: 30,
     });
     expect(harbour.stateUt.gstStateCode).toBe("32");
 
