@@ -38,7 +38,7 @@ The following is a recommendation, not an approved stack decision:
 5. Select an IndexedDB wrapper only after checking transaction semantics, schema migration support, bundle size, maintenance and testability. Do not let a wrapper's API leak into domain/application packages.
 6. Add a web app manifest and service worker in a later, separately testable slice after the browser shell and local persistence boundaries are stable.
 
-React/Vite is recommended because it is a conventional, well-supported TypeScript browser stack with a straightforward static build and no need to replace the existing Node application. This recommendation does not imply that React/Vite or a particular IndexedDB library has already been approved or installed.
+React + Vite is the approved browser stack because it is a conventional, well-supported TypeScript browser stack with a straightforward static build and no need to replace the existing Node application. The IndexedDB adapter remains undecided pending the W1 repository and transaction audit.
 
 ## 4. W0 implementation record
 
