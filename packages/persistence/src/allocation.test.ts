@@ -71,7 +71,7 @@ describe("payment allocations", () => {
     databases.push(db);
     migrate(db, migrations.slice(0, 9));
     expect(readSchemaVersion(db)).toBe(9);
-    expect(migrate(db, migrations)).toMatchObject({ fromVersion: 9, toVersion: 17, appliedVersions: [10, 11, 12, 13, 14, 15, 16] });
+    expect(migrate(db, migrations)).toMatchObject({ fromVersion: 9, toVersion: 17, appliedVersions: [10, 11, 12, 13, 14, 15, 16, 17] });
     expect(readSchemaVersion(db)).toBe(17);
   });
 
