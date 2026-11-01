@@ -108,7 +108,7 @@ describe("payment allocations", () => {
       allocatedAmount: "0", outstandingAmount: "100", paymentStatus: "unpaid",
     });
     expect(await getCustomerAllocatedTotal("cust-1", allocationDeps)).toBe("0");
-    expect(getCustomerAdvance("cust-1", receiptDeps).unallocatedAmount).toBe("150");
+    expect((await getCustomerAdvance("cust-1", receiptDeps)).unallocatedAmount).toBe("150");
     expect(await allocationDeps.repository.listReceiptEvents(receipt.id)).toHaveLength(2);
   });
 
