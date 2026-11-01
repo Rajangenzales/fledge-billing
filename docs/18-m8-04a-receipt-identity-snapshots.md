@@ -1,6 +1,6 @@
 # Fledge Billing — M8-04A Receipt-Time Identity Snapshots
 
-**Status:** Implementation proposed in PR; not yet merged  
+**Status:** Merged in PR #29  
 **Migration:** 12 — `receipt-identity-snapshot`  
 **Depends on:** [M8-04 receipt-generation contract](./17-m8-04-payment-receipt-generation.md)
 

@@ -61,9 +61,29 @@ export type CustomerReceiptRepository = {
   customerExists(customerId: string, businessId: string): boolean;
   insert(record: CustomerReceipt): CustomerReceipt;
   list(customerId: string): CustomerReceipt[];
+  getById(receiptId: string, businessId: string): CustomerReceipt | null;
   total(customerId: string): string;
   allocatedTotal(customerId: string): string;
   adjustmentTotals(customerId: string): { refundedAmount: string; reversedReceiptAmount: string };
+};
+
+export type PrintableCustomerReceipt = {
+  receiptId: string;
+  paymentDate: string;
+  amount: string;
+  method: string;
+  externalReference: string | null;
+  notes: string | null;
+  businessName: string;
+  businessAddress: string;
+  businessPhone: string | null;
+  businessEmail: string | null;
+  businessGstin: string | null;
+  customerName: string;
+  customerAddress: string;
+  customerPhone: string | null;
+  customerEmail: string | null;
+  customerGstin: string | null;
 };
 
 export type CustomerReceiptDeps = {
@@ -111,6 +131,77 @@ export function recordCustomerReceipt(
     recordedAt,
     identitySnapshot: null,
   });
+}
+
+
+export function renderCustomerReceipt(receiptId: string, deps: CustomerReceiptDeps): PrintableCustomerReceipt {
+  const businessId = deps.repository.getBusinessId();
+  if (!businessId) throw new CustomerReceiptError("Save the business profile before viewing receipts.");
+  const id = required(receiptId, "Choose a valid receipt.", 120);
+  const receipt = deps.repository.getById(id, businessId);
+  if (!receipt) throw new CustomerReceiptError("That receipt was not found for this business.");
+  const snapshot = receipt.identitySnapshot;
+  if (!snapshot) throw new CustomerReceiptError("This legacy receipt has no receipt-time identity snapshot and cannot be formally printed.");
+  return {
+    receiptId: receipt.id,
+    paymentDate: receipt.paymentDate,
+    amount: receipt.amount,
+    method: receipt.method.replace(/_/g, " "),
+    externalReference: receipt.reference,
+    notes: receipt.notes,
+    businessName: snapshot.business.displayName || snapshot.business.legalName,
+    businessAddress: [snapshot.business.address, snapshot.business.stateName, snapshot.business.pinCode].filter(Boolean).join(", "),
+    businessPhone: snapshot.business.phone,
+    businessEmail: snapshot.business.email,
+    businessGstin: snapshot.business.gstRegistered ? snapshot.business.gstin : null,
+    customerName: snapshot.customer.name,
+    customerAddress: [snapshot.customer.billingAddress, snapshot.customer.stateName, snapshot.customer.pinCode].filter(Boolean).join(", "),
+    customerPhone: snapshot.customer.phone,
+    customerEmail: snapshot.customer.email,
+    customerGstin: snapshot.customer.gstin,
+  };
+}
+
+export function customerReceiptPrintLines(receipt: PrintableCustomerReceipt): string[] {
+  return [
+    "PAYMENT RECEIPT",
+    receipt.businessName,
+    receipt.businessAddress,
+    ...(receipt.businessPhone ? ["Phone: " + receipt.businessPhone] : []),
+    ...(receipt.businessEmail ? ["Email: " + receipt.businessEmail] : []),
+    ...(receipt.businessGstin ? ["GSTIN: " + receipt.businessGstin] : []),
+    "",
+    "Receipt reference (internal): " + receipt.receiptId,
+    "Payment date: " + receipt.paymentDate,
+    "",
+    "RECEIVED FROM",
+    receipt.customerName,
+    receipt.customerAddress,
+    ...(receipt.customerPhone ? ["Phone: " + receipt.customerPhone] : []),
+    ...(receipt.customerEmail ? ["Email: " + receipt.customerEmail] : []),
+    ...(receipt.customerGstin ? ["GSTIN: " + receipt.customerGstin] : []),
+    "",
+    "Amount received: INR " + formatReceiptAmount(receipt.amount),
+    "Payment method: " + receipt.method,
+    ...(receipt.externalReference ? ["Transaction reference: " + receipt.externalReference] : []),
+    ...(receipt.notes ? ["Notes:", receipt.notes] : []),
+    "",
+    "This document acknowledges receipt of payment. It is not a tax invoice or statutory GST receipt voucher.",
+  ];
+}
+
+export function printCustomerReceipt(receiptId: string, deps: CustomerReceiptDeps): string {
+  return customerReceiptPrintLines(renderCustomerReceipt(receiptId, deps)).join("\n");
+}
+
+function formatReceiptAmount(value: string): string {
+  try {
+    const amount = Money.parse(value).toDecimalString();
+    const parts = amount.split(".");
+    return (parts[0] ?? "0") + "." + (parts[1] ?? "00").padEnd(2, "0");
+  } catch {
+    throw new CustomerReceiptError("The saved receipt amount is invalid.");
+  }
 }
 
 export function listCustomerReceipts(customerId: string, deps: CustomerReceiptDeps): CustomerReceipt[] {
