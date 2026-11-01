@@ -1,6 +1,6 @@
 # W1D — Async Product and Saved GST Rate Repositories
 
-**Status:** Implemented in PR #40; pending review and merge  
+**Status:** Merged in PR #40  
 **Depends on:** W1A repository contract (docs/23), W1B business/customer migration (PR #38), W1C browser boundary (PR #39)  
 **Scope:** Migrate product and saved GST rate application workflows to explicit Promise-based repository contracts.
 

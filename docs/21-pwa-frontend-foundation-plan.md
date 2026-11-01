@@ -1,6 +1,6 @@
 # Fledge Billing — PWA Frontend Foundation Plan
 
-**Status:** W0 browser shell merged (PR #35); W1 audit merged (PR #36); W1A contract merged (PR #37); W1B async business/customer migration merged (PR #38); W1C browser-safe entry and bundle guard merged (PR #39); W1D async product/saved GST rate migration implemented in PR #40, pending review  
+**Status:** W0 browser shell merged (PR #35); W1 audit merged (PR #36); W1A contract merged (PR #37); W1B async business/customer migration merged (PR #38); W1C browser-safe entry and bundle guard merged (PR #39); W1D async product/saved GST rate migration merged (PR #40); W1E async invoice/document migration implemented in PR #41, pending review  
 **Scope:** First customer-facing browser application foundation  
 **Depends on:** docs/01–03, docs/08–11 and the existing domain/application/persistence packages
 
@@ -98,7 +98,7 @@ The browser must not import Node built-ins, `node:sqlite`, filesystem APIs or se
 
 The completed audit is recorded in [docs/22](./22-w1-browser-compatibility-and-repository-audit.md). The domain layer is the browser-reuse candidate; the application root barrel is mixed with Node-only exports; persistence is Node/SQLite-only. Most importantly, current repository interfaces are synchronous and cannot be implemented directly with IndexedDB.
 
-W1A is documented in [docs/23](./23-w1a-async-repository-and-transaction-contract.md). It defines Promise semantics, atomic repository commands, explicit transaction boundaries and the SQLite compatibility path. W1B (PR #38) migrated business-profile/customer workflows and their SQLite adapters. W1C (PR #39) added the curated browser-safe application entry and production-bundle guard. W1D migrates product and saved GST rate workflows to Promise-based repository contracts, adds storage-boundary saved-rate ownership validation, and expands the retained browser contract; implementation is recorded in [docs/25](./25-w1d-async-product-and-gst-rate-repositories.md) and is pending review in PR #40. The IndexedDB wrapper and schema remain unselected until the remaining async migration is complete.
+W1A is documented in [docs/23](./23-w1a-async-repository-and-transaction-contract.md). It defines Promise semantics, atomic repository commands, explicit transaction boundaries and the SQLite compatibility path. W1B (PR #38) migrated business-profile/customer workflows and their SQLite adapters. W1C (PR #39) added the curated browser-safe application entry and production-bundle guard. W1D (PR #40) migrated product and saved GST rate workflows to Promise-based repository contracts and added storage-boundary ownership validation. W1E migrates document workflows, invoice rendering callers and the SQLite adapter to async contracts while preserving finalization and draft-replacement transactions; see [docs/26](./26-w1e-async-invoice-and-document-repository.md), pending review in PR #41. The IndexedDB wrapper and schema remain unselected until the remaining async migration is complete.
 
 ### W2 — IndexedDB foundation
 
@@ -142,4 +142,4 @@ W1A is documented in [docs/23](./23-w1a-async-repository-and-transaction-contrac
 
 ## 10. Remaining decision
 
-The product owner has confirmed React + Vite and `packages/web`. W1 audit, W1A, W1B and W1C are merged. W1D product/saved-rate async migration is under review in PR #40. The IndexedDB wrapper and schema remain open pending migration of the remaining application repositories. Do not create a browser persistence schema before those contracts are approved.
+The product owner has confirmed React + Vite and `packages/web`. W1 audit, W1A–W1D are merged. W1E document async migration is under review in PR #41. Template and payment repositories still require async migration. The IndexedDB wrapper and schema remain deferred until the remaining application contracts and browser boundary are verified.

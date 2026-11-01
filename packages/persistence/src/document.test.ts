@@ -106,7 +106,7 @@ const notebook = {
 describe("billing documents", () => {
   it("requires a business and a customer before a draft can be saved", async () => {
     const db = database();
-    expect(() =>
+    await expect(
       createDocument(
         {
           customerId: "missing",
@@ -117,14 +117,14 @@ describe("billing documents", () => {
         },
         documentDeps(db),
       ),
-    ).toThrow(/business profile/);
+    ).rejects.toThrow(/business profile/);
   });
 
   it("saves a draft from source values and leaves the number unassigned", async () => {
     const db = database();
     await prepare(db);
     const deps = documentDeps(db);
-    const draft = createDocument(
+    const draft = await createDocument(
       {
         customerId: "cust-1",
         documentType: "non_gst_invoice",
@@ -154,7 +154,7 @@ describe("billing documents", () => {
     const db = database();
     await prepare(db);
     const deps = documentDeps(db);
-    const draft = createDocument(
+    const draft = await createDocument(
       {
         customerId: "cust-1",
         documentType: "bill_of_supply",
@@ -164,7 +164,7 @@ describe("billing documents", () => {
       },
       deps,
     );
-    const updated = updateDocument(
+    const updated = await updateDocument(
       draft.id,
       {
         customerId: "cust-1",
@@ -177,7 +177,7 @@ describe("billing documents", () => {
     );
     expect(updated.grandTotal).toBe("10.1");
 
-    expect(() =>
+    await expect(
       updateDocument(
         draft.id,
         {
@@ -195,15 +195,15 @@ describe("billing documents", () => {
         },
         deps,
       ),
-    ).toThrow(BillingError);
-    expect(getDocument(draft.id, deps)?.grandTotal).toBe("10.1");
+    ).rejects.toThrow(BillingError);
+    expect((await getDocument(draft.id, deps))?.grandTotal).toBe("10.1");
   });
 
   it("assigns the next number only when a draft is finalized", async () => {
     const db = database();
     await prepare(db);
     const deps = documentDeps(db);
-    const first = createDocument(
+    const first = await createDocument(
       {
         customerId: "cust-1",
         documentType: "tax_invoice",
@@ -234,7 +234,7 @@ describe("billing documents", () => {
       },
       deps,
     );
-    const waiting = createDocument(
+    const waiting = await createDocument(
       {
         customerId: "cust-1",
         documentType: "tax_invoice",
@@ -259,7 +259,7 @@ describe("billing documents", () => {
     expect(first.documentNumber).toBeNull();
     expect(waiting.documentNumber).toBeNull();
 
-    const issued = finalizeDocument(first.id, deps);
+    const issued = await finalizeDocument(first.id, deps);
     expect(issued).toMatchObject({
       status: "finalized",
       documentNumber: "INV/2026-27/0001",
@@ -271,12 +271,12 @@ describe("billing documents", () => {
     });
     expect(issued.lines[0]).toMatchObject({ lineAmount: "100", taxableValue: "84.75" });
 
-    const cancelled = cancelDocument(issued.id, deps);
+    const cancelled = await cancelDocument(issued.id, deps);
     expect(cancelled).toMatchObject({
       status: "cancelled",
       documentNumber: "INV/2026-27/0001",
     });
-    expect(() => updateDocument(issued.id, {
+    await expect( updateDocument(issued.id, {
       customerId: "cust-1",
       documentType: "tax_invoice",
       documentDate: "2026-10-31",
@@ -294,20 +294,20 @@ describe("billing documents", () => {
           taxCategoryId: "taxable",
         },
       ],
-    }, deps)).toThrow(/cannot be changed/);
-    expect(getDocument(issued.id, deps)?.grandTotal).toBe("111.8");
-    expect(getDocument(issued.id, deps)?.taxes.map((tax) => tax.taxType)).toEqual([
+    }, deps)).rejects.toThrow(/cannot be changed/);
+    expect((await getDocument(issued.id, deps))?.grandTotal).toBe("111.8");
+    expect((await getDocument(issued.id, deps))?.taxes.map((tax) => tax.taxType)).toEqual([
       "CGST",
       "SGST",
       "CGST",
       "SGST",
     ]);
 
-    const second = finalizeDocument(waiting.id, deps);
+    const second = await finalizeDocument(waiting.id, deps);
     expect(second.documentNumber).toBe("INV/2026-27/0002");
 
-    const quotation = finalizeDocument(
-      createDocument(
+    const quotation = await finalizeDocument(
+      await createDocument(
         {
           customerId: "cust-1",
           documentType: "quotation",
@@ -321,8 +321,8 @@ describe("billing documents", () => {
     );
     expect(quotation.documentNumber).toBe("QT/2026-27/0001");
 
-    const priorYear = finalizeDocument(
-      createDocument(
+    const priorYear = await finalizeDocument(
+      await createDocument(
         {
           customerId: "cust-1",
           documentType: "tax_invoice",
@@ -347,14 +347,14 @@ describe("billing documents", () => {
       deps,
     );
     expect(priorYear.documentNumber).toBe("INV/2025-26/0001");
-    expect(listDocuments(deps).some((document) => document.id === issued.id)).toBe(true);
+    expect((await listDocuments(deps)).some((document) => document.id === issued.id)).toBe(true);
   });
 
   it("starts a series at a chosen number and refuses to move backward after issue", async () => {
     const db = database();
     await prepare(db);
     const deps = documentDeps(db);
-    saveNumberSeries(
+    await saveNumberSeries(
       {
         documentType: "tax_invoice",
         financialYear: "2026-27",
@@ -364,7 +364,7 @@ describe("billing documents", () => {
       },
       deps,
     );
-    const draft = createDocument(
+    const draft = await createDocument(
       {
         customerId: "cust-1",
         documentType: "tax_invoice",
@@ -402,9 +402,9 @@ describe("billing documents", () => {
       },
       deps,
     );
-    expect(finalizeDocument(draft.id, deps).documentNumber).toBe("INV/2026-27/0010");
-    expect(getDocument(draft.id, deps)?.lines[0]?.productId).toBe("item-1");
-    expect(() =>
+    expect((await finalizeDocument(draft.id, deps)).documentNumber).toBe("INV/2026-27/0010");
+    expect((await getDocument(draft.id, deps))?.lines[0]?.productId).toBe("item-1");
+    await expect(
       saveNumberSeries(
         {
           documentType: "tax_invoice",
@@ -415,15 +415,15 @@ describe("billing documents", () => {
         },
         deps,
       ),
-    ).toThrow(/move forward/);
+    ).rejects.toThrow(/move forward/);
   });
 
   it("stores IGST when the place of supply is in another state", async () => {
     const db = database();
     await prepare(db);
     const deps = documentDeps(db);
-    const issued = finalizeDocument(
-      createDocument(
+    const issued = await finalizeDocument(
+      await createDocument(
         {
           customerId: "cust-1",
           documentType: "tax_invoice",
@@ -486,8 +486,8 @@ describe("billing documents", () => {
         createId: () => "cust-ch",
       },
     );
-    const issued = finalizeDocument(
-      createDocument(
+    const issued = await finalizeDocument(
+      await createDocument(
         {
           customerId: "cust-ch",
           documentType: "tax_invoice",
@@ -521,8 +521,8 @@ describe("billing documents", () => {
     const db = database();
     await prepare(db);
     const deps = documentDeps(db);
-    const issued = finalizeDocument(
-      createDocument(
+    const issued = await finalizeDocument(
+      await createDocument(
         {
           customerId: "cust-1",
           documentType: "tax_invoice",
@@ -564,12 +564,12 @@ describe("billing documents", () => {
        WHERE rule_version_id = 'gst-structure-2017-07-01'`,
     ).run();
 
-    const stored = getDocument(issued.id, deps);
+    const stored = (await getDocument(issued.id, deps));
     expect(stored?.ruleVersionId).toBe("gst-structure-2017-07-01");
     expect(stored?.grandTotal).toBe("1180");
     expect(stored?.taxTotal).toBe("180");
 
-    const later = createDocument(
+    const later = await createDocument(
       {
         customerId: "cust-1",
         documentType: "tax_invoice",
@@ -593,7 +593,7 @@ describe("billing documents", () => {
       deps,
     );
     expect(later.ruleVersionId).toBe("gst-structure-test");
-    expect(getDocument(issued.id, deps)?.ruleVersionId).toBe("gst-structure-2017-07-01");
+    expect((await getDocument(issued.id, deps))?.ruleVersionId).toBe("gst-structure-2017-07-01");
   });
 });
 
@@ -602,8 +602,8 @@ describe("PDF export", () => {
     const db = database();
     await prepare(db);
     const deps = documentDeps(db);
-    const issued = finalizeDocument(
-      createDocument(
+    const issued = await finalizeDocument(
+      await createDocument(
         {
           customerId: "cust-1",
           documentType: "tax_invoice",
@@ -633,7 +633,7 @@ describe("PDF export", () => {
       templates: createTemplateRepository(db),
       states: listStateUts(db),
     };
-    const printed = printInvoice(issued.id, renderDeps);
+    const printed = await printInvoice(issued.id, renderDeps);
     expect(printed).toContain("Total: INR 1,180.00");
     expect(printed).toContain("Tax: INR 180.00");
     const directory = mkdtempSync(join(tmpdir(), "fledge-pdf-"));
@@ -648,7 +648,7 @@ describe("PDF export", () => {
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
-    expect(getDocument(issued.id, deps)).toMatchObject({
+    expect((await getDocument(issued.id, deps))).toMatchObject({
       status: "finalized",
       documentNumber: "INV/2026-27/0001",
       grandTotal: "1180",
@@ -717,9 +717,9 @@ describe("GST migration", () => {
     const taxRows = db.prepare("SELECT id FROM document_tax WHERE document_id = 'old-doc'").all();
     expect(taxRows).toEqual([]);
 
-    const stored = getDocument("old-doc", documentDeps(db));
+    const stored = (await getDocument("old-doc", documentDeps(db)));
     expect(stored).toMatchObject({ templateId: null, grandTotal: "100", taxTotal: "0", status: "finalized" });
-    const rendered = renderIssuedDocument("old-doc", {
+    const rendered = await renderIssuedDocument("old-doc", {
       documents: createDocumentRepository(db),
       templates: createTemplateRepository(db),
       states: listStateUts(db),

@@ -44,3 +44,19 @@ export {
   type UpdateProductInput,
   type UpdateSavedGstRateInput,
 } from "./product.js";
+
+export {
+  cancelDocument,
+  createDocument,
+  finalizeDocument,
+  getDocument,
+  listDocuments,
+  saveNumberSeries,
+  updateDocument,
+  type BillingDocument,
+  type DocumentDeps,
+  type DocumentRepository,
+  type NumberSeries,
+  type SaveDocumentInput,
+  type SaveNumberSeriesInput,
+} from "./document.js";

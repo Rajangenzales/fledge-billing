@@ -23,6 +23,13 @@ const requiredBrowserExports = [
   "listTaxCategories",
   "updateProduct",
   "updateSavedGstRate",
+  "cancelDocument",
+  "createDocument",
+  "finalizeDocument",
+  "getDocument",
+  "listDocuments",
+  "saveNumberSeries",
+  "updateDocument",
 ];
 
 function browserDependencyGuard() {

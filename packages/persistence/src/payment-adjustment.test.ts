@@ -31,9 +31,9 @@ async function setup() {
   const receipt = recordCustomerReceipt({ customerId: customer.id, amount: "150", paymentDate: "2026-10-30", method: "upi", idempotencyKey: "receipt-1" }, receiptDeps);
   let documentSequence = 0;
   const documentDeps = { repository: createDocumentRepository(db), states, now: () => "2026-10-31T08:03:00.000Z", createId: () => `invoice-${++documentSequence}` };
-  const draft = createDocument({ customerId: customer.id, documentType: "non_gst_invoice", documentDate: "2026-10-31", gstEnabled: false, reverseCharge: false,
+  const draft = await createDocument({ customerId: customer.id, documentType: "non_gst_invoice", documentDate: "2026-10-31", gstEnabled: false, reverseCharge: false,
     lines: [{ description: "Goods", quantity: "1", unit: "nos", rate: "100", discountType: "none", taxInclusive: false, taxCategoryId: "non-gst" }] }, documentDeps);
-  const invoice = finalizeDocument(draft.id, documentDeps);
+  const invoice = await finalizeDocument(draft.id, documentDeps);
   let id = 0;
   const adjustmentDeps = { repository: createPaymentAdjustmentRepository(db), now: () => "2026-10-31T08:05:00.000Z", createId: () => `adjustment-${++id}` };
   let allocationId = 0;
@@ -86,9 +86,9 @@ describe("customer refunds and receipt reversals", () => {
     const { customer, receipt, invoice, documentDeps, adjustmentDeps, allocationDeps } = await setup();
     recordCustomerRefund({ receiptId: receipt.id, amount: "50", paymentDate: "2026-10-31", method: "cash", reason: "Partial return", idempotencyKey: "refund-1" }, adjustmentDeps);
     allocateReceiptToInvoice({ receiptId: receipt.id, invoiceId: invoice.id, amount: "100", idempotencyKey: "alloc-after-refund" }, allocationDeps);
-    const secondDraft = createDocument({ customerId: customer.id, documentType: "non_gst_invoice", documentDate: "2026-10-31", gstEnabled: false, reverseCharge: false,
+    const secondDraft = await createDocument({ customerId: customer.id, documentType: "non_gst_invoice", documentDate: "2026-10-31", gstEnabled: false, reverseCharge: false,
       lines: [{ description: "Second invoice", quantity: "1", unit: "nos", rate: "100", discountType: "none", taxInclusive: false, taxCategoryId: "non-gst" }] }, documentDeps);
-    const secondInvoice = finalizeDocument(secondDraft.id, documentDeps);
+    const secondInvoice = await finalizeDocument(secondDraft.id, documentDeps);
     expect(() => allocateReceiptToInvoice({ receiptId: receipt.id, invoiceId: secondInvoice.id, amount: "1", idempotencyKey: "alloc-over-refund" }, allocationDeps)).toThrow(/available balance/);
   });
 

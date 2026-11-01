@@ -11,7 +11,7 @@ export async function exportInvoicePdf(
   deps: IssuedRenderDeps,
   logo?: Uint8Array,
 ): Promise<{ filePath: string }> {
-  const render = renderIssuedDocument(id, deps);
+  const render = await renderIssuedDocument(id, deps);
   const filename = invoicePdfFilename(render.documentType, render.documentNumber, render.documentDate);
   const directoryPath = path.resolve(directory);
   const filePath = path.resolve(directoryPath, filename);
@@ -41,8 +41,8 @@ export async function shareInvoicePdf(
   return { method: "local-file", filePath: saved.filePath };
 }
 
-export function printInvoice(id: string, deps: IssuedRenderDeps): string {
-  return renderPrintSheet(renderIssuedDocument(id, deps));
+export async function printInvoice(id: string, deps: IssuedRenderDeps): Promise<string> {
+  return renderPrintSheet(await renderIssuedDocument(id, deps));
 }
 
 async function pdfBytes(

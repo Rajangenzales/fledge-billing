@@ -113,7 +113,7 @@ describe("invoice templates", () => {
     expect(templates.some((template) => template.key === "bill-of-supply:bill_of_supply")).toBe(true);
 
     const documentDeps = deps(db);
-    const draft = createDocument(
+    const draft = await createDocument(
       {
         customerId: "cust-1",
         documentType: "tax_invoice",
@@ -128,7 +128,7 @@ describe("invoice templates", () => {
     expect(draft.templateId).toBe("tpl:biz-1:gst:tax_invoice:1");
     expect(draft.grandTotal).toBe("1180");
 
-    expect(() =>
+    await expect(
       createDocument(
         {
           customerId: "cust-1",
@@ -142,18 +142,18 @@ describe("invoice templates", () => {
         },
         documentDeps,
       ),
-    ).toThrow(TemplateError);
+    ).rejects.toThrow(TemplateError);
 
-    const issued = finalizeDocument(draft.id, documentDeps);
+    const issued = await finalizeDocument(draft.id, documentDeps);
     const standard = templates.find((template) => template.key === "standard:tax_invoice");
     expect(standard).toBeDefined();
     setDefaultTemplate(standard!.id, templateDeps(db));
-    const stored = getDocument(issued.id, documentDeps);
+    const stored = (await getDocument(issued.id, documentDeps));
     expect(stored?.templateId).toBe("tpl:biz-1:gst:tax_invoice:1");
     expect(stored?.grandTotal).toBe("1180");
     expect(stored?.taxTotal).toBe("180");
 
-    const next = createDocument(
+    const next = await createDocument(
       {
         customerId: "cust-1",
         documentType: "tax_invoice",
@@ -166,7 +166,7 @@ describe("invoice templates", () => {
       documentDeps,
     );
     expect(next.templateId).toBe(standard!.id);
-    expect(getDocument(issued.id, documentDeps)?.templateId).toBe("tpl:biz-1:gst:tax_invoice:1");
+    expect((await getDocument(issued.id, documentDeps))?.templateId).toBe("tpl:biz-1:gst:tax_invoice:1");
   });
 
   it("saves a label change as a new version and leaves an issued document on the old one", async () => {
@@ -183,12 +183,12 @@ describe("invoice templates", () => {
       reverseCharge: false,
       lines: [line],
     };
-    const draft = createDocument(input, documentDeps);
-    const issued = finalizeDocument(draft.id, documentDeps);
+    const draft = await createDocument(input, documentDeps);
+    const issued = await finalizeDocument(draft.id, documentDeps);
     expect(issued.templateId).toBe("tpl:biz-1:gst:tax_invoice:1");
     expect(issued.grandTotal).toBe("1180");
 
-    const openDraft = createDocument(input, documentDeps);
+    const openDraft = await createDocument(input, documentDeps);
     const revised = reviseTemplate(
       "tpl:biz-1:gst:tax_invoice:1",
       {
@@ -212,15 +212,15 @@ describe("invoice templates", () => {
     expect(original?.fields.find((field) => field.key === "customer_phone")?.visible).toBe(true);
     expect(original?.isDefault).toBe(false);
 
-    const stored = getDocument(issued.id, documentDeps);
+    const stored = (await getDocument(issued.id, documentDeps));
     expect(stored?.templateId).toBe("tpl:biz-1:gst:tax_invoice:1");
     expect(stored?.grandTotal).toBe("1180");
     expect(stored?.taxTotal).toBe("180");
 
-    const kept = updateDocument(openDraft.id, input, documentDeps);
+    const kept = await updateDocument(openDraft.id, input, documentDeps);
     expect(kept.templateId).toBe("tpl:biz-1:gst:tax_invoice:1");
 
-    const next = createDocument(input, documentDeps);
+    const next = await createDocument(input, documentDeps);
     expect(next.templateId).toBe("tpl:biz-1:gst:tax_invoice:2");
     expect(next.grandTotal).toBe("1180");
 
@@ -262,14 +262,14 @@ describe("invoice templates", () => {
       reverseCharge: false,
       lines: [line],
     };
-    const draft = createDocument(input, documentDeps);
+    const draft = await createDocument(input, documentDeps);
     expect(draft.templateId).toBe(revised.id);
     expect(draft.grandTotal).toBe("1180");
     expect(draft.customFields.find((field) => field.key === "batch-no")?.value).toBeNull();
-    expect(() => finalizeDocument(draft.id, documentDeps)).toThrow(/Enter Batch No/);
-    expect(getDocument(draft.id, documentDeps)?.documentNumber).toBeNull();
+    await expect( finalizeDocument(draft.id, documentDeps)).rejects.toThrow(/Enter Batch No/);
+    expect((await getDocument(draft.id, documentDeps))?.documentNumber).toBeNull();
 
-    const saved = updateDocument(
+    const saved = await updateDocument(
       draft.id,
       {
         ...input,
@@ -282,9 +282,9 @@ describe("invoice templates", () => {
     );
     expect(saved.taxTotal).toBe("180");
     expect(saved.grandTotal).toBe("1180");
-    const kept = updateDocument(draft.id, input, documentDeps);
+    const kept = await updateDocument(draft.id, input, documentDeps);
     expect(kept.customFields.find((field) => field.key === "batch-no")?.value).toBe("A-12");
-    const issued = finalizeDocument(draft.id, documentDeps);
+    const issued = await finalizeDocument(draft.id, documentDeps);
     expect(issued.customFields).toMatchObject([
       { key: "batch-no", label: "Batch No.", value: "A-12", type: "short_text" },
       { key: "delivery-date", label: "Delivery date", value: "2026-11-02", type: "date" },
@@ -303,7 +303,7 @@ describe("invoice templates", () => {
     );
     expect(renamed.id).toBe("tpl:biz-1:gst:tax_invoice:3");
     expect(renamed.customFields.map((field) => field.label)).toEqual(["Lot", "Project Name"]);
-    const stored = getDocument(issued.id, documentDeps);
+    const stored = (await getDocument(issued.id, documentDeps));
     expect(stored?.templateId).toBe(revised.id);
     expect(stored?.grandTotal).toBe("1180");
     expect(stored?.taxTotal).toBe("180");
@@ -412,8 +412,8 @@ describe("invoice templates", () => {
       lines: [line],
       customFields: [{ key: "batch-no", value: "A-12" }],
     };
-    const draft = createDocument(input, documentDeps);
-    const issued = finalizeDocument(draft.id, documentDeps);
+    const draft = await createDocument(input, documentDeps);
+    const issued = await finalizeDocument(draft.id, documentDeps);
     expect(issued.documentNumber).toBe("INV/2026-27/0001");
     expect(issued.grandTotal).toBe("1180");
 
@@ -428,7 +428,7 @@ describe("invoice templates", () => {
       },
       templates,
     );
-    const rendered = renderIssuedDocument(issued.id, {
+    const rendered = await renderIssuedDocument(issued.id, {
       documents: documentDeps.repository,
       templates: templates.repository,
       states: listStateUts(db),
@@ -447,7 +447,7 @@ describe("invoice templates", () => {
       label: "Batch No.",
       value: "A-12",
     });
-    expect(getDocument(issued.id, documentDeps)).toMatchObject({
+    expect((await getDocument(issued.id, documentDeps))).toMatchObject({
       templateId: revised.id,
       grandTotal: "1180",
       taxTotal: "180",
