@@ -4,7 +4,11 @@ import {
   createDocument,
   createProduct,
   createSavedGstRate,
+  allocateReceiptToInvoice,
   finalizeDocument,
+  getCustomerAdvance,
+  getCustomerPaymentActivity,
+  getInvoiceSettlement,
   getBusinessProfile,
   getDocument,
   getProduct,
@@ -12,9 +16,16 @@ import {
   listDocuments,
   listProducts,
   listSavedGstRates,
+  listCustomerReceipts,
   listTemplates,
   previewTemplate,
+  recordCustomerReceipt,
+  recordCustomerRefund,
   renderIssuedDocument,
+  renderCustomerReceipt,
+  releaseReceiptAllocation,
+  reverseCustomerReceipt,
+  reverseCustomerRefund,
   reviseTemplate,
   saveBusinessProfile,
   saveNumberSeries,
@@ -210,6 +221,271 @@ describe("browser IndexedDB repositories", () => {
       customFields: [expect.objectContaining({ key: "purchase-order" })],
     }));
     reopened.close();
+  });
+
+  it("persists idempotent receipts, allocation events, refunds, reversals, and snapshots", async () => {
+    const factory = new IDBFactory();
+    const workspace = await setupDocumentWorkspace(factory);
+    const draft = await createDocument(documentInput(workspace), workspace.documentDeps);
+    const invoice = await finalizeDocument(draft.id, workspace.documentDeps);
+    const paymentDeps = createPaymentDeps(workspace.repositories);
+    const receiptInput = {
+      customerId: workspace.customer.id,
+      amount: "236",
+      paymentDate: "2026-11-01",
+      method: "upi",
+      reference: "UTR-42",
+      notes: "November payment",
+      idempotencyKey: "receipt-42",
+    };
+    const receipt = await recordCustomerReceipt(receiptInput, paymentDeps.receipt);
+    const retriedReceipt = await recordCustomerReceipt(receiptInput, paymentDeps.receipt);
+    expect(retriedReceipt).toEqual(receipt);
+    expect(receipt.identitySnapshot).toMatchObject({
+      business: { legalName: "Fledge Traders", displayName: "Fledge" },
+      customer: { name: "Harbour Stores", billingAddress: "Beach Road" },
+    });
+    const changedBusiness = await workspace.repositories.businessRepository.get();
+    await workspace.repositories.businessRepository.save({
+      ...changedBusiness,
+      displayName: "New Business Name",
+    });
+    const changedCustomer = await workspace.repositories.customerRepository.get(workspace.customer.id);
+    await workspace.repositories.customerRepository.update({
+      ...changedCustomer,
+      name: "New Customer Name",
+    });
+    await expect(recordCustomerReceipt({
+      ...receiptInput,
+      amount: "237",
+    }, paymentDeps.receipt)).rejects.toThrow(/request key was already used/);
+
+    const allocation = await allocateReceiptToInvoice({
+      receiptId: receipt.id,
+      invoiceId: invoice.id,
+      amount: "100",
+      idempotencyKey: "allocation-100",
+    }, paymentDeps.allocation);
+    expect(allocation).toMatchObject({
+      customerId: workspace.customer.id,
+      receiptId: receipt.id,
+      invoiceId: invoice.id,
+      amount: "100",
+    });
+    await expect(recordCustomerRefund({
+      receiptId: receipt.id,
+      amount: "10",
+      paymentDate: "2026-11-01",
+      method: "cash",
+      reason: "Incorrect payment",
+      idempotencyKey: "refund-too-early",
+    }, paymentDeps.adjustment)).rejects.toThrow(/Release the receipt's active invoice allocations/);
+    await expect(reverseCustomerReceipt({
+      receiptId: receipt.id,
+      reason: "Wrong receipt",
+      idempotencyKey: "receipt-reversal-too-early",
+    }, paymentDeps.adjustment)).rejects.toThrow(/Release the receipt's active invoice allocations/);
+    await expect(allocateReceiptToInvoice({
+      receiptId: receipt.id,
+      invoiceId: invoice.id,
+      amount: "137",
+      idempotencyKey: "allocation-overrun",
+    }, paymentDeps.allocation)).rejects.toThrow(/exceeds the receipt's available balance/);
+    expect(await workspace.repositories.allocationRepository.listReceiptEvents(receipt.id)).toHaveLength(1);
+    expect(await getInvoiceSettlement(invoice.id, paymentDeps.allocation)).toMatchObject({
+      allocatedAmount: "100",
+      outstandingAmount: "136",
+      paymentStatus: "partially_paid",
+    });
+
+    const released = await releaseReceiptAllocation({
+      allocationId: allocation.id,
+      reason: "Correct allocation",
+      idempotencyKey: "release-100",
+    }, paymentDeps.allocation);
+    expect(await releaseReceiptAllocation({
+      allocationId: allocation.id,
+      reason: "Correct allocation",
+      idempotencyKey: "release-100",
+    }, paymentDeps.allocation)).toEqual(released);
+    await expect(releaseReceiptAllocation({
+      allocationId: allocation.id,
+      reason: "Second release",
+      idempotencyKey: "release-again",
+    }, paymentDeps.allocation)).rejects.toThrow(/already been released/);
+    expect(await getInvoiceSettlement(invoice.id, paymentDeps.allocation)).toMatchObject({
+      allocatedAmount: "0",
+      outstandingAmount: "236",
+      paymentStatus: "unpaid",
+    });
+
+    const refundInput = {
+      receiptId: receipt.id,
+      amount: "20",
+      paymentDate: "2026-11-02",
+      method: "bank_transfer",
+      reason: "Customer refund",
+      idempotencyKey: "refund-20",
+    };
+    const refund = await recordCustomerRefund(refundInput, paymentDeps.adjustment);
+    expect(await recordCustomerRefund(refundInput, paymentDeps.adjustment)).toEqual(refund);
+    await expect(allocateReceiptToInvoice({
+      receiptId: receipt.id,
+      invoiceId: invoice.id,
+      amount: "217",
+      idempotencyKey: "allocation-after-refund",
+    }, paymentDeps.allocation)).rejects.toThrow(/exceeds the receipt's available balance/);
+    await expect(reverseCustomerReceipt({
+      receiptId: receipt.id,
+      reason: "Wrong receipt",
+      idempotencyKey: "receipt-reversal-with-refund",
+    }, paymentDeps.adjustment)).rejects.toThrow(/Reverse or resolve the receipt's refunds/);
+    const refundReversal = await reverseCustomerRefund({
+      refundEventId: refund.id,
+      reason: "Refund transfer failed",
+      idempotencyKey: "refund-reversal-20",
+    }, paymentDeps.adjustment);
+    expect(await reverseCustomerRefund({
+      refundEventId: refund.id,
+      reason: "Refund transfer failed",
+      idempotencyKey: "refund-reversal-20",
+    }, paymentDeps.adjustment)).toEqual(refundReversal);
+    expect(refundReversal).toMatchObject({
+      eventType: "reverse_refund",
+      customerId: workspace.customer.id,
+      receiptId: receipt.id,
+      amount: "20",
+    });
+    const receiptReversal = await reverseCustomerReceipt({
+      receiptId: receipt.id,
+      reason: "Receipt entered in error",
+      idempotencyKey: "receipt-reversal-42",
+    }, paymentDeps.adjustment);
+    expect(await reverseCustomerReceipt({
+      receiptId: receipt.id,
+      reason: "Receipt entered in error",
+      idempotencyKey: "receipt-reversal-42",
+    }, paymentDeps.adjustment)).toEqual(receiptReversal);
+    await expect(reverseCustomerReceipt({
+      receiptId: receipt.id,
+      reason: "A second attempt",
+      idempotencyKey: "receipt-reversal-again",
+    }, paymentDeps.adjustment)).rejects.toThrow(/already been reversed/);
+
+    const [listed, advance, activity] = await Promise.all([
+      listCustomerReceipts(workspace.customer.id, paymentDeps.receipt),
+      getCustomerAdvance(workspace.customer.id, paymentDeps.receipt),
+      getCustomerPaymentActivity(workspace.customer.id, paymentDeps.activity),
+    ]);
+    expect(listed).toHaveLength(1);
+    expect(advance).toMatchObject({ receiptCount: 1, unallocatedAmount: "0" });
+    expect(activity.summary).toMatchObject({
+      receiptCount: 1,
+      totalReceived: "236",
+      totalAllocated: "0",
+      totalRefunded: "0",
+      totalReversedReceipts: "236",
+      unallocatedAdvance: "0",
+    });
+    expect(activity.entries.map((entry) => entry.type)).toEqual(expect.arrayContaining([
+      "receipt", "allocation", "allocation_release", "refund", "refund_reversal", "receipt_reversal",
+    ]));
+    const printableReceipt = await renderCustomerReceipt(receipt.id, paymentDeps.receipt);
+    expect(printableReceipt).toMatchObject({
+      businessName: "Fledge",
+      customerName: "Harbour Stores",
+      amount: "236",
+    });
+    workspace.database.close();
+
+    const reopened = await openFledgeDatabase(factory);
+    const reopenedRepositories = createBrowserRepositories(reopened);
+    const reopenedPaymentDeps = createPaymentDeps(reopenedRepositories);
+    expect(await listCustomerReceipts(workspace.customer.id, reopenedPaymentDeps.receipt))
+      .toHaveLength(1);
+    expect((await getCustomerPaymentActivity(
+      workspace.customer.id,
+      reopenedPaymentDeps.activity,
+    )).summary).toMatchObject({
+      totalReceived: "236",
+      totalAllocated: "0",
+      totalReversedReceipts: "236",
+    });
+    expect(await renderCustomerReceipt(receipt.id, reopenedPaymentDeps.receipt)).toMatchObject({
+      businessName: "Fledge",
+      customerName: "Harbour Stores",
+    });
+    reopened.close();
+  });
+
+  it("reads customer payment activity from one IndexedDB snapshot", async () => {
+    const workspace = await setupDocumentWorkspace(new IDBFactory());
+    const draft = await createDocument(documentInput(workspace), workspace.documentDeps);
+    const invoice = await finalizeDocument(draft.id, workspace.documentDeps);
+    const paymentDeps = createPaymentDeps(workspace.repositories);
+    const receipt = await recordCustomerReceipt({
+      customerId: workspace.customer.id,
+      amount: "236",
+      paymentDate: "2026-11-01",
+      method: "cash",
+      idempotencyKey: "snapshot-receipt",
+    }, paymentDeps.receipt);
+
+    const [snapshot] = await Promise.all([
+      getCustomerPaymentActivity(workspace.customer.id, paymentDeps.activity),
+      allocateReceiptToInvoice({
+        receiptId: receipt.id,
+        invoiceId: invoice.id,
+        amount: "50",
+        idempotencyKey: "snapshot-allocation",
+      }, paymentDeps.allocation),
+    ]);
+    expect(snapshot.summary).toMatchObject({ totalReceived: "236", totalAllocated: "0" });
+    expect((await getCustomerPaymentActivity(
+      workspace.customer.id,
+      paymentDeps.activity,
+    )).summary.totalAllocated).toBe("50");
+    workspace.database.close();
+  });
+
+  it("serializes concurrent allocations against the same receipt balance", async () => {
+    const workspace = await setupDocumentWorkspace(new IDBFactory());
+    const draft = await createDocument(documentInput(workspace), workspace.documentDeps);
+    const invoice = await finalizeDocument(draft.id, workspace.documentDeps);
+    const paymentDeps = createPaymentDeps(workspace.repositories);
+    const receipt = await recordCustomerReceipt({
+      customerId: workspace.customer.id,
+      amount: "236",
+      paymentDate: "2026-11-01",
+      method: "upi",
+      idempotencyKey: "concurrent-receipt",
+    }, paymentDeps.receipt);
+
+    const results = await Promise.allSettled([
+      allocateReceiptToInvoice({
+        receiptId: receipt.id,
+        invoiceId: invoice.id,
+        amount: "150",
+        idempotencyKey: "concurrent-allocation-a",
+      }, paymentDeps.allocation),
+      allocateReceiptToInvoice({
+        receiptId: receipt.id,
+        invoiceId: invoice.id,
+        amount: "150",
+        idempotencyKey: "concurrent-allocation-b",
+      }, paymentDeps.allocation),
+    ]);
+
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    expect(await workspace.repositories.allocationRepository.listReceiptEvents(receipt.id))
+      .toHaveLength(1);
+    expect(await getInvoiceSettlement(invoice.id, paymentDeps.allocation)).toMatchObject({
+      allocatedAmount: "150",
+      outstandingAmount: "86",
+      paymentStatus: "partially_paid",
+    });
+    workspace.database.close();
   });
 
   it("persists and edits a draft document across database reopen", async () => {
@@ -600,7 +876,7 @@ describe("browser IndexedDB repositories", () => {
     const repositories = createBrowserRepositories(database);
     await repositories.businessRepository.save({ id: "business-1" });
 
-    const upgrade = factory.open("fledge-billing", 5);
+    const upgrade = factory.open("fledge-billing", 6);
     upgrade.onupgradeneeded = () => {
       upgrade.result.createObjectStore("future", { keyPath: "id" });
     };
@@ -612,7 +888,7 @@ describe("browser IndexedDB repositories", () => {
     upgradedDatabase.close();
   });
 
-  it("upgrades version 1 customer data to version 4 product, document, and template stores", async () => {
+  it("upgrades version 1 customer data to version 5 payment, product, document, and template stores", async () => {
     const factory = new IDBFactory();
     const legacyRequest = factory.open("fledge-billing", 1);
     legacyRequest.onupgradeneeded = () => {
@@ -637,7 +913,55 @@ describe("browser IndexedDB repositories", () => {
     expect(upgradedDatabase.objectStoreNames.contains("documents")).toBe(true);
     expect(upgradedDatabase.objectStoreNames.contains("numberSeries")).toBe(true);
     expect(upgradedDatabase.objectStoreNames.contains("templates")).toBe(true);
+    expect(upgradedDatabase.objectStoreNames.contains("customerReceipts")).toBe(true);
+    expect(upgradedDatabase.objectStoreNames.contains("paymentAllocationEvents")).toBe(true);
+    expect(upgradedDatabase.objectStoreNames.contains("paymentAdjustmentEvents")).toBe(true);
     upgradedDatabase.close();
+  });
+
+  it("adds payment stores to a version 4 database without losing template revisions", async () => {
+    const factory = new IDBFactory();
+    const legacyRequest = factory.open("fledge-billing", 4);
+    legacyRequest.onupgradeneeded = () => {
+      const database = legacyRequest.result;
+      database.createObjectStore("business", { keyPath: "id" });
+      for (const name of ["customers", "savedGstRates", "products", "documents", "templates"]) {
+        const store = database.createObjectStore(name, { keyPath: "id" });
+        store.createIndex("businessId", "businessId", { unique: false });
+        if (name === "templates") {
+          store.createIndex("businessKeyVersion", ["businessId", "key", "version"], { unique: true });
+        }
+        if (name === "documents") {
+          store.createIndex("businessTypeYear", ["businessId", "documentType", "financialYear"], {
+            unique: false,
+          });
+        }
+      }
+      const series = database.createObjectStore("numberSeries", { keyPath: "id" });
+      series.createIndex("businessTypeYear", ["businessId", "documentType", "financialYear"], {
+        unique: true,
+      });
+    };
+    const legacyDatabase = await requestResult(legacyRequest);
+    const transaction = legacyDatabase.transaction("templates", "readwrite");
+    transaction.objectStore("templates").put({
+      id: "tpl:business-1:standard:tax_invoice:1",
+      businessId: "business-1",
+      key: "standard:tax_invoice",
+      version: 1,
+      name: "Standard",
+    });
+    await transactionDone(transaction);
+    legacyDatabase.close();
+
+    const upgraded = await openFledgeDatabase(factory);
+    expect(await requestResult(upgraded.transaction("templates", "readonly")
+      .objectStore("templates").get("tpl:business-1:standard:tax_invoice:1")))
+      .toMatchObject({ businessId: "business-1", version: 1 });
+    expect(upgraded.objectStoreNames.contains("customerReceipts")).toBe(true);
+    expect(upgraded.objectStoreNames.contains("paymentAllocationEvents")).toBe(true);
+    expect(upgraded.objectStoreNames.contains("paymentAdjustmentEvents")).toBe(true);
+    upgraded.close();
   });
 
   it("rejects a blocked database upgrade and closes the late connection", async () => {
@@ -761,6 +1085,20 @@ function documentDeps(repository) {
     states: STATE_UTS,
     now: () => "2026-11-01T00:00:00.000Z",
     createId: () => `document-record-${++sequence}`,
+  };
+}
+
+function createPaymentDeps(repositories) {
+  let sequence = 0;
+  const dependencies = {
+    now: () => "2026-11-01T00:00:00.000Z",
+    createId: () => `payment-record-${++sequence}`,
+  };
+  return {
+    receipt: { repository: repositories.customerReceiptRepository, ...dependencies },
+    allocation: { repository: repositories.allocationRepository, ...dependencies },
+    adjustment: { repository: repositories.paymentAdjustmentRepository, ...dependencies },
+    activity: { repository: repositories.customerPaymentActivityRepository },
   };
 }
 

@@ -232,7 +232,7 @@ Requirements:
 - Invalid or unsafe field configuration is rejected.
 - Tests prove template changes cannot modify financial values.
 
-**Implementation status:** Browser template persistence, defaults, safe customization, revision history, custom-field snapshots, document template selection and representative preview are implemented on the current feature branch. IndexedDB upgrade, cross-business ownership, reload persistence, invalid configuration and historical-render behavior have focused coverage. Merge and release status must be tracked separately.
+**Implementation status:** Browser template persistence, defaults, safe customization, revision history, custom-field snapshots, document template selection and representative preview were merged in PR #66. IndexedDB upgrade, cross-business ownership, reload persistence, invalid configuration and historical-render behavior have focused coverage.
 
 ### B4 — Payment persistence and customer payment activity
 
@@ -252,6 +252,8 @@ Requirements:
 - Duplicate retries do not duplicate financial events.
 - Customer balances and invoice settlement are derived consistently.
 - Browser tests verify transaction atomicity and read-snapshot consistency.
+
+**Implementation status:** Browser IndexedDB payment event stores, customer receipt identity snapshots, idempotent commands, allocations, refunds/reversals, invoice settlement and a customer payment activity screen are implemented on the current feature branch. Persistence, financial invariant, and consistent-snapshot tests are included; merge and release status must be tracked separately.
 
 ### C1 — Billing and GST completion
 

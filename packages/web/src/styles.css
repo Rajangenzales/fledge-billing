@@ -178,3 +178,26 @@ button{font:inherit;cursor:pointer}
 .template-preview>p:last-child{padding-top:10px;font-size:12px}
 @media(max-width:900px){.template-editor-grid{grid-template-columns:1fr}.template-preview{position:static}}
 @media(max-width:700px){.template-toolbar{align-items:stretch;flex-direction:column}.template-toolbar .button-row{flex-wrap:wrap}.template-edit-row>label:first-child{grid-template-columns:1fr}.template-custom-field{grid-template-columns:1fr}}
+.payment-disclaimer{margin:0 0 16px;padding:12px 14px;border:1px solid #efe8d8;border-radius:9px;background:#fbf8ef;color:#786844;font-size:10px;line-height:1.55}
+.payment-customer-picker{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:16px}
+.payment-customer-picker label{display:flex;flex-direction:column;gap:7px;min-width:min(100%,360px);color:#46564e;font-size:10px;font-weight:650}
+.payment-customer-picker select,.payment-form input,.payment-form select,.payment-form textarea{min-height:37px;border:1px solid #dfe6e2;border-radius:7px;background:#fff;padding:8px;color:#25382f;font:inherit;font-size:11px}
+.payment-customer-picker span{color:#87938d;font-size:10px}
+.payment-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 16px}
+.payment-summary-grid .metric-card{min-height:96px;padding:14px 16px}
+.payment-summary-grid .metric-value{font-size:20px;overflow-wrap:anywhere}
+.payment-workflow-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:14px}
+.payment-form{display:grid;gap:11px}
+.payment-form h2{margin:0 0 3px}
+.payment-form>label{display:flex;flex-direction:column;gap:6px;color:#46564e;font-size:10px;font-weight:650}
+.payment-form textarea{min-height:70px;resize:vertical}
+.payment-form .primary-button,.payment-form .secondary-button{justify-self:start}
+.payment-activity{margin-top:16px}
+.payment-event-list{display:flex;flex-direction:column;margin-top:12px}
+.payment-event{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:12px 0;border-top:1px solid #eff1f3}
+.payment-event>div{display:grid;gap:4px}
+.payment-event>div:last-child{text-align:right}
+.payment-event strong{color:#33473d;font-size:11px;text-transform:capitalize}
+.payment-event span{color:#87938d;font-size:9px;line-height:1.45}
+@media(max-width:900px){.payment-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.payment-customer-picker{align-items:stretch;flex-direction:column}.payment-workflow-grid{grid-template-columns:1fr}.payment-event{gap:10px}.payment-event>div:last-child{max-width:45%}}

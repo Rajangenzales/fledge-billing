@@ -11,9 +11,14 @@ import {
   defaultDocumentPrefix,
   formatDocumentNumber,
 } from "@fledge/domain";
+import {
+  AllocationError,
+  CustomerReceiptError,
+  PaymentAdjustmentError,
+} from "@fledge/application/browser";
 
 const DATABASE_NAME = "fledge-billing";
-const DATABASE_VERSION = 4;
+const DATABASE_VERSION = 5;
 const BUSINESS_STORE = "business";
 const CUSTOMER_STORE = "customers";
 const SAVED_GST_RATE_STORE = "savedGstRates";
@@ -21,6 +26,9 @@ const PRODUCT_STORE = "products";
 const DOCUMENT_STORE = "documents";
 const NUMBER_SERIES_STORE = "numberSeries";
 const TEMPLATE_STORE = "templates";
+const RECEIPT_STORE = "customerReceipts";
+const ALLOCATION_STORE = "paymentAllocationEvents";
+const PAYMENT_ADJUSTMENT_STORE = "paymentAdjustmentEvents";
 
 export class BrowserStorageError extends Error {
   constructor(message) {
@@ -77,6 +85,36 @@ export function openFledgeDatabase(factory = globalThis.indexedDB) {
         templates.createIndex("businessKeyVersion", ["businessId", "key", "version"], {
           unique: true,
         });
+      }
+      if (!database.objectStoreNames.contains(RECEIPT_STORE)) {
+        const receipts = database.createObjectStore(RECEIPT_STORE, { keyPath: "id" });
+        receipts.createIndex("businessId", "businessId", { unique: false });
+        receipts.createIndex("businessCustomer", ["businessId", "customerId"], { unique: false });
+        receipts.createIndex("businessIdempotency", ["businessId", "idempotencyKey"], {
+          unique: true,
+        });
+      }
+      if (!database.objectStoreNames.contains(ALLOCATION_STORE)) {
+        const allocations = database.createObjectStore(ALLOCATION_STORE, { keyPath: "id" });
+        allocations.createIndex("businessId", "businessId", { unique: false });
+        allocations.createIndex("businessReceipt", ["businessId", "receiptId"], { unique: false });
+        allocations.createIndex("businessInvoice", ["businessId", "invoiceId"], { unique: false });
+        allocations.createIndex("businessCustomer", ["businessId", "customerId"], { unique: false });
+        allocations.createIndex("businessIdempotency", ["businessId", "idempotencyKey"], {
+          unique: true,
+        });
+        allocations.createIndex("releasedAllocationId", "releasedAllocationId", { unique: true });
+      }
+      if (!database.objectStoreNames.contains(PAYMENT_ADJUSTMENT_STORE)) {
+        const adjustments = database.createObjectStore(PAYMENT_ADJUSTMENT_STORE, { keyPath: "id" });
+        adjustments.createIndex("businessId", "businessId", { unique: false });
+        adjustments.createIndex("businessReceipt", ["businessId", "receiptId"], { unique: false });
+        adjustments.createIndex("businessCustomer", ["businessId", "customerId"], { unique: false });
+        adjustments.createIndex("businessIdempotency", ["businessId", "idempotencyKey"], {
+          unique: true,
+        });
+        adjustments.createIndex("reversedReceiptId", "reversedReceiptId", { unique: true });
+        adjustments.createIndex("reversedRefundId", "reversedRefundId", { unique: true });
       }
     };
     request.onblocked = () => {
@@ -246,6 +284,7 @@ export function createBrowserRepositories(database) {
     businessRepository,
     templateRepository,
   );
+  const paymentRepositories = createBrowserPaymentRepositories(database, businessRepository);
 
   return {
     businessRepository,
@@ -253,6 +292,7 @@ export function createBrowserRepositories(database) {
     productRepository,
     documentRepository,
     templateRepository,
+    ...paymentRepositories,
   };
 }
 
@@ -474,6 +514,755 @@ function compareTemplates(left, right) {
     Number(right.isDefault) - Number(left.isDefault) ||
     left.name.localeCompare(right.name) ||
     left.version - right.version;
+}
+
+function createBrowserPaymentRepositories(database, businessRepository) {
+  const getBusinessId = () =>
+    businessRepository.get().then((business) => business?.id ?? null);
+
+  const customerReceiptRepository = {
+    getBusinessId,
+    customerExists(customerId, businessId) {
+      return transact(database, [BUSINESS_STORE, CUSTOMER_STORE], "readonly", (transaction, set) => {
+        const businessRequest = transaction.objectStore(BUSINESS_STORE).getAll();
+        const customerRequest = transaction.objectStore(CUSTOMER_STORE).get(customerId);
+        whenRequestsComplete([businessRequest, customerRequest], ([businesses, customer]) => {
+          set(businesses.length === 1 && businesses[0].id === businessId &&
+            customer?.businessId === businessId);
+        });
+      });
+    },
+    insert(record) {
+      return transact(
+        database,
+        [BUSINESS_STORE, CUSTOMER_STORE, RECEIPT_STORE],
+        "readwrite",
+        (transaction, set, fail) => {
+          const businessRequest = transaction.objectStore(BUSINESS_STORE).getAll();
+          const customerRequest = transaction.objectStore(CUSTOMER_STORE).get(record.customerId);
+          const duplicateRequest = transaction.objectStore(RECEIPT_STORE)
+            .index("businessIdempotency").get([record.businessId, record.idempotencyKey]);
+          whenRequestsComplete(
+            [businessRequest, customerRequest, duplicateRequest],
+            ([businesses, customer, duplicate]) => {
+              const business = paymentBusiness(businesses, fail, CustomerReceiptError);
+              if (!business) return;
+              if (business.id !== record.businessId) {
+                fail(new CustomerReceiptError("Save the business profile before recording a receipt."));
+                return;
+              }
+              if (duplicate) {
+                if (!sameReceiptRequest(duplicate, record)) {
+                  fail(new CustomerReceiptError(
+                    "This receipt request key was already used for different receipt details.",
+                  ));
+                  return;
+                }
+                set(duplicate);
+                return;
+              }
+              if (customer?.businessId !== record.businessId) {
+                fail(new CustomerReceiptError("Choose a customer belonging to this business."));
+                return;
+              }
+              const identitySnapshot = receiptIdentitySnapshot(business, customer, fail);
+              if (!identitySnapshot) return;
+              const saved = { ...record, identitySnapshot };
+              transaction.objectStore(RECEIPT_STORE).add(saved);
+              set(saved);
+            },
+          );
+        },
+      );
+    },
+    list(customerId) {
+      return getBusinessId().then((businessId) => {
+        if (!businessId) return [];
+        return transact(database, [RECEIPT_STORE], "readonly", (transaction, set) => {
+          const request = transaction.objectStore(RECEIPT_STORE)
+            .index("businessCustomer").getAll([businessId, customerId]);
+          request.onsuccess = () => set(request.result.sort(compareReceiptsNewestFirst));
+        });
+      });
+    },
+    getById(receiptId, businessId) {
+      return transact(database, [RECEIPT_STORE], "readonly", (transaction, set) => {
+        const request = transaction.objectStore(RECEIPT_STORE).get(receiptId);
+        request.onsuccess = () =>
+          set(request.result?.businessId === businessId ? request.result : null);
+      });
+    },
+    total(customerId) {
+      return getBusinessId().then((businessId) =>
+        sumBusinessCustomerRecords(
+          database,
+          RECEIPT_STORE,
+          businessId,
+          customerId,
+          "amount",
+          CustomerReceiptError,
+        ),
+      );
+    },
+    allocatedTotal(customerId) {
+      return getBusinessId().then((businessId) => {
+        if (!businessId) return "0";
+        return transact(database, [ALLOCATION_STORE], "readonly", (transaction, set, fail) => {
+          const request = transaction.objectStore(ALLOCATION_STORE)
+            .index("businessCustomer").getAll([businessId, customerId]);
+          request.onsuccess = () => {
+            try {
+              set(formatPaise(activeAllocationPaise(request.result)));
+            } catch (error) {
+              fail(error);
+            }
+          };
+        });
+      });
+    },
+    adjustmentTotals(customerId) {
+      return getBusinessId().then((businessId) => {
+        if (!businessId) return { refundedAmount: "0", reversedReceiptAmount: "0" };
+        return transact(database, [PAYMENT_ADJUSTMENT_STORE], "readonly", (transaction, set, fail) => {
+          const request = transaction.objectStore(PAYMENT_ADJUSTMENT_STORE)
+            .index("businessCustomer").getAll([businessId, customerId]);
+          request.onsuccess = () => {
+            try {
+              set(adjustmentTotals(request.result));
+            } catch (error) {
+              fail(error);
+            }
+          };
+        });
+      });
+    },
+  };
+
+  const allocationRepository = {
+    getBusinessId,
+    allocate(event) {
+      return transact(
+        database,
+        [BUSINESS_STORE, DOCUMENT_STORE, RECEIPT_STORE, ALLOCATION_STORE, PAYMENT_ADJUSTMENT_STORE],
+        "readwrite",
+        (transaction, set, fail) => {
+          const businessRequest = transaction.objectStore(BUSINESS_STORE).getAll();
+          const duplicateRequest = transaction.objectStore(ALLOCATION_STORE)
+            .index("businessIdempotency").get([event.businessId, event.idempotencyKey]);
+          whenRequestsComplete([businessRequest, duplicateRequest], ([businesses, duplicate]) => {
+            const business = paymentBusiness(businesses, fail, AllocationError);
+            if (!business) return;
+            if (business.id !== event.businessId) {
+              fail(new AllocationError("Save the business profile before allocating receipts."));
+              return;
+            }
+            if (duplicate) {
+              if (duplicate.eventType !== "allocate" || duplicate.receiptId !== event.receiptId ||
+                  duplicate.invoiceId !== event.invoiceId || duplicate.amount !== event.amount) {
+                fail(new AllocationError(
+                  "This allocation request key was already used for different details.",
+                ));
+                return;
+              }
+              set(duplicate);
+              return;
+            }
+            const receiptRequest = transaction.objectStore(RECEIPT_STORE).get(event.receiptId);
+            const invoiceRequest = transaction.objectStore(DOCUMENT_STORE).get(event.invoiceId);
+            const receiptEventsRequest = transaction.objectStore(ALLOCATION_STORE)
+              .index("businessReceipt").getAll([event.businessId, event.receiptId]);
+            const invoiceEventsRequest = transaction.objectStore(ALLOCATION_STORE)
+              .index("businessInvoice").getAll([event.businessId, event.invoiceId]);
+            const receiptAdjustmentsRequest = transaction.objectStore(PAYMENT_ADJUSTMENT_STORE)
+              .index("businessReceipt").getAll([event.businessId, event.receiptId]);
+            whenRequestsComplete(
+              [receiptRequest, invoiceRequest, receiptEventsRequest, invoiceEventsRequest, receiptAdjustmentsRequest],
+              ([receipt, invoice, receiptEvents, invoiceEvents, adjustments]) => {
+                if (receipt?.businessId !== event.businessId) {
+                  fail(new AllocationError("That receipt was not found for this business."));
+                  return;
+                }
+                if (invoice?.businessId !== event.businessId) {
+                  fail(new AllocationError("That invoice was not found for this business."));
+                  return;
+                }
+                if (receipt.customerId !== invoice.customerId) {
+                  fail(new AllocationError("The receipt and invoice must belong to the same customer."));
+                  return;
+                }
+                if (invoice.status !== "finalized") {
+                  fail(new AllocationError("Only finalized invoices can receive an allocation."));
+                  return;
+                }
+                if (!["tax_invoice", "non_gst_invoice", "bill_of_supply"].includes(invoice.documentType)) {
+                  fail(new AllocationError(
+                    "Choose a finalized invoice or bill of supply, not a quotation or receipt.",
+                  ));
+                  return;
+                }
+                const customerId = receipt.customerId;
+                if (event.customerId && event.customerId !== customerId) {
+                  fail(new AllocationError("The receipt customer does not match."));
+                  return;
+                }
+                const receiptAmount = paymentAmountPaise(receipt.amount, fail, AllocationError);
+                if (receiptAmount === null) return;
+                const activeReceiptAllocations = activeAllocationPaise(receiptEvents);
+                const refunded = netRefundedPaise(adjustments);
+                const reversed = isReceiptReversed(adjustments) ? receiptAmount : 0n;
+                const available = receiptAmount - activeReceiptAllocations - refunded - reversed;
+                const requested = paymentAmountPaise(event.amount, fail, AllocationError);
+                if (requested === null) return;
+                if (requested > available) {
+                  fail(new AllocationError("The allocation exceeds the receipt's available balance."));
+                  return;
+                }
+                const invoiceTotal = paymentAmountPaise(invoice.grandTotal, fail, AllocationError);
+                const outstanding = invoiceTotal === null
+                  ? null
+                  : invoiceTotal - activeAllocationPaise(invoiceEvents);
+                if (outstanding === null) return;
+                if (requested > outstanding) {
+                  fail(new AllocationError("The allocation exceeds the invoice's outstanding amount."));
+                  return;
+                }
+                const saved = { ...event, customerId };
+                transaction.objectStore(ALLOCATION_STORE).add(saved);
+                set(saved);
+              },
+              fail,
+            );
+          });
+        },
+      );
+    },
+    release(event) {
+      return transact(
+        database,
+        [BUSINESS_STORE, ALLOCATION_STORE],
+        "readwrite",
+        (transaction, set, fail) => {
+          const businessRequest = transaction.objectStore(BUSINESS_STORE).getAll();
+          const duplicateRequest = transaction.objectStore(ALLOCATION_STORE)
+            .index("businessIdempotency").get([event.businessId, event.idempotencyKey]);
+          whenRequestsComplete([businessRequest, duplicateRequest], ([businesses, duplicate]) => {
+            const business = paymentBusiness(businesses, fail, AllocationError);
+            if (!business) return;
+            if (business.id !== event.businessId) {
+              fail(new AllocationError("Save the business profile before allocating receipts."));
+              return;
+            }
+            if (duplicate) {
+              if (duplicate.eventType !== "release" || duplicate.allocationId !== event.allocationId ||
+                  duplicate.reason !== event.reason) {
+                fail(new AllocationError(
+                  "This release request key was already used for different details.",
+                ));
+                return;
+              }
+              set(duplicate);
+              return;
+            }
+            const allocationRequest = transaction.objectStore(ALLOCATION_STORE).get(event.allocationId);
+            const releaseRequest = transaction.objectStore(ALLOCATION_STORE)
+              .index("releasedAllocationId").get(event.allocationId);
+            whenRequestsComplete([allocationRequest, releaseRequest], ([allocation, previousRelease]) => {
+              if (allocation?.businessId !== event.businessId || allocation.eventType !== "allocate") {
+                fail(new AllocationError("That allocation was not found for this business."));
+                return;
+              }
+              if (previousRelease) {
+                fail(new AllocationError("That allocation has already been released."));
+                return;
+              }
+              const saved = {
+                ...event,
+                customerId: allocation.customerId,
+                receiptId: allocation.receiptId,
+                invoiceId: allocation.invoiceId,
+                amount: allocation.amount,
+                releasedAllocationId: allocation.id,
+              };
+              transaction.objectStore(ALLOCATION_STORE).add(saved);
+              set(saved);
+            });
+          });
+        },
+      );
+    },
+    listReceiptEvents(receiptId) {
+      return getBusinessId().then((businessId) => {
+        if (!businessId) return [];
+        return transact(database, [ALLOCATION_STORE], "readonly", (transaction, set) => {
+          const request = transaction.objectStore(ALLOCATION_STORE)
+            .index("businessReceipt").getAll([businessId, receiptId]);
+          request.onsuccess = () => set(request.result.sort(compareRecordedEvents));
+        });
+      });
+    },
+    getInvoiceSettlement(invoiceId) {
+      return getBusinessId().then((businessId) => {
+        if (!businessId) return null;
+        return transact(database, [BUSINESS_STORE, DOCUMENT_STORE, ALLOCATION_STORE], "readonly", (transaction, set, fail) => {
+          const businessRequest = transaction.objectStore(BUSINESS_STORE).getAll();
+          const invoiceRequest = transaction.objectStore(DOCUMENT_STORE).get(invoiceId);
+          whenRequestsComplete([businessRequest, invoiceRequest], ([businesses, invoice]) => {
+            const business = paymentBusiness(businesses, fail, AllocationError);
+            if (!business) return;
+            if (business.id !== businessId || invoice?.businessId !== businessId) {
+              set(null);
+              return;
+            }
+            if (invoice.status !== "finalized" ||
+                !["tax_invoice", "non_gst_invoice", "bill_of_supply"].includes(invoice.documentType)) {
+              fail(new AllocationError(
+                "Payment settlement is available only for finalized invoices and bills of supply.",
+              ));
+              return;
+            }
+            const eventsRequest = transaction.objectStore(ALLOCATION_STORE)
+              .index("businessInvoice").getAll([businessId, invoiceId]);
+            eventsRequest.onsuccess = () => {
+              try {
+                const total = paymentAmountPaise(invoice.grandTotal, fail, AllocationError);
+                if (total === null) return;
+                const allocated = activeAllocationPaise(eventsRequest.result);
+                if (allocated > total) {
+                  fail(new AllocationError(
+                    "Saved allocations exceed the invoice total. Review the payment history.",
+                  ));
+                  return;
+                }
+                const outstanding = total - allocated;
+                set({
+                  invoiceId,
+                  currency: "INR",
+                  invoiceTotal: formatPaise(total),
+                  allocatedAmount: formatPaise(allocated),
+                  outstandingAmount: formatPaise(outstanding),
+                  paymentStatus: allocated === 0n ? "unpaid" : outstanding === 0n ? "paid" : "partially_paid",
+                });
+              } catch (error) {
+                fail(error instanceof Error ? error : new Error(String(error)));
+              }
+            };
+          }, fail);
+        });
+      });
+    },
+    getCustomerAllocatedTotal(customerId) {
+      return customerReceiptRepository.allocatedTotal(customerId);
+    },
+  };
+
+  const paymentAdjustmentRepository = {
+    getBusinessId,
+    customerExists: customerReceiptRepository.customerExists,
+    recordRefund(event) {
+      return writeAdjustment(event, "refund");
+    },
+    reverseReceipt(event) {
+      return writeAdjustment(event, "reverse_receipt");
+    },
+    reverseRefund(event) {
+      return writeAdjustment(event, "reverse_refund");
+    },
+    list(receiptId) {
+      return getBusinessId().then((businessId) => {
+        if (!businessId) return [];
+        return transact(database, [PAYMENT_ADJUSTMENT_STORE], "readonly", (transaction, set) => {
+          const request = transaction.objectStore(PAYMENT_ADJUSTMENT_STORE)
+            .index("businessReceipt").getAll([businessId, receiptId]);
+          request.onsuccess = () => set(request.result.sort(compareRecordedEvents));
+        });
+      });
+    },
+    totals(customerId) {
+      return customerReceiptRepository.adjustmentTotals(customerId);
+    },
+  };
+
+  function writeAdjustment(event, type) {
+    return transact(
+      database,
+      [BUSINESS_STORE, RECEIPT_STORE, ALLOCATION_STORE, PAYMENT_ADJUSTMENT_STORE],
+      "readwrite",
+      (transaction, set, fail) => {
+        const businessRequest = transaction.objectStore(BUSINESS_STORE).getAll();
+        const duplicateRequest = transaction.objectStore(PAYMENT_ADJUSTMENT_STORE)
+          .index("businessIdempotency").get([event.businessId, event.idempotencyKey]);
+        whenRequestsComplete([businessRequest, duplicateRequest], ([businesses, duplicate]) => {
+          const business = paymentBusiness(businesses, fail, PaymentAdjustmentError);
+          if (!business) return;
+          if (business.id !== event.businessId) {
+            fail(new PaymentAdjustmentError(
+              "Save the business profile before recording a refund or reversal.",
+            ));
+            return;
+          }
+          if (duplicate) {
+            if (!sameAdjustmentRequest(duplicate, event)) {
+              fail(new PaymentAdjustmentError(
+                "This payment adjustment key was already used for different details.",
+              ));
+              return;
+            }
+            set(duplicate);
+            return;
+          }
+          const adjustments = transaction.objectStore(PAYMENT_ADJUSTMENT_STORE);
+          if (type === "reverse_refund") {
+            const refundRequest = adjustments.get(event.originalEventId);
+            const reversedRefundRequest = adjustments.index("reversedRefundId").get(event.originalEventId);
+            whenRequestsComplete([refundRequest, reversedRefundRequest], ([refund, reversedRefund]) => {
+              if (refund?.businessId !== event.businessId || refund.eventType !== "refund") {
+                fail(new PaymentAdjustmentError("That original refund was not found for this business."));
+                return;
+              }
+              if (reversedRefund) {
+                fail(new PaymentAdjustmentError("That refund entry has already been reversed."));
+                return;
+              }
+              const saved = {
+                ...event,
+                customerId: refund.customerId,
+                receiptId: refund.receiptId,
+                amount: refund.amount,
+                reversedRefundId: refund.id,
+              };
+              adjustments.add(saved);
+              set(saved);
+            });
+            return;
+          }
+          const receiptRequest = transaction.objectStore(RECEIPT_STORE).get(event.receiptId);
+          const allocationRequest = transaction.objectStore(ALLOCATION_STORE)
+            .index("businessReceipt").getAll([event.businessId, event.receiptId]);
+          const receiptAdjustmentsRequest = adjustments.index("businessReceipt")
+            .getAll([event.businessId, event.receiptId]);
+          const reversedReceiptRequest = adjustments.index("reversedReceiptId").get(event.receiptId);
+          whenRequestsComplete(
+            [receiptRequest, allocationRequest, receiptAdjustmentsRequest, reversedReceiptRequest],
+            ([receipt, allocations, priorAdjustments, reversedReceipt]) => {
+              if (receipt?.businessId !== event.businessId) {
+                fail(new PaymentAdjustmentError("That receipt was not found for this business."));
+                return;
+              }
+              if (event.customerId && event.customerId !== receipt.customerId) {
+                fail(new PaymentAdjustmentError("The receipt customer does not match."));
+                return;
+              }
+              const activeAllocations = activeAllocationPaise(allocations);
+              if (type === "refund") {
+                if (isReceiptReversed(priorAdjustments)) {
+                  fail(new PaymentAdjustmentError("A reversed receipt cannot be refunded."));
+                  return;
+                }
+                if (activeAllocations > 0n) {
+                  fail(new PaymentAdjustmentError(
+                    "Release the receipt's active invoice allocations before recording a refund.",
+                  ));
+                  return;
+                }
+                const receiptAmount = paymentAmountPaise(receipt.amount, fail, PaymentAdjustmentError);
+                const requested = paymentAmountPaise(event.amount, fail, PaymentAdjustmentError);
+                if (receiptAmount === null || requested === null) return;
+                const refundable = receiptAmount - netRefundedPaise(priorAdjustments);
+                if (requested > refundable) {
+                  fail(new PaymentAdjustmentError(
+                    "The refund exceeds the receipt's remaining refundable amount.",
+                  ));
+                  return;
+                }
+              } else {
+                if (activeAllocations > 0n) {
+                  fail(new PaymentAdjustmentError(
+                    "Release the receipt's active invoice allocations before reversing it.",
+                  ));
+                  return;
+                }
+                if (netRefundedPaise(priorAdjustments) > 0n) {
+                  fail(new PaymentAdjustmentError(
+                    "Reverse or resolve the receipt's refunds before reversing the receipt.",
+                  ));
+                  return;
+                }
+                if (reversedReceipt || isReceiptReversed(priorAdjustments)) {
+                  fail(new PaymentAdjustmentError("That receipt has already been reversed."));
+                  return;
+                }
+              }
+              const saved = {
+                ...event,
+                customerId: receipt.customerId,
+                amount: type === "reverse_receipt" ? receipt.amount : event.amount,
+                reversedReceiptId: type === "reverse_receipt" ? receipt.id : undefined,
+              };
+              adjustments.add(saved);
+              set(saved);
+            },
+            fail,
+          );
+        });
+      },
+    );
+  }
+
+  const customerPaymentActivityRepository = {
+    readSnapshot(customerId) {
+      return transact(
+        database,
+        [BUSINESS_STORE, CUSTOMER_STORE, RECEIPT_STORE, ALLOCATION_STORE, PAYMENT_ADJUSTMENT_STORE],
+        "readonly",
+        (transaction, set, fail) => {
+          const businessRequest = transaction.objectStore(BUSINESS_STORE).getAll();
+          const customerRequest = transaction.objectStore(CUSTOMER_STORE).get(customerId);
+          businessRequest.onsuccess = () => {
+            if (businessRequest.result.length === 0) {
+              set(null);
+              return;
+            }
+            const business = paymentBusiness(businessRequest.result, fail, PaymentAdjustmentError);
+            if (!business) return;
+            const businessId = business.id;
+            const receipts = transaction.objectStore(RECEIPT_STORE)
+              .index("businessCustomer").getAll([businessId, customerId]);
+            const allocations = transaction.objectStore(ALLOCATION_STORE)
+              .index("businessCustomer").getAll([businessId, customerId]);
+            const adjustments = transaction.objectStore(PAYMENT_ADJUSTMENT_STORE)
+              .index("businessCustomer").getAll([businessId, customerId]);
+            whenRequestsComplete(
+              [customerRequest, receipts, allocations, adjustments],
+              ([customer, customerReceipts, customerAllocations, customerAdjustments]) => {
+                if (customer?.businessId !== businessId) {
+                  set(null);
+                  return;
+                }
+                const totalReceived = formatPaise(sumAmounts(customerReceipts.map((item) => item.amount)));
+                const totalAllocated = formatPaise(activeAllocationPaise(customerAllocations));
+                const totals = adjustmentTotals(customerAdjustments);
+                const unallocatedPaise =
+                  amountToPaise(totalReceived) -
+                  amountToPaise(totalAllocated) -
+                  amountToPaise(totals.refundedAmount) -
+                  amountToPaise(totals.reversedReceiptAmount);
+                if (unallocatedPaise < 0n) {
+                  fail(new CustomerReceiptError("Customer allocations exceed the available receipts."));
+                  return;
+                }
+                const unallocatedAdvance = formatPaise(unallocatedPaise);
+                set({
+                  receipts: customerReceipts.sort(compareReceiptsNewestFirst),
+                  allocations: customerAllocations.sort(compareRecordedEvents),
+                  adjustments: customerAdjustments.sort(compareRecordedEvents),
+                  totalReceived,
+                  totalAllocated,
+                  adjustmentTotals: totals,
+                  unallocatedAdvance,
+                });
+              },
+              fail,
+            );
+          };
+        },
+      );
+    },
+  };
+
+  return {
+    customerReceiptRepository,
+    allocationRepository,
+    paymentAdjustmentRepository,
+    customerPaymentActivityRepository,
+  };
+}
+
+function whenRequestsComplete(requests, callback, onError) {
+  const results = new Array(requests.length);
+  let completed = 0;
+  requests.forEach((request, index) => {
+    request.onsuccess = () => {
+      results[index] = request.result;
+      completed += 1;
+      if (completed === requests.length) {
+        try {
+          callback(results);
+        } catch (error) {
+          if (!onError) throw error;
+          onError(error instanceof Error ? error : new Error(String(error)));
+        }
+      }
+    };
+  });
+}
+
+function paymentBusiness(businesses, fail, ErrorType) {
+  if (businesses.length > 1) {
+    fail(new ErrorType("More than one business profile is stored."));
+    return null;
+  }
+  if (!businesses[0]) {
+    fail(new ErrorType("Save the business profile before recording payment activity."));
+    return null;
+  }
+  return businesses[0];
+}
+
+function receiptIdentitySnapshot(business, customer, fail) {
+  const businessState = STATE_UTS.find((state) => state.id === business.stateId);
+  const customerState = STATE_UTS.find((state) => state.id === customer.stateId);
+  if (!businessState || !customerState) {
+    fail(new CustomerReceiptError("Business or customer identity could not be captured."));
+    return null;
+  }
+  if (customer.registrationType !== "registered" && customer.registrationType !== "unregistered") {
+    fail(new CustomerReceiptError("The customer registration type is invalid."));
+    return null;
+  }
+  return {
+    business: {
+      legalName: business.legalName,
+      displayName: business.displayName,
+      address: business.address,
+      stateId: business.stateId,
+      stateName: businessState.name,
+      pinCode: business.pinCode,
+      gstRegistered: business.gstRegistered,
+      gstin: business.gstin,
+      businessType: business.businessType,
+      phone: business.phone,
+      email: business.email,
+    },
+    customer: {
+      name: customer.name,
+      phone: customer.phone,
+      email: customer.email,
+      gstin: customer.gstin,
+      registrationType: customer.registrationType,
+      billingAddress: customer.billingAddress,
+      shippingAddress: customer.shippingAddress,
+      stateId: customer.stateId,
+      stateName: customerState.name,
+      pinCode: customer.pinCode,
+    },
+  };
+}
+
+function sameReceiptRequest(saved, requested) {
+  return saved.businessId === requested.businessId &&
+    saved.customerId === requested.customerId &&
+    saved.amount === requested.amount &&
+    saved.paymentDate === requested.paymentDate &&
+    saved.method === requested.method &&
+    saved.reference === requested.reference &&
+    saved.notes === requested.notes;
+}
+
+function sameAdjustmentRequest(saved, requested) {
+  if (saved.eventType !== requested.eventType || saved.reason !== requested.reason) return false;
+  if (requested.eventType === "reverse_refund") {
+    return saved.originalEventId === requested.originalEventId;
+  }
+  if (saved.receiptId !== requested.receiptId) return false;
+  return requested.eventType !== "refund" ||
+    (saved.amount === requested.amount &&
+      saved.paymentDate === requested.paymentDate &&
+      saved.method === requested.method);
+}
+
+function compareReceiptsNewestFirst(left, right) {
+  return right.paymentDate.localeCompare(left.paymentDate) ||
+    right.recordedAt.localeCompare(left.recordedAt) ||
+    right.id.localeCompare(left.id);
+}
+
+function compareRecordedEvents(left, right) {
+  return left.recordedAt.localeCompare(right.recordedAt) || left.id.localeCompare(right.id);
+}
+
+function sumBusinessCustomerRecords(database, storeName, businessId, customerId, amountKey, ErrorType) {
+  if (!businessId) return Promise.resolve("0");
+  return transact(database, [storeName], "readonly", (transaction, set, fail) => {
+    const request = transaction.objectStore(storeName)
+      .index("businessCustomer").getAll([businessId, customerId]);
+    request.onsuccess = () => {
+      try {
+        set(formatPaise(sumAmounts(request.result.map((record) => record[amountKey]))));
+      } catch (error) {
+        fail(error instanceof Error ? error : new ErrorType(String(error)));
+      }
+    };
+  });
+}
+
+function sumAmounts(values) {
+  return values.reduce((total, value) => total + amountToPaise(value), 0n);
+}
+
+function paymentAmountPaise(value, fail, ErrorType) {
+  try {
+    return amountToPaise(value);
+  } catch {
+    fail(new ErrorType("A saved financial amount is invalid."));
+    return null;
+  }
+}
+
+function amountToPaise(value) {
+  if (typeof value !== "string" || !/^\d+(?:\.\d{1,2})?$/.test(value)) {
+    throw new CustomerReceiptError("A saved financial amount is invalid.");
+  }
+  const [whole, fraction = ""] = value.split(".");
+  return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0"));
+}
+
+function activeAllocationPaise(events) {
+  return events.reduce(
+    (total, event) => total + (event.eventType === "allocate"
+      ? amountToPaise(event.amount)
+      : -amountToPaise(event.amount)),
+    0n,
+  );
+}
+
+function netRefundedPaise(events) {
+  const reversedRefunds = new Set(
+    events.filter((event) => event.eventType === "reverse_refund")
+      .map((event) => event.originalEventId),
+  );
+  return events.reduce((total, event) =>
+    event.eventType === "refund" && !reversedRefunds.has(event.id)
+      ? total + amountToPaise(event.amount)
+      : total, 0n);
+}
+
+function isReceiptReversed(events) {
+  return events.some((event) => event.eventType === "reverse_receipt");
+}
+
+function adjustmentTotals(events) {
+  const reversedRefunds = new Set(
+    events.filter((event) => event.eventType === "reverse_refund")
+      .map((event) => event.originalEventId),
+  );
+  const refunded = events.reduce((total, event) =>
+    event.eventType === "refund" && !reversedRefunds.has(event.id)
+      ? total + amountToPaise(event.amount)
+      : total, 0n);
+  const reversedReceipts = events.reduce((total, event) =>
+    event.eventType === "reverse_receipt"
+      ? total + amountToPaise(event.amount)
+      : total, 0n);
+  return {
+    refundedAmount: formatPaise(refunded),
+    reversedReceiptAmount: formatPaise(reversedReceipts),
+  };
+}
+
+function formatPaise(value) {
+  const whole = value / 100n;
+  const fraction = (value % 100n).toString().padStart(2, "0");
+  return fraction === "00" ? whole.toString() : `${whole}.${fraction}`;
 }
 
 function createDocumentRepository(database, businessRepository, templateRepository) {
