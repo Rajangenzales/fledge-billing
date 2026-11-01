@@ -155,7 +155,7 @@ describe("template preview", () => {
     });
     expect(rendered.items[0]?.description).toContain("stays intact");
     expect(rendered.documentNumber).toBe("INV/2026-27/0001");
-    expect(presentationLines(rendered).join("\n")).toContain("Juice cases promotion: Buy 10 cases, get 1 cases free");
+    expect(presentationLines(rendered).join("\n")).toContain("Juice cases promotion: Buy 10 cases, get 1 free");
     expect(rendered.totals.grandTotal).toBe("100");
     const customized = { ...rendered, itemColumnLabels: { description: "Product", quantity: "Cases", unit: "Pack", rate: "Unit price", amount: "Line total", hsnSac: "HSN/SAC" } };
     const lines = presentationLines(customized);
