@@ -66,6 +66,8 @@ describe("issued document output", () => {
     }));
 
     expect(html).toContain("Customer document preview");
+    expect(html).toContain("--document-brand-color:#1f4b99");
+    expect(html).toContain("--document-font-family:system-ui, -apple-system, &quot;Segoe UI&quot;, sans-serif");
     expect(html).toContain("Date: 2026-10-31");
     expect(html).toContain("Supplier: Fledge Traders");
     expect(html).toContain("Customer: Harbour Stores");

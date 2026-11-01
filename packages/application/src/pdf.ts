@@ -15,11 +15,14 @@ export async function buildInvoicePdf(render: IssuedRender, logo?: Uint8Array): 
   pdf.setProducer("Fledge Billing");
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const brandColor = pdfColor(render.brandColor);
+  const leading = render.density === "compact" ? 12 : LEADING;
   const logoBytes = logo ?? render.logoBytes;
   const image = logoBytes ? await embedLogo(pdf, logoBytes) : null;
   const lines = presentationLines(render);
   const totals = lines.slice(-5);
   const body = lines.slice(0, -5);
+  const headings = new Set([body[0], "Items", "Charges", ...render.sections.map((section) => section.label)]);
   let page = pdf.addPage(PageSizes.A4);
   let y = page.getHeight() - MARGIN;
   const width = page.getWidth() - MARGIN * 2;
@@ -37,23 +40,25 @@ export async function buildInvoicePdf(render: IssuedRender, logo?: Uint8Array): 
   };
   const drawLine = (text: string, face: typeof font): void => {
     const wrapped = wrap(text, face, width);
+    const isHeading = headings.has(text) || text.startsWith("Total:");
+    const textColor = isHeading ? brandColor : rgb(0.1, 0.12, 0.16);
     for (const line of wrapped) {
-      if (y - LEADING < BOTTOM) {
+      if (y - leading < BOTTOM) {
         nextPage();
       }
       try {
-        page.drawText(line, { x: MARGIN, y: y - SIZE, size: SIZE, font: face, color: rgb(0.1, 0.12, 0.16) });
+        page.drawText(line, { x: MARGIN, y: y - SIZE, size: SIZE, font: isHeading ? bold : face, color: textColor });
       } catch {
         throw new TemplateError("This invoice has a character the PDF font cannot draw.");
       }
-      y -= LEADING;
+      y -= leading;
     }
   };
 
   for (const line of body) {
     drawLine(line, line === body[0] ? bold : font);
   }
-  const totalsHeight = totals.length * LEADING;
+  const totalsHeight = totals.length * leading;
   if (y - totalsHeight < BOTTOM) {
     nextPage();
   }
@@ -141,6 +146,13 @@ function splitLongWord(
     start = end;
   }
   return chunks;
+}
+
+function pdfColor(value: string | undefined) {
+  const match = /^#([0-9a-f]{6})$/i.exec(value ?? "");
+  if (!match) return rgb(0.1, 0.12, 0.16);
+  const hex = match[1] ?? "1a1a1a";
+  return rgb(Number.parseInt(hex.slice(0, 2), 16) / 255, Number.parseInt(hex.slice(2, 4), 16) / 255, Number.parseInt(hex.slice(4, 6), 16) / 255);
 }
 
 function documentDate(value: string): Date {

@@ -20,7 +20,11 @@ export default function IssuedDocumentOutput({
       </div>
     </div>
     {message && <p className="form-message" role="status">{message}</p>}
-    <article className="document-output-content">
+    <article className="document-output-content" style={{
+      "--document-brand-color": render.brandColor || "#1f4b99",
+      "--document-font-family": render.fontFamily === "source-sans" ? '"Source Sans 3", "Segoe UI", sans-serif' : 'system-ui, -apple-system, "Segoe UI", sans-serif',
+      "--document-line-gap": render.density === "compact" ? "0.2rem" : "0.45rem",
+    }}>
       {render.logoDataUrl && <img className="business-logo-preview" src={render.logoDataUrl} alt="Business logo" />}
       {lines.map((line, index) => <p key={`${index}-${line}`}>{line}</p>)}
     </article>
