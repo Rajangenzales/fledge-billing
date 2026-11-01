@@ -389,6 +389,7 @@ async function populateAllStores(db) {
       customerId: "customer-1",
       idempotencyKey: "adjustment-key",
     }],
+    logoAssets: [],
   };
   const transaction = db.transaction(BACKUP_STORE_NAMES, "readwrite");
   for (const store of BACKUP_STORE_NAMES) {

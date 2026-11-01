@@ -162,6 +162,7 @@ export function BusinessSettings({ business, onSave, logoPreview }) {
       setMessage("");
       setSaved(false);
     } catch (error) {
+      setSelectedLogo(null);
       setMessage(userMessage(error));
       event.target.value = "";
     }
