@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { localDateInputValue } from "./local-date.js";
 
 const methods = [
   ["cash", "Cash"],
@@ -11,7 +12,7 @@ const methods = [
 const allocatableTypes = new Set(["tax_invoice", "non_gst_invoice", "bill_of_supply"]);
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return localDateInputValue();
 }
 
 function requestKey() {
