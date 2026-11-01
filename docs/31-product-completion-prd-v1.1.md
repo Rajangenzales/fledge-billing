@@ -253,7 +253,7 @@ Requirements:
 - Customer balances and invoice settlement are derived consistently.
 - Browser tests verify transaction atomicity and read-snapshot consistency.
 
-**Implementation status:** Browser IndexedDB payment event stores, customer receipt identity snapshots, idempotent commands, allocations, refunds/reversals, invoice settlement and a customer payment activity screen are implemented on the current feature branch. Persistence, financial invariant, and consistent-snapshot tests are included; merge and release status must be tracked separately.
+**Implementation status:** Browser IndexedDB payment event stores, customer receipt identity snapshots, idempotent commands, allocations, refunds/reversals, invoice settlement and the customer payment activity screen were merged in PR #67. Persistence, financial-invariant and consistent-snapshot tests are included; real-browser and end-to-end verification remain open.
 
 ### C1 — Billing and GST completion
 
