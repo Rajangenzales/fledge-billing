@@ -35,10 +35,10 @@ export const customerMaster: Migration = {
 
 export function createCustomerRepository(db: SchemaDatabase): CustomerRepository {
   return {
-    getBusinessId() {
+    async getBusinessId() {
       return readBusinessId(db);
     },
-    list() {
+    async list() {
       const businessId = readBusinessId(db);
       if (!businessId) {
         return [];
@@ -55,7 +55,7 @@ export function createCustomerRepository(db: SchemaDatabase): CustomerRepository
         .all(businessId)
         .map(toStoredCustomer);
     },
-    get(id) {
+    async get(id) {
       const businessId = readBusinessId(db);
       if (!businessId) {
         return null;
@@ -71,10 +71,10 @@ export function createCustomerRepository(db: SchemaDatabase): CustomerRepository
         .get(id, businessId);
       return row ? toStoredCustomer(row) : null;
     },
-    insert(record) {
+    async insert(record) {
       write(db, record, false);
     },
-    update(record) {
+    async update(record) {
       write(db, record, true);
     },
   };
