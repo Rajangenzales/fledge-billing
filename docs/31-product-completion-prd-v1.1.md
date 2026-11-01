@@ -426,17 +426,20 @@ Offline entitlement/grace behaviour must be explicit and tested. Remote revocati
 
 ## 9. Open product-owner decisions
 
-The following decisions require explicit product-owner confirmation before the dependent work is treated as final:
+The product owner has approved the following scope:
 
-1. **Distribution target:** Confirm PWA-only V1 or whether packaged desktop distributions are also required.
-2. **Supported environment matrix:** Confirm exact browser versions and minimum operating-system versions for Windows, Android, iPhone/iPad and macOS.
-3. **Backup protection:** Confirm whether local backups must be encrypted and the expected password/key recovery model.
-4. **Business profiles:** Confirm whether one local installation supports one active business profile or multiple business profiles.
-5. **Credit/debit note statutory workflows:** Confirm the approved correction workflows only after accountant and qualified GST-practitioner review.
-6. **GST reference data:** Confirm source, update cadence, effective-date handling and review owner.
-7. **Hosting and distribution:** Confirm production hosting, release artifact location and ownership of signing/integrity keys.
-8. **Support model:** Confirm support channel, response expectations and incident owner.
-9. **Account and subscription scope:** Confirm which authentication, trial, subscription and payment gateway capabilities are mandatory for public V1 versus a later commercial release.
+- **Distribution:** V1 includes both a PWA and packaged desktop distribution. Exact supported platforms and minimum versions remain deferred.
+- **Accounts and commercial services:** V1 includes accounts, subscriptions and payment-gateway capability. Providers, plans, entitlement/grace rules and operational ownership remain to be decided.
+
+The following decisions still require explicit confirmation before dependent work is treated as final:
+
+1. **Supported environment matrix:** Confirm exact browser versions and minimum operating-system versions for the PWA and packaged desktop targets.
+2. **Backup protection:** Confirm whether local backups must be encrypted and the expected password/key recovery model.
+3. **Business profiles:** Confirm whether one local installation supports one active business profile or multiple business profiles.
+4. **Credit/debit note statutory workflows:** Confirm the approved correction workflows only after accountant and qualified GST-practitioner review.
+5. **GST reference data:** Confirm source, update cadence, effective-date handling and review owner.
+6. **Hosting and distribution:** Confirm production hosting, release artifact location and ownership of signing/integrity keys.
+7. **Support model:** Confirm support channel, response expectations and incident owner.
 
 Do not invent answers to these decisions inside implementation tasks. Record each approved decision in the relevant product/architecture document and link it from dependent issues.
 

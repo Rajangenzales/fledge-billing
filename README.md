@@ -49,17 +49,21 @@ These documents are the source of truth. Implementation must not silently expand
 
 ## Quick start
 
-Prerequisites: Node.js 22+ and [pnpm](https://pnpm.io/) 9 (via `corepack enable`).
+Prerequisites: Node.js 22+ and pnpm 9.15.9, pinned by `package.json` and managed with [Corepack](https://nodejs.org/api/corepack.html).
 
 ```bash
 cp .env.example .env   # optional; defaults work offline
-pnpm install
+corepack enable
+pnpm install --frozen-lockfile
 pnpm test
+pnpm typecheck
 pnpm build
 pnpm start             # local HTTP shell — migrates SQLite, then GET http://127.0.0.1:3847/health
 pnpm web:dev           # React/Vite browser shell at http://localhost:5173
 pnpm web:build         # production browser asset build
 ```
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for the developer setup and validation guide.
 
 One-shot shell status (no HTTP server):
 
