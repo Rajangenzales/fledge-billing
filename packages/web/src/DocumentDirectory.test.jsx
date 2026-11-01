@@ -1,7 +1,7 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import DocumentDirectory, { dueDateForCustomer } from "./DocumentDirectory.jsx";
+import DocumentDirectory, { defaultTemplateForBusiness, dueDateForCustomer } from "./DocumentDirectory.jsx";
 
 const callbacks = {
   onNavigate: () => undefined,
@@ -23,6 +23,36 @@ describe("customer credit period due dates", () => {
   it("leaves the due date blank for immediate payment or legacy customers", () => {
     expect(dueDateForCustomer("2026-11-01", { creditDays: 0 })).toBe("");
     expect(dueDateForCustomer("2026-11-01", {})).toBe("");
+  });
+});
+
+describe("business sector template defaults", () => {
+  const templates = [
+    { id: "generic", documentType: "tax_invoice", isDefault: true, active: true, customFields: [] },
+    {
+      id: "taxi",
+      key: "sector:taxi-cab:tax_invoice",
+      documentType: "tax_invoice",
+      isDefault: false,
+      active: true,
+      customFields: [{ key: "driver-name", defaultValue: null }],
+    },
+  ];
+
+  it("selects the matching sector template before the generic default", () => {
+    expect(defaultTemplateForBusiness(
+      { businessType: "Taxi / Cab Operator" },
+      templates,
+      "tax_invoice",
+    )).toBe(templates[1]);
+  });
+
+  it("keeps the generic default for custom or unmatched business types", () => {
+    expect(defaultTemplateForBusiness(
+      { businessType: "Custom business" },
+      templates,
+      "tax_invoice",
+    )).toBe(templates[0]);
   });
 });
 
