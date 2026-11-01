@@ -1,6 +1,6 @@
 # Fledge Billing — PWA Frontend Foundation Plan
 
-**Status:** Approved direction; W0 browser shell implemented in PR #35 (pending merge)  
+**Status:** W0 browser shell merged (PR #35); W1 compatibility and repository audit completed in PR #36  
 **Scope:** First customer-facing browser application foundation  
 **Depends on:** docs/01–03, docs/08–11 and the existing domain/application/persistence packages
 
@@ -8,7 +8,7 @@
 
 The current repository is a TypeScript pnpm monorepo. The `@fledge/app` package is a Node.js CLI and local HTTP health shell. Its HTTP server currently exposes only `/` and `/health`; it does not serve a browser UI.
 
-The existing SQLite adapter uses Node.js 22 `node:sqlite` and is isolated in `@fledge/persistence`. The current package scripts build, typecheck and test the monorepo. No browser UI framework, bundler, service worker, web manifest or IndexedDB adapter is currently present in the inspected baseline.
+The existing SQLite adapter uses Node.js 22 `node:sqlite` and is isolated in `@fledge/persistence`. The current package scripts build, typecheck and test the monorepo. React/Vite is now present in `packages/web` as a static browser shell. No service worker, web manifest or IndexedDB adapter is present.
 
 The domain/application separation and repository interfaces are reusable architectural foundations, but browser compatibility of every transitive import and application dependency must be audited before bundling them into a browser application. The existing Node SQLite adapter cannot be imported into an ordinary browser runtime.
 
@@ -34,15 +34,15 @@ The following W0 stack and package boundary are approved:
 1. Add a dedicated browser package, preferably `packages/web`, rather than turning the Node CLI package into a mixed Node/browser runtime.
 2. Use React with Vite for the responsive browser UI and production asset build.
 3. Keep browser-specific code in the web package. Import only browser-safe domain/application modules.
-4. Define browser repository adapters against the existing application repository contracts. Use IndexedDB as the backing store.
+4. Define asynchronous application repository contracts and explicit transaction boundaries before implementing a browser repository adapter. Use IndexedDB as the backing store only after the async contract is reviewed.
 5. Select an IndexedDB wrapper only after checking transaction semantics, schema migration support, bundle size, maintenance and testability. Do not let a wrapper's API leak into domain/application packages.
 6. Add a web app manifest and service worker in a later, separately testable slice after the browser shell and local persistence boundaries are stable.
 
-React + Vite is the approved browser stack because it is a conventional, well-supported TypeScript browser stack with a straightforward static build and no need to replace the existing Node application. The IndexedDB adapter remains undecided pending the W1 repository and transaction audit.
+React + Vite is the approved browser stack because it is a conventional, well-supported TypeScript browser stack with a straightforward static build and no need to replace the existing Node application. The W1 audit found that current application repository methods are synchronous, while IndexedDB is asynchronous. The IndexedDB wrapper and schema remain undecided until asynchronous contracts and transaction boundaries are designed.
 
 ## 4. W0 implementation record
 
-The product owner approved React + Vite and the dedicated `packages/web` boundary. The W0 branch adds:
+The product owner approved React + Vite and the dedicated `packages/web` boundary. PR #35 merged the following W0 foundation:
 
 - A React 19 + Vite browser package with a responsive Fledge Billing shell.
 - A simple overview screen and clearly marked placeholder navigation for unfinished areas.
@@ -51,7 +51,7 @@ The product owner approved React + Vite and the dedicated `packages/web` boundar
 - A server-rendered smoke test for the overview shell, included in the existing Vitest suite.
 - No service worker, manifest, IndexedDB, business-data writes, authentication, analytics, cloud requests or SQLite changes.
 
-The shell uses system fonts and local assets only. It does not fetch remote fonts or images. The browser UI is a presentation foundation, not a usable billing workflow or completed PWA. Runtime/build/typecheck tests must be confirmed by CI before merge; no local test execution is claimed in this environment.
+The shell uses system fonts and local assets only. It does not fetch remote fonts or images. The browser UI is a presentation foundation, not a usable billing workflow or completed PWA. The PR was merged. No local test/build execution is claimed in this environment; no successful CI result was independently verified during this audit.
 
 ## 5. Alternatives considered
 
@@ -87,15 +87,22 @@ The browser must not import Node built-ins, `node:sqlite`, filesystem APIs or se
 
 ### W1 — Browser compatibility and repository contract audit
 
-- Identify browser-safe exports from domain and application.
-- Remove or isolate any transitive Node-only imports before browser bundling.
-- Map each required application repository interface to a browser persistence implementation.
-- Define IndexedDB database versioning, upgrade failure handling, transaction boundaries and recovery behaviour.
-- Confirm exact-money serialization; do not persist JavaScript `bigint` values through lossy JSON conversion.
+- Audit browser-safe exports and isolate Node-only package entry points.
+- Identify and document current repository contracts and transaction boundaries.
+- Resolve the synchronous application repository versus asynchronous IndexedDB mismatch by designing explicit asynchronous contracts.
+- Define a SQLite compatibility migration path that preserves current CLI behaviour and SQLite migrations.
+- Define IndexedDB database versioning, upgrade failure handling, transaction boundaries and recovery behaviour after the async contract is approved.
+- Confirm exact-money serialization; never pass financial `bigint` values through lossy JSON conversion.
+
+### W1 audit outcome
+
+The completed audit is recorded in [docs/22](./22-w1-browser-compatibility-and-repository-audit.md). The domain layer is the browser-reuse candidate; the application root barrel is mixed with Node-only exports; persistence is Node/SQLite-only. Most importantly, current repository interfaces are synchronous and cannot be implemented directly with IndexedDB.
+
+The next work is W1A asynchronous repository and transaction-contract design, W1B conversion of the business-profile/customer vertical slice with SQLite compatibility, and W1C a curated browser-safe application entry plus a production-bundle dependency guard. The IndexedDB wrapper and schema remain unselected until these contracts are reviewed.
 
 ### W2 — IndexedDB foundation
 
-- Implement a versioned IndexedDB adapter for one approved vertical slice first.
+- Implement a versioned IndexedDB adapter for one approved vertical slice first, after W1A–W1C are merged.
 - Preserve business scoping, stable IDs, idempotency and transaction invariants.
 - Add fresh-database, upgrade, interrupted-upgrade, duplicate-retry and data-preservation tests.
 - Do not silently import or overwrite the existing SQLite database.
@@ -135,4 +142,4 @@ The browser must not import Node built-ins, `node:sqlite`, filesystem APIs or se
 
 ## 10. Remaining decision
 
-The product owner has confirmed React + Vite and `packages/web`. The IndexedDB adapter decision remains open and must be made during W1 after repository contract and transaction requirements are audited. Do not create a browser persistence schema before that audit.
+The product owner has confirmed React + Vite and `packages/web`. W1 audit is complete and recorded in docs/22. The IndexedDB wrapper and schema remain open pending asynchronous repository-contract design and SQLite compatibility work. Do not create a browser persistence schema before those contracts are approved.
