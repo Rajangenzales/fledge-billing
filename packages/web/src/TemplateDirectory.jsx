@@ -148,6 +148,18 @@ export default function TemplateDirectory({ business, templates, deps, onRefresh
     try {
       const sourceSections = sections.filter((section) => editableSectionLabels.has(section.key));
       const sourceFields = fields.filter((field) => editableFieldLabels.has(field.key));
+      const ownSectionChanges = sourceSections
+        .filter((source) => selected.sections.find((item) => item.key === source.key)?.label !== source.label)
+        .map(({ key, label }) => ({ key, label }));
+      const ownFieldChanges = sourceFields
+        .filter((source) => selected.fields.find((item) => item.key === source.key)?.label !== source.label)
+        .map(({ key, label }) => ({ key, label }));
+
+      if (ownSectionChanges.length || ownFieldChanges.length) {
+        await reviseTemplate(selected.id, { sections: ownSectionChanges, fields: ownFieldChanges }, deps);
+        updated += 1;
+      }
+
       const targets = templates.filter((template) => template.active && template.id !== selected.id);
 
       for (const target of targets) {
@@ -172,7 +184,7 @@ export default function TemplateDirectory({ business, templates, deps, onRefresh
       await onRefresh();
       setMessage(updated === 0
         ? "These terminology labels already match the other templates."
-        : `Terminology applied to ${updated} other template${updated === 1 ? "" : "s"}. Earlier invoice revisions remain unchanged.`);
+        : `Terminology applied to ${updated} template${updated === 1 ? "" : "s"}. Earlier invoice revisions remain unchanged.`);
     } catch (error) {
       await onRefresh();
       const reason = error?.userMessage || error?.message || "An unexpected error occurred.";
