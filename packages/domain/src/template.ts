@@ -99,6 +99,7 @@ export type BuiltInTemplate = {
   density: TemplateDensity;
   sections: readonly TemplateSectionDefinition[];
   fields: readonly TemplateFieldDefinition[];
+  customFields?: readonly CustomFieldDefinition[];
 };
 
 const FAMILY_DOCUMENT_TYPES: Record<TemplateFamily, readonly DocumentType[]> = {
@@ -196,9 +197,138 @@ const FIELD_SECTION: Record<TemplateFieldKey, TemplateSectionKey> = {
   notes: "notes-terms",
 };
 
-export const BUILT_IN_TEMPLATES: readonly BuiltInTemplate[] = TEMPLATE_FAMILIES.flatMap((family) =>
-  FAMILY_DOCUMENT_TYPES[family].map((documentType) => buildBuiltIn(family, documentType)),
-);
+const SECTOR_PRESETS: readonly {
+  key: string;
+  name: string;
+  purpose: string;
+  family: TemplateFamily;
+  fields: readonly { key: string; label: string; type: CustomFieldDefinition["type"]; helperText: string }[];
+}[] = [
+  {
+    key: "distributor-stockist", name: "Distributor / Stockist",
+    purpose: "Bulk distribution billing with delivery, order and sales representative references.",
+    family: "standard",
+    fields: [
+      { key: "sales-representative", label: "Sales representative", type: "short_text", helperText: "Person handling this order" },
+      { key: "purchase-order-reference", label: "Purchase order reference", type: "short_text", helperText: "Buyer's PO number" },
+      { key: "delivery-reference", label: "Delivery reference", type: "short_text", helperText: "Delivery challan or dispatch reference" },
+      { key: "delivery-address", label: "Delivery address", type: "long_text", helperText: "Delivery location, if different" },
+      { key: "credit-period", label: "Agreed credit period (days)", type: "number", helperText: "Reference only; customer credit settings remain separate" },
+    ],
+  },
+  {
+    key: "wholesaler", name: "Wholesaler",
+    purpose: "Bulk goods billing with buyer order, packing and transport references.",
+    family: "standard",
+    fields: [
+      { key: "buyer-order-reference", label: "Buyer order reference", type: "short_text", helperText: "Customer purchase order" },
+      { key: "dispatch-reference", label: "Dispatch reference", type: "short_text", helperText: "Dispatch or delivery challan number" },
+      { key: "transporter-name", label: "Transporter name", type: "short_text", helperText: "Transport provider, if applicable" },
+      { key: "lorry-receipt-number", label: "LR / consignment reference", type: "short_text", helperText: "Transport document reference" },
+      { key: "packing-reference", label: "Packing details", type: "short_text", helperText: "Package or bundle reference" },
+    ],
+  },
+  {
+    key: "retail-shop", name: "Small Retail Shop",
+    purpose: "Compact counter billing with cashier and receipt references.",
+    family: "retail",
+    fields: [
+      { key: "counter-number", label: "Counter number", type: "short_text", helperText: "Shop counter identifier" },
+      { key: "cashier-name", label: "Cashier", type: "short_text", helperText: "Staff member handling the sale" },
+      { key: "customer-reference", label: "Customer reference", type: "short_text", helperText: "Optional walk-in customer reference" },
+    ],
+  },
+  {
+    key: "taxi-cab", name: "Taxi / Cab Operator",
+    purpose: "Passenger transport billing with driver, vehicle and journey references. Does not calculate fares or manage trips.",
+    family: "service",
+    fields: [
+      { key: "trip-reference", label: "Trip / booking ID", type: "short_text", helperText: "Booking reference" },
+      { key: "trip-date", label: "Trip date", type: "date", helperText: "Date of journey" },
+      { key: "driver-name", label: "Driver name", type: "short_text", helperText: "Driver assigned to the journey" },
+      { key: "driver-contact", label: "Driver contact number", type: "phone", helperText: "Driver phone number" },
+      { key: "vehicle-registration", label: "Vehicle registration number", type: "short_text", helperText: "Vehicle registration" },
+      { key: "pickup-location", label: "Pickup location", type: "long_text", helperText: "Journey starting point" },
+      { key: "drop-location", label: "Destination", type: "long_text", helperText: "Journey destination" },
+      { key: "distance-km", label: "Distance (km)", type: "number", helperText: "Recorded distance; informational only" },
+    ],
+  },
+  {
+    key: "travel-agency", name: "Travel Agency",
+    purpose: "Travel service billing with booking, traveller, itinerary and travel date references.",
+    family: "service",
+    fields: [
+      { key: "booking-reference", label: "Booking reference", type: "short_text", helperText: "Agency booking ID" },
+      { key: "traveller-names", label: "Traveller names", type: "long_text", helperText: "Names as provided by the customer" },
+      { key: "destination", label: "Destination", type: "long_text", helperText: "Travel destination or itinerary" },
+      { key: "departure-date", label: "Departure date", type: "date", helperText: "Planned departure" },
+      { key: "return-date", label: "Return date", type: "date", helperText: "Planned return, if applicable" },
+      { key: "passenger-count", label: "Passenger count", type: "number", helperText: "Number of travellers" },
+      { key: "supplier-reference", label: "Supplier / ticket reference", type: "short_text", helperText: "Airline, hotel or supplier reference" },
+    ],
+  },
+  {
+    key: "general-services", name: "General Service Provider",
+    purpose: "Professional and field services with project, service period and work references.",
+    family: "service",
+    fields: [
+      { key: "project-reference", label: "Project / work reference", type: "short_text", helperText: "Client project identifier" },
+      { key: "service-period-from", label: "Service period from", type: "date", helperText: "Start date" },
+      { key: "service-period-to", label: "Service period to", type: "date", helperText: "End date" },
+      { key: "assigned-person", label: "Assigned professional", type: "short_text", helperText: "Person delivering the service" },
+      { key: "work-description", label: "Work details", type: "long_text", helperText: "Additional scope or completion details" },
+    ],
+  },
+  {
+    key: "goods-transport-agency", name: "Goods Transport Agency",
+    purpose: "Goods transport document references including consignment, consignor, consignee and vehicle details. GST treatment must be reviewed separately.",
+    family: "service",
+    fields: [
+      { key: "consignment-note-number", label: "Consignment note / LR number", type: "short_text", helperText: "Transport document number" },
+      { key: "consignor-details", label: "Consignor details", type: "long_text", helperText: "Name and address of consignor" },
+      { key: "consignee-details", label: "Consignee details", type: "long_text", helperText: "Name and address of consignee" },
+      { key: "goods-description", label: "Goods description", type: "long_text", helperText: "Description of goods carried" },
+      { key: "gross-weight", label: "Gross weight", type: "number", helperText: "Weight as recorded on consignment documents" },
+      { key: "transport-vehicle-registration", label: "Vehicle registration number", type: "short_text", helperText: "Transport vehicle registration" },
+      { key: "origin", label: "Origin", type: "long_text", helperText: "Place goods were taken up" },
+      { key: "destination", label: "Destination", type: "long_text", helperText: "Place goods are to be delivered" },
+      { key: "transporter-gstin", label: "Transporter GSTIN", type: "short_text", helperText: "GSTIN, where applicable" },
+    ],
+  },
+];
+
+function buildSectorPresets(): BuiltInTemplate[] {
+  return SECTOR_PRESETS.flatMap((preset) =>
+    (["tax_invoice", "non_gst_invoice"] as const).map((documentType) => {
+      const base = buildBuiltIn(preset.family, documentType);
+      return {
+        ...base,
+        key: `sector:${preset.key}:${documentType}`,
+        name: preset.name,
+        purpose: preset.purpose,
+        isDefault: false,
+        customFields: preset.fields.map((field, index) => ({
+          key: field.key,
+          sectionKey: "custom-details" as const,
+          label: field.label,
+          type: field.type,
+          helperText: field.helperText,
+          required: false,
+          visible: true,
+          sortOrder: index,
+          defaultValue: null,
+        })),
+      };
+    }),
+  );
+}
+
+export const BUILT_IN_TEMPLATES: readonly BuiltInTemplate[] = [
+  ...TEMPLATE_FAMILIES.flatMap((family) =>
+    FAMILY_DOCUMENT_TYPES[family].map((documentType) => buildBuiltIn(family, documentType)),
+  ),
+  ...buildSectorPresets(),
+];
 
 export function assertTemplateLabel(label: string): string {
   if (typeof label !== "string") {
