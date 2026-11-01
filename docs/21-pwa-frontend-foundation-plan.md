@@ -1,6 +1,6 @@
 # Fledge Billing — PWA Frontend Foundation Plan
 
-**Status:** W0 browser shell merged (PR #35); W1 compatibility and repository audit completed in PR #36  
+**Status:** W0 browser shell merged (PR #35); W1 audit merged (PR #36); W1A async repository and transaction contract proposed in PR #37  
 **Scope:** First customer-facing browser application foundation  
 **Depends on:** docs/01–03, docs/08–11 and the existing domain/application/persistence packages
 
@@ -98,7 +98,7 @@ The browser must not import Node built-ins, `node:sqlite`, filesystem APIs or se
 
 The completed audit is recorded in [docs/22](./22-w1-browser-compatibility-and-repository-audit.md). The domain layer is the browser-reuse candidate; the application root barrel is mixed with Node-only exports; persistence is Node/SQLite-only. Most importantly, current repository interfaces are synchronous and cannot be implemented directly with IndexedDB.
 
-The next work is W1A asynchronous repository and transaction-contract design, W1B conversion of the business-profile/customer vertical slice with SQLite compatibility, and W1C a curated browser-safe application entry plus a production-bundle dependency guard. The IndexedDB wrapper and schema remain unselected until these contracts are reviewed.
+W1A is documented in [docs/23](./23-w1a-async-repository-and-transaction-contract.md). It defines Promise semantics, atomic repository commands, explicit transaction boundaries and the SQLite compatibility path. After review, W1B will migrate business-profile/customer workflows and their SQLite adapters. W1C will establish the curated browser-safe application entry and production-bundle guard. These are engineering checkpoints, not mandatory separate PRs. The IndexedDB wrapper and schema remain unselected until the async migration and browser boundary are verified.
 
 ### W2 — IndexedDB foundation
 
