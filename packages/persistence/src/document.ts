@@ -565,7 +565,7 @@ function readDocument(db: SchemaDatabase, id: string): BillingDocument {
               supplier_gst_registered, supplier_gstin, recipient_state_id,
               recipient_registration_type, recipient_gstin, reverse_charge, exempt_total,
               non_gst_total, rounding_residual, cess_total, calculation_notes,
-              supplier_snapshot, recipient_snapshot
+              supplier_snapshot, recipient_snapshot, payment_details_snapshot, invoice_preferences_snapshot
        FROM document WHERE id = ?`,
     )
     .get(id);
@@ -627,6 +627,8 @@ function readDocument(db: SchemaDatabase, id: string): BillingDocument {
     recipientGstin: nullableText(row.recipient_gstin),
     supplierSnapshot: documentPartySnapshot(row.supplier_snapshot),
     recipientSnapshot: documentPartySnapshot(row.recipient_snapshot),
+    paymentDetailsSnapshot: nullableText(row.payment_details_snapshot),
+    invoicePreferencesSnapshot: nullableText(row.invoice_preferences_snapshot),
     lines,
     charges,
     taxes,
