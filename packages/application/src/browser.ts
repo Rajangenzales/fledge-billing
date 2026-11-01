@@ -67,6 +67,7 @@ export {
   reviseTemplate,
   setDefaultTemplate,
   type InvoiceTemplate,
+  type TemplateBusiness,
   type TemplateDeps,
   type TemplateField,
   type TemplateCustomField,
