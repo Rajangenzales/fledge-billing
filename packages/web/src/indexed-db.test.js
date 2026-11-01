@@ -984,6 +984,46 @@ describe("browser IndexedDB repositories", () => {
     upgraded.close();
   });
 
+  it("persists additional taxable charges on a billing document", async () => {
+    const factory = new IDBFactory();
+    const workspace = await setupDocumentWorkspace(factory);
+    const draft = await createDocument({
+      ...documentInput(workspace),
+      charges: [{
+        description: "Delivery",
+        amount: "50",
+        taxable: true,
+        taxCategoryId: "taxable",
+        gstRatePercent: "18",
+      }],
+    }, workspace.documentDeps);
+
+    expect(draft.charges).toMatchObject([{
+      description: "Delivery",
+      amount: "50",
+      taxable: true,
+      taxCategoryId: "taxable",
+      gstRatePercent: "18",
+    }]);
+    expect(draft.taxes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        documentChargeId: draft.charges[0].id,
+        taxType: "CGST",
+        amount: "4.50",
+      }),
+      expect.objectContaining({
+        documentChargeId: draft.charges[0].id,
+        taxType: "SGST",
+        amount: "4.50",
+      }),
+    ]));
+    expect(draft.grandTotal).toBe("295");
+
+    const stored = await getDocument(draft.id, workspace.documentDeps);
+    expect(stored?.charges).toMatchObject([{ description: "Delivery", amount: "50" }]);
+    workspace.database.close();
+  });
+
   it("rejects a blocked database upgrade and closes the late connection", async () => {
     const factory = new IDBFactory();
     const existing = await requestResult(factory.open("fledge-billing", 1));
