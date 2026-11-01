@@ -1,7 +1,7 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import DocumentDirectory from "./DocumentDirectory.jsx";
+import DocumentDirectory, { dueDateForCustomer } from "./DocumentDirectory.jsx";
 
 const callbacks = {
   onNavigate: () => undefined,
@@ -9,6 +9,22 @@ const callbacks = {
   onFinalize: () => undefined,
   onCancel: () => undefined,
 };
+
+describe("customer credit period due dates", () => {
+  it("suggests a due date using the customer's configured credit days", () => {
+    expect(dueDateForCustomer("2026-11-01", { creditDays: 30 })).toBe("2026-12-01");
+  });
+
+  it("handles month and year boundaries", () => {
+    expect(dueDateForCustomer("2026-12-20", { creditDays: 30 })).toBe("2027-01-19");
+    expect(dueDateForCustomer("2024-02-20", { creditDays: 10 })).toBe("2024-03-01");
+  });
+
+  it("leaves the due date blank for immediate payment or legacy customers", () => {
+    expect(dueDateForCustomer("2026-11-01", { creditDays: 0 })).toBe("");
+    expect(dueDateForCustomer("2026-11-01", {})).toBe("");
+  });
+});
 
 describe("browser document directory", () => {
   it("requires a business profile before showing document actions", () => {
