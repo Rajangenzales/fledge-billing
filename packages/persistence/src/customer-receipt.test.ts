@@ -45,12 +45,12 @@ describe("customer receipts", () => {
 
   it("returns zero advance before any receipt", async () => {
     const { customer, deps } = await setup();
-    expect(getCustomerAdvance(customer.id, deps).unallocatedAmount).toBe("0");
+    expect((await getCustomerAdvance(customer.id, deps)).unallocatedAmount).toBe("0");
   });
 
   it("records a customer receipt before any invoice exists and derives advance balance", async () => {
     const { customer, deps } = await setup();
-    const receipt = recordCustomerReceipt({
+    const receipt = await recordCustomerReceipt({
       customerId: customer.id, amount: "1250.50", paymentDate: "2026-10-30",
       method: "upi", reference: "UPI-REF-1", idempotencyKey: "req-001",
     }, deps);
@@ -61,7 +61,7 @@ describe("customer receipts", () => {
         customer: { name: "Harbour Stores", stateName: "Kerala", registrationType: "unregistered" },
       },
     });
-    expect(getCustomerAdvance(customer.id, deps)).toEqual({
+    expect(await getCustomerAdvance(customer.id, deps)).toEqual({
       customerId: "cust-1", currency: "INR", receiptCount: 1, unallocatedAmount: "1250.5",
     });
   });
@@ -72,11 +72,11 @@ describe("customer receipts", () => {
       customerId: customer.id, amount: "100", paymentDate: "2026-10-30",
       method: "cash" as const, idempotencyKey: "retry-1",
     };
-    const first = recordCustomerReceipt(input, deps);
-    const retry = recordCustomerReceipt(input, deps);
+    const first = await recordCustomerReceipt(input, deps);
+    const retry = await recordCustomerReceipt(input, deps);
     expect(retry.id).toBe(first.id);
-    expect(getCustomerAdvance(customer.id, deps).unallocatedAmount).toBe("100");
-    expect(() => recordCustomerReceipt({ ...input, amount: "101" }, deps)).toThrow();
+    expect((await getCustomerAdvance(customer.id, deps)).unallocatedAmount).toBe("100");
+    await expect(recordCustomerReceipt({ ...input, amount: "101" }, deps)).rejects.toThrow();
   });
 
   it("keeps receipt identity unchanged when business and customer masters later change", async () => {
@@ -85,10 +85,10 @@ describe("customer receipts", () => {
       customerId: customer.id, amount: "450", paymentDate: "2026-10-30",
       method: "upi" as const, idempotencyKey: "snapshot-retry",
     };
-    const first = recordCustomerReceipt(input, deps);
+    const first = await recordCustomerReceipt(input, deps);
     db.prepare("UPDATE business SET legal_name = ?, display_name = ? WHERE id = ?").run("Renamed Traders", "Renamed", "biz-1");
     db.prepare("UPDATE customer SET name = ? WHERE id = ?").run("New Customer Name", "cust-1");
-    const retry = recordCustomerReceipt(input, deps);
+    const retry = await recordCustomerReceipt(input, deps);
     expect(retry.identitySnapshot).toEqual(first.identitySnapshot);
     expect(retry.identitySnapshot?.business.legalName).toBe("Fledge Traders");
     expect(retry.identitySnapshot?.customer.name).toBe("Harbour Stores");
@@ -96,11 +96,11 @@ describe("customer receipts", () => {
 
   it("prints a payment acknowledgement from the saved identity snapshot and original payment date", async () => {
     const { customer, deps } = await setup();
-    const receipt = recordCustomerReceipt({
+    const receipt = await recordCustomerReceipt({
       customerId: customer.id, amount: "1250.50", paymentDate: "2026-10-30",
       method: "upi", reference: "UPI-REF-1", notes: "Advance for order", idempotencyKey: "print-001",
     }, deps);
-    const printed = printCustomerReceipt(receipt.id, deps);
+    const printed = await printCustomerReceipt(receipt.id, deps);
     expect(printed).toContain("PAYMENT RECEIPT");
     expect(printed).toContain("Receipt reference (internal): " + receipt.id);
     expect(printed).toContain("Payment date: 2026-10-30");
@@ -118,14 +118,14 @@ describe("customer receipts", () => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run("legacy-no-snapshot", "biz-1", customer.id, "50", "INR", "2026-10-30", "cash", null, null, "legacy-print-key", "2026-10-31T08:02:00.000Z");
     migrate(db, migrations);
-    expect(() => printCustomerReceipt("legacy-no-snapshot", deps)).toThrow(/no receipt-time identity snapshot/);
+    await expect(printCustomerReceipt("legacy-no-snapshot", deps)).rejects.toThrow(/no receipt-time identity snapshot/)
   });
 
   it("rejects invalid dates, zero amounts, and fractions of a paisa", async () => {
     const { customer, deps } = await setup();
     const base = { customerId: customer.id, method: "cash" as const, idempotencyKey: "invalid" };
-    expect(() => recordCustomerReceipt({ ...base, amount: "0", paymentDate: "2026-10-31" }, deps)).toThrow();
-    expect(() => recordCustomerReceipt({ ...base, amount: "1.001", paymentDate: "2026-10-31" }, deps)).toThrow();
-    expect(() => recordCustomerReceipt({ ...base, amount: "1", paymentDate: "2026-02-30" }, deps)).toThrow();
+    await expect(recordCustomerReceipt({ ...base, amount: "0", paymentDate: "2026-10-31" }, deps)).rejects.toThrow();
+    await expect(recordCustomerReceipt({ ...base, amount: "1.001", paymentDate: "2026-10-31" }, deps)).rejects.toThrow();
+    await expect(recordCustomerReceipt({ ...base, amount: "1", paymentDate: "2026-02-30" }, deps)).rejects.toThrow();
   });
 });

@@ -37,6 +37,18 @@ const requiredBrowserExports = [
   "previewTemplate",
   "renderIssuedDocument",
   "restoreTemplate",
+  "recordCustomerReceipt",
+  "listCustomerReceipts",
+  "getCustomerAdvance",
+  "allocateReceiptToInvoice",
+  "releaseReceiptAllocation",
+  "getInvoiceSettlement",
+  "getCustomerAllocatedTotal",
+  "recordCustomerRefund",
+  "reverseCustomerReceipt",
+  "reverseCustomerRefund",
+  "listReceiptAdjustments",
+  "getCustomerPaymentActivity",
 ];
 
 function browserDependencyGuard() {
