@@ -15,6 +15,14 @@ const requiredBrowserExports = [
   "getCustomer",
   "createCustomer",
   "updateCustomer",
+  "createProduct",
+  "createSavedGstRate",
+  "getProduct",
+  "listProducts",
+  "listSavedGstRates",
+  "listTaxCategories",
+  "updateProduct",
+  "updateSavedGstRate",
 ];
 
 function browserDependencyGuard() {
