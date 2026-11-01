@@ -129,7 +129,7 @@ function Placeholder({ section, onBack }) {
   </section>;
 }
 
-function BusinessSettings({ business, onSave }) {
+export function BusinessSettings({ business, onSave }) {
   const [values, setValues] = useState(() => ({
     legalName: business?.legalName ?? "",
     displayName: business?.displayName ?? "",
@@ -140,6 +140,9 @@ function BusinessSettings({ business, onSave }) {
     gstin: business?.gstin ?? "",
     phone: business?.phone ?? "",
     email: business?.email ?? "",
+    businessType: business?.businessType ?? "",
+    paymentDetails: business?.paymentDetails ?? "",
+    invoicePreferences: business?.invoicePreferences ?? "",
   }));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -181,6 +184,9 @@ function BusinessSettings({ business, onSave }) {
         <label>PIN code<input inputMode="numeric" autoComplete="postal-code" maxLength={6} value={values.pinCode} onChange={(event) => update("pinCode", event.target.value)} /></label>
         <label>Phone<input autoComplete="tel" value={values.phone} onChange={(event) => update("phone", event.target.value)} /></label>
         <label>Email<input type="email" autoComplete="email" value={values.email} onChange={(event) => update("email", event.target.value)} /></label>
+        <label>Business type<input maxLength={80} placeholder="Retail, wholesale, manufacturing…" value={values.businessType} onChange={(event) => update("businessType", event.target.value)} /></label>
+        <label className="form-span">Payment details (optional)<textarea rows="2" maxLength={2000} placeholder="Bank account, UPI ID or payment instructions" value={values.paymentDetails} onChange={(event) => update("paymentDetails", event.target.value)} /></label>
+        <label className="form-span">Default invoice notes and preferences (optional)<textarea rows="3" maxLength={2000} placeholder="Default notes, payment terms or invoice instructions" value={values.invoicePreferences} onChange={(event) => update("invoicePreferences", event.target.value)} /></label>
         <label className="checkbox-field form-span"><input type="checkbox" checked={values.gstRegistered} onChange={(event) => update("gstRegistered", event.target.checked)} /> GST-registered business</label>
         {values.gstRegistered && <label>GSTIN<input autoCapitalize="characters" maxLength={15} value={values.gstin} onChange={(event) => update("gstin", event.target.value)} /></label>}
       </div>
