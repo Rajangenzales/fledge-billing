@@ -66,16 +66,16 @@ export const productService: Migration = {
 
 export function createProductRepository(db: SchemaDatabase): ProductRepository {
   return {
-    getBusinessId() {
+    async getBusinessId() {
       return readBusinessId(db);
     },
-    listTaxCategories() {
+    async listTaxCategories() {
       return db
         .prepare("SELECT id, name, code FROM tax_category")
         .all()
         .map(toTaxCategory);
     },
-    listSavedGstRates() {
+    async listSavedGstRates() {
       const businessId = readBusinessId(db);
       if (!businessId) {
         return [];
@@ -90,7 +90,7 @@ export function createProductRepository(db: SchemaDatabase): ProductRepository {
         .all(businessId)
         .map(toSavedGstRate);
     },
-    getSavedGstRate(id) {
+    async getSavedGstRate(id) {
       const businessId = readBusinessId(db);
       if (!businessId) {
         return null;
@@ -104,13 +104,13 @@ export function createProductRepository(db: SchemaDatabase): ProductRepository {
         .get(id, businessId);
       return row ? toSavedGstRate(row) : null;
     },
-    insertSavedGstRate(record) {
+    async insertSavedGstRate(record) {
       writeSavedGstRate(db, record, false);
     },
-    updateSavedGstRate(record) {
+    async updateSavedGstRate(record) {
       writeSavedGstRate(db, record, true);
     },
-    listProducts() {
+    async listProducts() {
       const businessId = readBusinessId(db);
       if (!businessId) {
         return [];
@@ -120,7 +120,7 @@ export function createProductRepository(db: SchemaDatabase): ProductRepository {
         .all(businessId)
         .map(toStoredProduct);
     },
-    getProduct(id) {
+    async getProduct(id) {
       const businessId = readBusinessId(db);
       if (!businessId) {
         return null;
@@ -130,10 +130,10 @@ export function createProductRepository(db: SchemaDatabase): ProductRepository {
         .get(id, businessId);
       return row ? toStoredProduct(row) : null;
     },
-    insertProduct(record) {
+    async insertProduct(record) {
       writeProduct(db, record, false);
     },
-    updateProduct(record) {
+    async updateProduct(record) {
       writeProduct(db, record, true);
     },
   };
@@ -195,6 +195,14 @@ function writeProduct(db: SchemaDatabase, record: StoredProduct, updating: boole
   db.exec("BEGIN IMMEDIATE");
   try {
     assertBusiness(db, record.businessId);
+    if (record.savedGstRateId) {
+      const savedRate = db
+        .prepare("SELECT id FROM saved_gst_rate WHERE id = ? AND business_id = ?")
+        .get(record.savedGstRateId, record.businessId);
+      if (!savedRate) {
+        throw new ProductError("The saved GST rate for this item is missing.");
+      }
+    }
     if (updating) {
       const existing = db
         .prepare("SELECT id FROM product_service WHERE id = ? AND business_id = ?")
