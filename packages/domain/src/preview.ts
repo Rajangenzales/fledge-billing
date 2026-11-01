@@ -179,6 +179,9 @@ export type IssuedRender = {
   documentNumber: string | null;
   documentDate: string;
   documentType: DocumentType;
+  logoBytes?: Uint8Array;
+  logoMimeType?: "image/png" | "image/jpeg";
+  logoDataUrl?: string;
   sections: PreviewSection[];
   items: PreviewItem[];
   charges: PreviewCharge[];

@@ -18,7 +18,7 @@ import {
 } from "@fledge/application/browser";
 
 const DATABASE_NAME = "fledge-billing";
-export const DATABASE_VERSION = 5;
+export const DATABASE_VERSION = 6;
 const BUSINESS_STORE = "business";
 const CUSTOMER_STORE = "customers";
 const SAVED_GST_RATE_STORE = "savedGstRates";
@@ -29,6 +29,7 @@ const TEMPLATE_STORE = "templates";
 const RECEIPT_STORE = "customerReceipts";
 const ALLOCATION_STORE = "paymentAllocationEvents";
 const PAYMENT_ADJUSTMENT_STORE = "paymentAdjustmentEvents";
+const LOGO_ASSET_STORE = "logoAssets";
 export const BACKUP_STORE_NAMES = Object.freeze([
   BUSINESS_STORE,
   CUSTOMER_STORE,
@@ -40,6 +41,7 @@ export const BACKUP_STORE_NAMES = Object.freeze([
   RECEIPT_STORE,
   ALLOCATION_STORE,
   PAYMENT_ADJUSTMENT_STORE,
+  LOGO_ASSET_STORE,
 ]);
 
 export class BrowserStorageError extends Error {
@@ -128,6 +130,10 @@ export function openFledgeDatabase(factory = globalThis.indexedDB) {
         adjustments.createIndex("reversedReceiptId", "reversedReceiptId", { unique: true });
         adjustments.createIndex("reversedRefundId", "reversedRefundId", { unique: true });
       }
+      if (!database.objectStoreNames.contains(LOGO_ASSET_STORE)) {
+        const logoAssets = database.createObjectStore(LOGO_ASSET_STORE, { keyPath: "id" });
+        logoAssets.createIndex("businessId", "businessId", { unique: false });
+      }
     };
     request.onblocked = () => {
       settled = true;
@@ -148,7 +154,11 @@ export function openFledgeDatabase(factory = globalThis.indexedDB) {
   });
 }
 
-export function createBrowserRepositories(database) {
+export function getBusinessIdForAssets(businessRepository) {
+  return businessRepository.get().then((business) => business?.id ?? null);
+}
+
+function createBrowserRepositories(database) {
   const businessRepository = {
     get() {
       return transact(database, [BUSINESS_STORE], "readonly", (transaction, set, fail) => {
@@ -290,6 +300,41 @@ export function createBrowserRepositories(database) {
     },
   };
 
+  const logoAssetRepository = {
+    get(id) {
+      return getBusinessIdForAssets(businessRepository).then((businessId) => {
+        if (!businessId || !id) return null;
+        return transact(database, [LOGO_ASSET_STORE], "readonly", (transaction, set) => {
+          const request = transaction.objectStore(LOGO_ASSET_STORE).get(id);
+          request.onsuccess = () => set(request.result?.businessId === businessId ? request.result : null);
+        });
+      });
+    },
+    insert(record) {
+      return transact(database, [BUSINESS_STORE, LOGO_ASSET_STORE], "readwrite", (transaction, set, fail) => {
+        const businessRequest = transaction.objectStore(BUSINESS_STORE).getAll();
+        businessRequest.onsuccess = () => {
+          const business = activeBusiness(businessRequest.result, fail);
+          if (!business) return;
+          if (business.id !== record.businessId) {
+            fail(new BrowserStorageError("That logo does not belong to the active business."));
+            return;
+          }
+          const store = transaction.objectStore(LOGO_ASSET_STORE);
+          const existingRequest = store.get(record.id);
+          existingRequest.onsuccess = () => {
+            if (existingRequest.result) {
+              fail(new BrowserStorageError("Logo assets are immutable and cannot be replaced."));
+              return;
+            }
+            store.add(record);
+            set(record);
+          };
+        };
+      });
+    },
+  };
+
   const templateRepository = createTemplateRepository(database, businessRepository);
   const documentRepository = createDocumentRepository(
     database,
@@ -300,6 +345,7 @@ export function createBrowserRepositories(database) {
 
   return {
     businessRepository,
+    logoAssetRepository,
     customerRepository,
     productRepository,
     documentRepository,
@@ -1296,6 +1342,7 @@ function createDocumentRepository(database, businessRepository, templateReposito
             pinCode: business.pinCode,
             phone: business.phone,
             email: business.email,
+            logoReference: business.logoReference ?? null,
           }
         : null;
     },
@@ -1492,6 +1539,7 @@ function writeDocument(database, record, replacingDraft) {
     CUSTOMER_STORE,
     PRODUCT_STORE,
     DOCUMENT_STORE,
+    LOGO_ASSET_STORE,
   ];
   return transact(database, stores, "readwrite", (transaction, set, fail) => {
     const businessRequest = transaction.objectStore(BUSINESS_STORE).getAll();
@@ -1536,8 +1584,22 @@ function writeDocument(database, record, replacingDraft) {
               fail(new BillingError("That product was not found."));
               return;
             }
-            documents.put(record);
-            set(undefined);
+            const persistDocument = () => {
+              documents.put(record);
+              set(undefined);
+            };
+            if (!record.logoReferenceSnapshot) {
+              persistDocument();
+              return;
+            }
+            const logoRequest = transaction.objectStore(LOGO_ASSET_STORE).get(record.logoReferenceSnapshot);
+            logoRequest.onsuccess = () => {
+              if (logoRequest.result?.businessId !== business.id) {
+                fail(new BillingError("The saved business logo could not be found for this document."));
+                return;
+              }
+              persistDocument();
+            };
           };
         };
       };

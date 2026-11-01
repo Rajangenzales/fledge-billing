@@ -104,6 +104,7 @@ export type BillingDocument = {
   recipientSnapshot?: DocumentPartySnapshot;
   paymentDetailsSnapshot?: string | null;
   invoicePreferencesSnapshot?: string | null;
+  logoReferenceSnapshot?: string | null;
   lines: DocumentLine[];
   charges: DocumentCharge[];
   taxes: DocumentTax[];
@@ -137,6 +138,7 @@ export type BusinessRef = {
   email?: string | null;
   paymentDetails?: string | null;
   invoicePreferences?: string | null;
+  logoReference?: string | null;
 };
 
 export type CustomerRef = {
@@ -549,6 +551,7 @@ function toDocument(
     },
     paymentDetailsSnapshot: context.business.paymentDetails ?? null,
     invoicePreferencesSnapshot: context.business.invoicePreferences ?? null,
+    logoReferenceSnapshot: context.business.logoReference ?? null,
     recipientSnapshot: {
       name: context.customer.name ?? "",
       address: context.customer.billingAddress ?? "",

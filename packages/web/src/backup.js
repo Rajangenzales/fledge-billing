@@ -231,6 +231,14 @@ function validatePayload(payload) {
       } else if (typeof record.businessId !== "string" || !record.businessId.trim()) {
         throw new BackupError(`A ${storeName} record has no business owner.`);
       }
+      if (storeName === "logoAssets" && (
+        !["image/png", "image/jpeg"].includes(record.mimeType) ||
+        !Array.isArray(record.bytes) ||
+        record.bytes.length === 0 || record.bytes.length > 1_000_000 ||
+        record.bytes.some((byte) => !Number.isInteger(byte) || byte < 0 || byte > 255)
+      )) {
+        throw new BackupError("A saved business logo asset is invalid.");
+      }
       const requiredIndexFields = REQUIRED_INDEX_FIELDS[storeName] ?? [];
       if (requiredIndexFields.some((field) => record[field] === undefined || record[field] === null)) {
         throw new BackupError(`A ${storeName} record is missing required indexed data.`);

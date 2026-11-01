@@ -21,6 +21,7 @@ export default function IssuedDocumentOutput({
     </div>
     {message && <p className="form-message" role="status">{message}</p>}
     <article className="document-output-content">
+      {render.logoDataUrl && <img className="business-logo-preview" src={render.logoDataUrl} alt="Business logo" />}
       {lines.map((line, index) => <p key={`${index}-${line}`}>{line}</p>)}
     </article>
   </section>;
