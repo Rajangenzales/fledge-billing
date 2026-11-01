@@ -145,6 +145,9 @@ describe("template preview", () => {
     expect(rendered.preview).toBe(false);
     expect(rendered.fallback).toBe(false);
     expect(rendered.version).toBe(1);
+    expect(rendered.brandColor).toBe(template!.brandColor);
+    expect(rendered.fontFamily).toBe(template!.fontFamily);
+    expect(rendered.density).toBe(template!.density);
     expect(rendered.totals).toMatchObject({ taxTotal: "0", grandTotal: "100" });
     expect(rendered.sections.flatMap((section) => section.fields).find((field) => field.key === "tax_components")?.value).toBe(
       "0",
