@@ -301,12 +301,15 @@ function buildSectorPresets(): BuiltInTemplate[] {
   return SECTOR_PRESETS.flatMap((preset) =>
     (["tax_invoice", "non_gst_invoice"] as const).map((documentType) => {
       const base = buildBuiltIn(preset.family, documentType);
-      return {
+      const sectorTemplate: BuiltInTemplate = {
         ...base,
         key: `sector:${preset.key}:${documentType}`,
         name: preset.name,
         purpose: preset.purpose,
         isDefault: false,
+        sections: base.sections.map((section) => section.key === "custom-details"
+          ? { ...section, label: "Additional details", visible: true }
+          : section),
         customFields: preset.fields.map((field, index) => ({
           key: field.key,
           sectionKey: "custom-details" as const,
@@ -319,6 +322,8 @@ function buildSectorPresets(): BuiltInTemplate[] {
           defaultValue: null,
         })),
       };
+      assertTemplateConfiguration(sectorTemplate);
+      return sectorTemplate;
     }),
   );
 }
