@@ -146,7 +146,11 @@ function BusinessSettings({ business, onSave }) {
   const [saved, setSaved] = useState(false);
 
   function update(field, value) {
-    setValues((current) => ({ ...current, [field]: value }));
+    setValues((current) => ({
+      ...current,
+      [field]: value,
+      ...(field === "gstRegistered" && value === false ? { gstin: "" } : {}),
+    }));
     setMessage("");
     setSaved(false);
   }
@@ -197,7 +201,11 @@ function CustomerDirectory({ business, customers, onSave, onNavigate }) {
   const [saved, setSaved] = useState(false);
 
   function update(field, value) {
-    setValues((current) => ({ ...current, [field]: value }));
+    setValues((current) => ({
+      ...current,
+      [field]: value,
+      ...(field === "registrationType" && value !== "registered" ? { gstin: "" } : {}),
+    }));
     setMessage("");
     setSaved(false);
   }
