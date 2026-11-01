@@ -29,7 +29,6 @@ The approved product and engineering baseline is maintained in [`docs/`](./docs/
 19. [M8-04B Payment Receipt Print and PDF](./docs/19-m8-04b-payment-receipt-print-pdf.md)
 20. [M8 Customer Payment Activity Statement](./docs/20-m8-customer-payment-activity-statement.md)
 21. [PWA Frontend Foundation Plan](./docs/21-pwa-frontend-foundation-plan.md)
-21. [PWA Frontend Foundation Plan](./docs/21-pwa-frontend-foundation-plan.md)
 
 These documents are the source of truth. Implementation must not silently expand V1 scope or introduce GST rules in UI code.
 
