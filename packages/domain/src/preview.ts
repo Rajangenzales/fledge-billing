@@ -77,7 +77,7 @@ export type TemplatePreview = {
   fontFamily: TemplateFontFamily;
   density: TemplateDensity;
   sections: PreviewSection[];
-  itemColumnLabels?: ItemColumnLabels;
+  itemColumnLabels: ItemColumnLabels;
   items: PreviewItem[];
   charges: PreviewCharge[];
   totals: {
@@ -214,7 +214,7 @@ export type IssuedRender = {
   logoMimeType?: "image/png" | "image/jpeg";
   logoDataUrl?: string;
   sections: PreviewSection[];
-  itemColumnLabels: ItemColumnLabels;
+  itemColumnLabels?: ItemColumnLabels;
   items: PreviewItem[];
   charges: PreviewCharge[];
   totals: {
