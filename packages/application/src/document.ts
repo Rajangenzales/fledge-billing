@@ -54,6 +54,9 @@ export type DocumentCharge = {
   sortOrder: number;
 };
 
+export type PromotionalOffer = {
+  description: string; qualifyingQuantity: string; freeQuantity: string; unit: string; note: string | null;
+};
 export type DocumentTax = {
   id: string;
   documentItemId: string | null;
@@ -105,6 +108,7 @@ export type BillingDocument = {
   paymentDetailsSnapshot?: string | null;
   invoicePreferencesSnapshot?: string | null;
   logoReferenceSnapshot?: string | null;
+  promotionalOffers: PromotionalOffer[];
   lines: DocumentLine[];
   charges: DocumentCharge[];
   taxes: DocumentTax[];
@@ -212,6 +216,7 @@ export type SaveDocumentInput = {
   charges?: readonly GstChargeInput[];
   templateId?: string | null;
   customFields?: readonly { key: string; value: string | null }[];
+  promotionalOffers?: readonly PromotionalOffer[];
 };
 
 export type SaveNumberSeriesInput = {
@@ -319,7 +324,22 @@ export async function saveNumberSeries(input: SaveNumberSeriesInput, deps: Docum
   return record;
 }
 
-export function seriesId(
+export function normalizePromotionalOffers(offers: readonly PromotionalOffer[]): PromotionalOffer[] {
+  if (!Array.isArray(offers) || offers.length > 20) throw new BillingError("Add no more than 20 promotional offers to one document.");
+  return offers.map((offer) => {
+    const description = typeof offer.description === "string" ? offer.description.trim() : "";
+    const unit = typeof offer.unit === "string" ? offer.unit.trim() : "";
+    const note = typeof offer.note === "string" ? offer.note.trim() : "";
+    const valid = (value: string) => /^\d+(?:\.\d{1,4})?$/.test(value) && Number.isFinite(Number(value)) && Number(value) > 0;
+    if (!description || description.length > 160 || !unit || unit.length > 24 ||
+        !valid(offer.qualifyingQuantity) || !valid(offer.freeQuantity) || note.length > 240) {
+      throw new BillingError("Each promotional offer needs a description, unit, and positive qualifying and free quantities.");
+    }
+    return { description, qualifyingQuantity: offer.qualifyingQuantity, freeQuantity: offer.freeQuantity, unit, note: note || null };
+  });
+}
+
+function seriesId(
   businessId: string,
   documentType: BillingDocument["documentType"],
   financialYear: string,
@@ -352,6 +372,7 @@ async function buildDraft(
   if (!customer.active) {
     throw new BillingError("Choose an active customer.");
   }
+  const promotionalOffers = normalizePromotionalOffers(input.promotionalOffers ?? []);
   const templateId = await deps.repository.resolveTemplate(
     input.documentType,
     input.templateId === undefined ? existingTemplateId : input.templateId,
@@ -406,6 +427,7 @@ async function buildDraft(
     chargeIds,
     templateId,
     customFields,
+    promotionalOffers,
   });
 }
 
@@ -487,6 +509,7 @@ async function presentDraft(stored: BillingDocument, deps: DocumentDeps): Promis
       chargeIds: stored.charges.map((charge) => charge.id),
       templateId: stored.templateId,
       customFields: stored.customFields,
+      promotionalOffers: stored.promotionalOffers,
     },
   );
 }
@@ -516,6 +539,7 @@ function toDocument(
     chargeIds: string[];
     templateId: string | null;
     customFields: DocumentCustomField[];
+    promotionalOffers: PromotionalOffer[];
   },
 ): BillingDocument {
   if (
@@ -594,6 +618,7 @@ function toDocument(
     notices: calculated.notices,
     templateId: context.templateId,
     customFields: context.customFields,
+    promotionalOffers: context.promotionalOffers,
   };
 }
 
