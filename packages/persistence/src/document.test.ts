@@ -716,7 +716,7 @@ describe("PDF export", () => {
     expect(printed).toContain("Supplier: Fledge Traders");
     expect(printed).toContain("Customer: Meera");
     expect(printed).toContain("Promotional offer details");
-    expect(printed).toContain("Quarterly distributor promotion: Buy 10 cases, get 1 cases free");
+    expect(printed).toContain("Quarterly distributor promotion: Buy 10 cases, get 1 free");
     expect(printed).toContain("Total: INR 1,180.00");
     expect(printed).not.toContain("Updated Supplier");
     expect(printed).not.toContain("Updated Customer");
