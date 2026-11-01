@@ -201,8 +201,8 @@ export type StoredDocumentRender = {
   customerName: string;
   customerPhone: string | null;
   customerEmail: string | null;
-  paymentDetails: string | null;
-  invoicePreferences: string | null;
+  paymentDetails?: string | null;
+  invoicePreferences?: string | null;
   placeOfSupplyName: string;
   notes: string;
   reverseCharge: boolean;
