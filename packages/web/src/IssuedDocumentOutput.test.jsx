@@ -26,6 +26,21 @@ describe("issued document output", () => {
             { key: "tax_components", label: "Tax", value: "CGST 90, SGST 90" },
           ],
         }],
+        itemColumnLabels: {
+          description: "Service",
+          quantity: "Hours",
+          unit: "Session",
+          rate: "Fee",
+          amount: "Line total",
+          hsnSac: "HSN/SAC",
+        },
+        promotionalOffers: [{
+          description: "Quarterly distributor promotion",
+          qualifyingQuantity: "10",
+          freeQuantity: "1",
+          unit: "cases",
+          note: "Applicable to this order",
+        }],
         items: [{
           description: "Consulting service",
           quantity: "1",
@@ -55,7 +70,10 @@ describe("issued document output", () => {
     expect(html).toContain("Supplier: Fledge Traders");
     expect(html).toContain("Customer: Harbour Stores");
     expect(html).toContain("CGST INR 90.00, SGST INR 90.00");
-    expect(html).toContain("Description | Quantity | Unit | Rate | Amount | HSN/SAC");
+    expect(html).toContain("Service | Hours | Session | Fee | Line total | HSN/SAC");
+    expect(html).toContain("Service: Consulting service | Hours: 1 | Session: nos | Fee: INR 1,000.00 | Line total: INR 1,000.00 | HSN/SAC: 998314");
+    expect(html).toContain("Promotional offer details");
+    expect(html).toContain("Quarterly distributor promotion: Buy 10 cases, get 1 cases free");
     expect(html).toContain("Description: Consulting service | Quantity: 1 | Unit: nos | Rate: INR 1,000.00 | Amount: INR 1,000.00 | HSN/SAC: 998314");
     expect(html).toContain("Total: INR 1,180.00");
     expect(html).not.toContain("Generated");
