@@ -6,6 +6,7 @@ import {
   STATE_UTS,
   TAX_CATEGORIES,
   TemplateError,
+  assertInvoiceLogo,
   assertRequiredCustomFields,
   calculateGstDocument,
   defaultDocumentPrefix,
@@ -311,6 +312,16 @@ export function createBrowserRepositories(database) {
       });
     },
     insert(record) {
+      let kind;
+      try {
+        kind = assertInvoiceLogo(new Uint8Array(record.bytes));
+      } catch (error) {
+        return Promise.reject(error);
+      }
+      const expectedMimeType = kind === "png" ? "image/png" : "image/jpeg";
+      if (record.mimeType !== expectedMimeType) {
+        return Promise.reject(new BrowserStorageError("The logo file type does not match its image content."));
+      }
       return transact(database, [BUSINESS_STORE, LOGO_ASSET_STORE], "readwrite", (transaction, set, fail) => {
         const businessRequest = transaction.objectStore(BUSINESS_STORE).getAll();
         businessRequest.onsuccess = () => {

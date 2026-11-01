@@ -1070,6 +1070,50 @@ describe("browser IndexedDB repositories", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(() => lateRequest.result.transaction("business", "readonly")).toThrow();
   });
+
+  it("keeps the original logo asset on an issued invoice after the business replaces its logo", async () => {
+    const workspace = await setupDocumentWorkspace(new IDBFactory());
+    const logoOne = [137, 80, 78, 71, 13, 10, 26, 10, 0];
+    const logoTwo = [255, 216, 255, 217];
+    const businessDeps = {
+      repository: workspace.repositories.businessRepository,
+      states: STATE_UTS,
+      now: () => "2026-11-01T00:00:00.000Z",
+      createId: () => workspace.business.id,
+    };
+    await workspace.repositories.logoAssetRepository.insert({
+      id: "logo-original",
+      businessId: workspace.business.id,
+      mimeType: "image/png",
+      bytes: logoOne,
+      createdAt: "2026-11-01T00:00:00.000Z",
+    });
+    await saveBusinessProfile({ ...workspace.business, logoReference: "logo-original" }, businessDeps);
+
+    const draft = await createDocument(documentInput(workspace), workspace.documentDeps);
+    expect(draft.logoReferenceSnapshot).toBe("logo-original");
+    const issued = await finalizeDocument(draft.id, workspace.documentDeps);
+
+    await workspace.repositories.logoAssetRepository.insert({
+      id: "logo-replacement",
+      businessId: workspace.business.id,
+      mimeType: "image/jpeg",
+      bytes: logoTwo,
+      createdAt: "2026-11-02T00:00:00.000Z",
+    });
+    await saveBusinessProfile({ ...workspace.business, logoReference: "logo-replacement" }, businessDeps);
+
+    const rendered = await renderIssuedDocument(issued.id, {
+      documents: workspace.repositories.documentRepository,
+      templates: workspace.repositories.templateRepository,
+      states: STATE_UTS,
+      logoAssets: workspace.repositories.logoAssetRepository,
+    });
+    expect(rendered.logoBytes).toEqual(new Uint8Array(logoOne));
+    expect(rendered.logoMimeType).toBe("image/png");
+    expect(rendered.logoDataUrl).toMatch(/^data:image\/png;base64,/);
+    workspace.database.close();
+  });
 });
 
 function customerRecord(overrides = {}) {

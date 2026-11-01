@@ -12,7 +12,7 @@ describe("immutable business logo assets", () => {
       id: "logo-1",
       businessId: "business-1",
       mimeType: "image/png",
-      bytes: [137, 80, 78, 71],
+      bytes: [137, 80, 78, 71, 13, 10, 26, 10, 0],
       createdAt: "2026-11-01T00:00:00.000Z",
     };
     await repositories.logoAssetRepository.insert(asset);
@@ -36,7 +36,7 @@ describe("immutable business logo assets", () => {
       id: "logo-2",
       businessId: "business-2",
       mimeType: "image/png",
-      bytes: [137, 80, 78, 71],
+      bytes: [137, 80, 78, 71, 13, 10, 26, 10, 0],
       createdAt: "2026-11-01T00:00:00.000Z",
     })).rejects.toThrow(/active business/i);
     database.close();

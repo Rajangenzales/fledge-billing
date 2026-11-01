@@ -234,8 +234,10 @@ function validatePayload(payload) {
       if (storeName === "logoAssets" && (
         !["image/png", "image/jpeg"].includes(record.mimeType) ||
         !Array.isArray(record.bytes) ||
-        record.bytes.length === 0 || record.bytes.length > 1_000_000 ||
-        record.bytes.some((byte) => !Number.isInteger(byte) || byte < 0 || byte > 255)
+        record.bytes.length < 4 || record.bytes.length > 1_000_000 ||
+        record.bytes.some((byte) => !Number.isInteger(byte) || byte < 0 || byte > 255) ||
+        (record.mimeType === "image/png" && ![137, 80, 78, 71, 13, 10, 26, 10].every((byte, index) => record.bytes[index] === byte)) ||
+        (record.mimeType === "image/jpeg" && !(record.bytes[0] === 255 && record.bytes[1] === 216 && record.bytes[2] === 255))
       )) {
         throw new BackupError("A saved business logo asset is invalid.");
       }
