@@ -36,6 +36,7 @@ import PaymentsDirectory from "./PaymentsDirectory.jsx";
 import BackupRecovery from "./BackupRecovery.jsx";
 import ApplicationUpdates from "./ApplicationUpdates.jsx";
 import { restoreEncryptedBackup } from "./backup.js";
+import { formatOutstandingBalance, sumOutstandingAmounts } from "./dashboard.js";
 import {
   createBrowserRepositories,
   openFledgeDatabase,
@@ -77,7 +78,7 @@ function Metric({ label, value, note, icon }) {
   </article>;
 }
 
-function Overview({ business, customers, products, documents, onNavigate }) {
+function Overview({ business, customers, products, documents, outstandingBalance, onNavigate }) {
   const setupCount = Number(Boolean(business)) + Number(customers.length > 0) + Number(products.length > 0);
   return <>
     <section className="welcome-row">
@@ -90,7 +91,7 @@ function Overview({ business, customers, products, documents, onNavigate }) {
         document.documentNumber !== null &&
         document.status !== "cancelled",
       ).length)} note="Issued on this device" icon="file" />
-      <Metric label="Outstanding" value="—" note="Not connected yet" icon="wallet" />
+      <Metric label="Outstanding" value={outstandingBalance === null ? "Unavailable" : formatOutstandingBalance(outstandingBalance)} note={outstandingBalance === null ? "Balance could not be loaded" : "Across finalized invoices"} icon="wallet" />
       <Metric label="Customers" value={String(customers.length)} note={customers.length ? "Saved on this device" : "Ready to add"} icon="users" />
       <Metric label="Products & services" value={String(products.length)} note={products.length ? "Saved on this device" : "Ready to add"} icon="box" />
     </section>
@@ -292,7 +293,35 @@ export default function App() {
   const [savedGstRates, setSavedGstRates] = useState([]);
   const [taxCategories, setTaxCategories] = useState([]);
   const [templates, setTemplates] = useState([]);
+  const [outstandingBalance, setOutstandingBalance] = useState(null);
+  const [settlementRevision, setSettlementRevision] = useState(0);
   const selected = navigation.find((item) => item.id === active);
+
+  useEffect(() => {
+    if (status !== "ready" || !repositories) return undefined;
+    let current = true;
+    const invoices = documents.filter((document) =>
+      document.status === "finalized" &&
+      ["tax_invoice", "non_gst_invoice", "bill_of_supply"].includes(document.documentType),
+    );
+    if (invoices.length === 0) {
+      setOutstandingBalance("0");
+      return () => { current = false; };
+    }
+    const deps = {
+      repository: repositories.allocationRepository,
+      now: () => new Date().toISOString(),
+      createId,
+    };
+    void Promise.all(invoices.map((invoice) => getInvoiceSettlement(invoice.id, deps)))
+      .then((settlements) => {
+        if (current) setOutstandingBalance(sumOutstandingAmounts(settlements));
+      })
+      .catch(() => {
+        if (current) setOutstandingBalance(null);
+      });
+    return () => { current = false; };
+  }, [status, repositories, documents, settlementRevision]);
 
   useEffect(() => {
     let disposed = false;
@@ -480,11 +509,15 @@ export default function App() {
   }
 
   async function handleAllocate(input) {
-    return allocateReceiptToInvoice(input, allocationDeps);
+    const result = await allocateReceiptToInvoice(input, allocationDeps);
+    setSettlementRevision((revision) => revision + 1);
+    return result;
   }
 
   async function handleReleaseAllocation(input) {
-    return releaseReceiptAllocation(input, allocationDeps);
+    const result = await releaseReceiptAllocation(input, allocationDeps);
+    setSettlementRevision((revision) => revision + 1);
+    return result;
   }
 
   async function handleRecordRefund(input) {
@@ -538,7 +571,7 @@ export default function App() {
         {status === "ready" && durabilityWarning && <p className="storage-warning" role="status">{durabilityWarning}</p>}
         {status === "loading" && <section className="placeholder-panel" role="status"><div className="placeholder-icon"><Icon name="shield" /></div><h1>Opening your local workspace</h1><p>Connecting to this browser's IndexedDB database. Your records stay on this device.</p></section>}
         {status === "error" && <section className="placeholder-panel storage-error" role="alert"><div className="placeholder-icon"><Icon name="shield" /></div><div className="eyebrow">LOCAL STORAGE UNAVAILABLE</div><h1>Workspace could not be opened</h1><p>{storageError}</p><p>Your data was not loaded. Do not clear browser data or reinstall the app as a recovery step.</p><button className="secondary-button" onClick={() => window.location.reload()}>Try again</button></section>}
-        {status === "ready" && active === "overview" && <Overview business={business} customers={customers} products={products} documents={documents} onNavigate={setActive} />}
+        {status === "ready" && active === "overview" && <Overview business={business} customers={customers} products={products} documents={documents} outstandingBalance={outstandingBalance} onNavigate={setActive} />}
         {status === "ready" && active === "settings" && <BusinessSettings business={business} onSave={handleSaveBusiness} />}
         {status === "ready" && active === "backup" && <BackupRecovery database={database} onRestore={handleRestoreBackup} />}
         <ApplicationUpdates active={status === "ready" && active === "application"} gstRulesVersion={GST_RULE_VERSIONS[0]?.id ?? "unknown"} />
