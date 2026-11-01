@@ -22,12 +22,12 @@ export type InvoiceSettlement = {
 };
 
 export type AllocationRepository = {
-  getBusinessId(): string | null;
-  allocate(event: AllocationEvent): AllocationEvent;
-  release(event: AllocationEvent): AllocationEvent;
-  listReceiptEvents(receiptId: string): AllocationEvent[];
-  getInvoiceSettlement(invoiceId: string): InvoiceSettlement | null;
-  getCustomerAllocatedTotal(customerId: string): string;
+  getBusinessId(): Promise<string | null>;
+  allocate(event: AllocationEvent): Promise<AllocationEvent>;
+  release(event: AllocationEvent): Promise<AllocationEvent>;
+  listReceiptEvents(receiptId: string): Promise<AllocationEvent[]>;
+  getInvoiceSettlement(invoiceId: string): Promise<InvoiceSettlement | null>;
+  getCustomerAllocatedTotal(customerId: string): Promise<string>;
 };
 
 export type AllocationDeps = {
@@ -48,8 +48,8 @@ export class AllocationError extends Error {
 export function allocateReceiptToInvoice(
   input: { receiptId: string; invoiceId: string; amount: string; idempotencyKey: string },
   deps: AllocationDeps,
-): AllocationEvent {
-  const businessId = requireBusiness(deps);
+): Promise<AllocationEvent> {
+  const businessId = await requireBusiness(deps);
   const amount = positiveAmount(input.amount);
   const key = required(input.idempotencyKey, "An allocation request key is required.", 120);
   return deps.repository.allocate({
@@ -64,8 +64,8 @@ export function allocateReceiptToInvoice(
 export function releaseReceiptAllocation(
   input: { allocationId: string; reason: string; idempotencyKey: string },
   deps: AllocationDeps,
-): AllocationEvent {
-  const businessId = requireBusiness(deps);
+): Promise<AllocationEvent> {
+  const businessId = await requireBusiness(deps);
   return deps.repository.release({
     id: deps.createId(), businessId, customerId: "",
     receiptId: "", invoiceId: "", eventType: "release",
@@ -76,20 +76,20 @@ export function releaseReceiptAllocation(
   });
 }
 
-export function getInvoiceSettlement(invoiceId: string, deps: AllocationDeps): InvoiceSettlement {
-  requireBusiness(deps);
-  const result = deps.repository.getInvoiceSettlement(required(invoiceId, "Choose an invoice.", 120));
+export async function getInvoiceSettlement(invoiceId: string, deps: AllocationDeps): Promise<InvoiceSettlement> {
+  await requireBusiness(deps);
+  const result = await deps.repository.getInvoiceSettlement(required(invoiceId, "Choose an invoice.", 120));
   if (!result) throw new AllocationError("That invoice was not found for this business.");
   return result;
 }
 
-export function getCustomerAllocatedTotal(customerId: string, deps: AllocationDeps): string {
-  requireBusiness(deps);
+export async function getCustomerAllocatedTotal(customerId: string, deps: AllocationDeps): Promise<string> {
+  await requireBusiness(deps);
   return deps.repository.getCustomerAllocatedTotal(required(customerId, "Choose a customer.", 120));
 }
 
-function requireBusiness(deps: AllocationDeps): string {
-  const id = deps.repository.getBusinessId();
+async function requireBusiness(deps: AllocationDeps): Promise<string> {
+  const id = await deps.repository.getBusinessId();
   if (!id) throw new AllocationError("Save the business profile before allocating receipts.");
   return id;
 }
