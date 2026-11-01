@@ -102,7 +102,7 @@ W1A is documented in [docs/23](./23-w1a-async-repository-and-transaction-contrac
 
 ### W2 — IndexedDB foundation
 
-- Implement a versioned IndexedDB adapter for one approved vertical slice first, after W1A–W1C are merged.
+- Implement a versioned IndexedDB adapter for one approved vertical slice only after the remaining application repositories have migrated to the approved async contracts and the browser boundary is verified.
 - Preserve business scoping, stable IDs, idempotency and transaction invariants.
 - Add fresh-database, upgrade, interrupted-upgrade, duplicate-retry and data-preservation tests.
 - Do not silently import or overwrite the existing SQLite database.
