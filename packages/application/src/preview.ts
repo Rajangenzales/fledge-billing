@@ -41,18 +41,18 @@ export type IssuedRenderDeps = {
   states: readonly StateUt[];
 };
 
-export function previewTemplate(
+export async function previewTemplate(
   id: string,
   deps: TemplatePreviewDeps,
   patch?: TemplateRevisionPatch,
-): TemplatePreview {
-  const businessId = requireBusinessId(deps);
-  deps.repository.ensureBuiltIns(businessId, deps.now());
-  const stored = deps.repository.get(businessId, id);
+): Promise<TemplatePreview> {
+  const businessId = await requireBusinessId(deps);
+  await deps.repository.ensureBuiltIns(businessId, deps.now());
+  const stored = await deps.repository.get(businessId, id);
   if (!stored || !stored.active) {
     throw new TemplateError("That template was not found.");
   }
-  const business = deps.repository.getBusiness();
+  const business = await deps.repository.getBusiness();
   if (!business) {
     throw new TemplateError("Save the business profile before choosing a template.");
   }
@@ -77,12 +77,12 @@ export async function renderIssuedDocument(id: string, deps: IssuedRenderDeps): 
   if (!stored) {
     throw new BillingError("That document was not found.");
   }
-  const business = deps.templates.getBusiness();
+  const business = await deps.templates.getBusiness();
   if (!business) {
     throw new TemplateError("Save the business profile before choosing a template.");
   }
-  const businessId = deps.templates.getBusinessId();
-  const saved = stored.templateId && businessId ? deps.templates.get(businessId, stored.templateId) : null;
+  const businessId = await deps.templates.getBusinessId();
+  const saved = stored.templateId && businessId ? await deps.templates.get(businessId, stored.templateId) : null;
   if (stored.templateId && !saved) {
     throw new TemplateError("That template was not found.");
   }
@@ -144,10 +144,10 @@ export async function renderIssuedDocument(id: string, deps: IssuedRenderDeps): 
   });
 }
 
-export function restoreTemplate(id: string, deps: TemplateDeps): InvoiceTemplate {
-  const businessId = requireBusinessId(deps);
-  deps.repository.ensureBuiltIns(businessId, deps.now());
-  const current = deps.repository.get(businessId, id);
+export async function restoreTemplate(id: string, deps: TemplateDeps): Promise<InvoiceTemplate> {
+  const businessId = await requireBusinessId(deps);
+  await deps.repository.ensureBuiltIns(businessId, deps.now());
+  const current = await deps.repository.get(businessId, id);
   if (!current || !current.active) {
     throw new TemplateError("That template was not found.");
   }
@@ -158,7 +158,7 @@ export function restoreTemplate(id: string, deps: TemplateDeps): InvoiceTemplate
     throw new TemplateError("Choose a template.");
   }
   try {
-    return reviseTemplate(
+    return await reviseTemplate(
       id,
       {
         sections: builtin.sections.map((section) => ({
@@ -296,8 +296,8 @@ function sampleCustomValue(field: CustomFieldDefinition): string {
   }
 }
 
-function requireBusinessId(deps: TemplateDeps): string {
-  const businessId = deps.repository.getBusinessId();
+async function requireBusinessId(deps: TemplateDeps): Promise<string> {
+  const businessId = await deps.repository.getBusinessId();
   if (!businessId) {
     throw new TemplateError("Save the business profile before choosing a template.");
   }
