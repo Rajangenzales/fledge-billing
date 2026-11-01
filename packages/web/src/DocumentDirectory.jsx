@@ -487,7 +487,7 @@ export default function DocumentDirectory({
         <label>Document type<select value={form.documentType} onChange={(event) => {
           changeDocumentType(event.target.value);
         }}>{documentTypes.filter(([type]) => type !== "tax_invoice" || business.gstRegistered).map(([type, label]) => <option key={type} value={type}>{label}</option>)}</select></label>
-        <label>Template<select required value={form.templateId} onChange={(event) => changeTemplate(event.target.value)}><option value="">Choose template</option>{applicableTemplates.map((template) => <option key={template.id} value={template.id}>{template.name} · v{template.version}{template.isDefault ? " · default" : ""}</option>)}</select></label>
+        <label>Business template<select required value={form.templateId} onChange={(event) => changeTemplate(event.target.value)}><option value="">Choose template</option>{applicableTemplates.map((template) => <option key={template.id} value={template.id}>{template.name}{template.isDefault ? " · default" : ""}</option>)}</select>{selectedTemplate?.purpose && <small>{selectedTemplate.purpose}</small>}</label>
         <label>Document date<input required type="date" value={form.documentDate} onChange={(event) => updateForm("documentDate", event.target.value)} /></label>
         <label>Due date<input type="date" min={form.documentDate} value={form.dueDate} onChange={(event) => updateForm("dueDate", event.target.value)} /><small>{form.dueDateManuallySet ? "Custom due date. You can edit it anytime while this is a draft." : "Suggested from the customer credit period. You can change it."}</small></label>
         <label>Customer<select required value={form.customerId} onChange={(event) => {
