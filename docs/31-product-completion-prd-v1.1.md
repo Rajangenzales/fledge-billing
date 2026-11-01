@@ -275,6 +275,8 @@ Requirements:
 - No tax calculation is implemented in UI components.
 - A compliance review record identifies the reviewer, sources, date and scope.
 
+**Current status:** An internal engineering audit, coverage expansion and browser limitations notice are recorded in [the GST supported-scenarios review](./gst-supported-scenarios-review.md). Qualified GST-practitioner review remains pending; C1 is not complete and must not be treated as V1 GST compliance sign-off.
+
 ### C2 — Document rendering, PDF, print and share
 
 **Objective:** Provide reliable, consistent customer-facing document output.

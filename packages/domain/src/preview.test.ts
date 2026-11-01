@@ -55,6 +55,7 @@ describe("template preview", () => {
     expect(field(preview.sections, "tax_components")?.value).toBe("CGST 90, SGST 90");
     expect(field(preview.sections, "grand_total")?.value).toBe("1180");
     expect(preview.items[0]?.description).toBe("Sample consulting");
+    expect(preview.items[0]?.hsnSac).toBe("998314");
 
     const hiddenPhone = renderTemplatePreview({
       template: {
