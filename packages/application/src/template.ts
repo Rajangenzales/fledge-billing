@@ -64,12 +64,12 @@ export type TemplateBusiness = {
 };
 
 export type TemplateRepository = {
-  getBusinessId: () => string | null;
-  getBusiness: () => TemplateBusiness | null;
-  ensureBuiltIns: (businessId: string, now: string) => void;
-  list: (businessId: string) => InvoiceTemplate[];
-  get: (businessId: string, id: string) => InvoiceTemplate | null;
-  setDefault: (businessId: string, id: string, now: string) => void;
+  getBusinessId: () => Promise<string | null>;
+  getBusiness: () => Promise<TemplateBusiness | null>;
+  ensureBuiltIns: (businessId: string, now: string) => Promise<void>;
+  list: (businessId: string) => Promise<InvoiceTemplate[]>;
+  get: (businessId: string, id: string) => Promise<InvoiceTemplate | null>;
+  setDefault: (businessId: string, id: string, now: string) => Promise<void>;
   saveRevision: (
     businessId: string,
     sourceId: string,
@@ -77,7 +77,7 @@ export type TemplateRepository = {
     fields: readonly TemplateFieldDefinition[],
     customFields: readonly CustomFieldDefinition[],
     now: string,
-  ) => string;
+  ) => Promise<string>;
 };
 
 export type TemplateDeps = {
@@ -85,45 +85,45 @@ export type TemplateDeps = {
   now: () => string;
 };
 
-export function listTemplates(deps: TemplateDeps): InvoiceTemplate[] {
-  const businessId = requireBusiness(deps);
-  deps.repository.ensureBuiltIns(businessId, deps.now());
+export async function listTemplates(deps: TemplateDeps): Promise<InvoiceTemplate[]> {
+  const businessId = await requireBusiness(deps);
+  await deps.repository.ensureBuiltIns(businessId, deps.now());
   return deps.repository.list(businessId);
 }
 
-export function getTemplate(id: string, deps: TemplateDeps): InvoiceTemplate | null {
-  const businessId = deps.repository.getBusinessId();
+export async function getTemplate(id: string, deps: TemplateDeps): Promise<InvoiceTemplate | null> {
+  const businessId = await deps.repository.getBusinessId();
   if (!businessId) {
     return null;
   }
-  deps.repository.ensureBuiltIns(businessId, deps.now());
+  await deps.repository.ensureBuiltIns(businessId, deps.now());
   return deps.repository.get(businessId, id);
 }
 
-export function setDefaultTemplate(id: string, deps: TemplateDeps): InvoiceTemplate {
-  const businessId = requireBusiness(deps);
-  deps.repository.ensureBuiltIns(businessId, deps.now());
-  const template = deps.repository.get(businessId, id);
+export async function setDefaultTemplate(id: string, deps: TemplateDeps): Promise<InvoiceTemplate> {
+  const businessId = await requireBusiness(deps);
+  await deps.repository.ensureBuiltIns(businessId, deps.now());
+  const template = await deps.repository.get(businessId, id);
   if (!template || !template.active) {
     throw new TemplateError("That template was not found.");
   }
-  deps.repository.setDefault(businessId, id, deps.now());
-  const updated = deps.repository.get(businessId, id);
+  await deps.repository.setDefault(businessId, id, deps.now());
+  const updated = await deps.repository.get(businessId, id);
   if (!updated) {
     throw new TemplateError("That template was not found.");
   }
   return updated;
 }
 
-export function reviseTemplate(id: string, patch: TemplateRevisionPatch, deps: TemplateDeps): InvoiceTemplate {
-  const businessId = requireBusiness(deps);
-  deps.repository.ensureBuiltIns(businessId, deps.now());
-  const current = deps.repository.get(businessId, id);
+export async function reviseTemplate(id: string, patch: TemplateRevisionPatch, deps: TemplateDeps): Promise<InvoiceTemplate> {
+  const businessId = await requireBusiness(deps);
+  await deps.repository.ensureBuiltIns(businessId, deps.now());
+  const current = await deps.repository.get(businessId, id);
   if (!current || !current.active) {
     throw new TemplateError("That template was not found.");
   }
   const next = reviseTemplateConfiguration(current, patch);
-  const revisedId = deps.repository.saveRevision(
+  const revisedId = await deps.repository.saveRevision(
     businessId,
     id,
     next.sections,
@@ -131,15 +131,15 @@ export function reviseTemplate(id: string, patch: TemplateRevisionPatch, deps: T
     next.customFields,
     deps.now(),
   );
-  const saved = deps.repository.get(businessId, revisedId);
+  const saved = await deps.repository.get(businessId, revisedId);
   if (!saved) {
     throw new TemplateError("That template was not found.");
   }
   return saved;
 }
 
-function requireBusiness(deps: TemplateDeps): string {
-  const businessId = deps.repository.getBusinessId();
+async function requireBusiness(deps: TemplateDeps): Promise<string> {
+  const businessId = await deps.repository.getBusinessId();
   if (!businessId) {
     throw new TemplateError("Save the business profile before choosing a template.");
   }
