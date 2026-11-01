@@ -28,12 +28,13 @@ import {
   updateSavedGstRate,
   updateDocument,
 } from "@fledge/application/browser";
-import { STATE_UTS } from "@fledge/domain";
+import { GST_RULE_VERSIONS, STATE_UTS } from "@fledge/domain";
 import DocumentDirectory from "./DocumentDirectory.jsx";
 import ProductDirectory from "./ProductDirectory.jsx";
 import TemplateDirectory from "./TemplateDirectory.jsx";
 import PaymentsDirectory from "./PaymentsDirectory.jsx";
 import BackupRecovery from "./BackupRecovery.jsx";
+import ApplicationUpdates from "./ApplicationUpdates.jsx";
 import { restoreEncryptedBackup } from "./backup.js";
 import {
   createBrowserRepositories,
@@ -49,6 +50,7 @@ const navigation = [
   { id: "payments", label: "Payments", icon: "wallet" },
   { id: "settings", label: "Business settings", icon: "settings" },
   { id: "backup", label: "Backup & recovery", icon: "shield" },
+  { id: "application", label: "Application & updates", icon: "settings" },
 ];
 
 function Icon({ name, size = 18 }) {
@@ -539,6 +541,7 @@ export default function App() {
         {status === "ready" && active === "overview" && <Overview business={business} customers={customers} products={products} documents={documents} onNavigate={setActive} />}
         {status === "ready" && active === "settings" && <BusinessSettings business={business} onSave={handleSaveBusiness} />}
         {status === "ready" && active === "backup" && <BackupRecovery database={database} onRestore={handleRestoreBackup} />}
+        <ApplicationUpdates active={status === "ready" && active === "application"} gstRulesVersion={GST_RULE_VERSIONS[0]?.id ?? "unknown"} />
         {status === "ready" && active === "templates" && <TemplateDirectory
           business={business}
           templates={templates}
@@ -580,7 +583,7 @@ export default function App() {
           onCancel={handleCancelDocument}
           onRenderIssued={handleRenderIssuedDocument}
         />}
-        {status === "ready" && !["overview", "settings", "backup", "customers", "products", "payments", "invoices", "templates"].includes(active) && <Placeholder section={active} onBack={() => setActive("overview")} />}
+        {status === "ready" && !["overview", "settings", "backup", "application", "customers", "products", "payments", "invoices", "templates"].includes(active) && <Placeholder section={active} onBack={() => setActive("overview")} />}
       </div>
     </main>
   </div>;

@@ -1,0 +1,45 @@
+{
+  "version": "0.0.0-dev",
+  "minimumSupportedVersion": "0.0.0-dev",
+  "releaseDate": null,
+  "architecture": "web",
+  "referenceUrl": "/",
+  "releaseNotes": [
+    "Development build; release notes will be published with a production release."
+  ],
+  "database": {
+    "schemaVersion": 5,
+    "compatibleSchemaVersions": [5],
+    "migration": {
+      "fromSchemaVersion": 5,
+      "toSchemaVersion": 5,
+      "strategy": "none",
+      "failureRecovery": "preserve-existing-data"
+    }
+  },
+  "gstRulesVersion": "gst-structure-2017-07-01",
+  "support": {
+    "operatingSystems": ["windows", "android", "ios", "ipados", "macos"],
+    "browsers": ["chrome", "edge", "firefox", "safari"],
+    "browserVersionPolicy": "latest-three-major-releases",
+    "browsersByOperatingSystem": {
+      "windows": ["chrome", "edge", "firefox"],
+      "android": ["chrome", "edge", "firefox"],
+      "ios": ["safari"],
+      "ipados": ["safari"],
+      "macos": ["chrome", "edge", "firefox", "safari"]
+    },
+    "minimumBrowserMajor": {
+      "chrome": 0,
+      "edge": 0,
+      "firefox": 0,
+      "safari": 0
+    }
+  },
+  "integrity": {
+    "serviceWorker": "/sw.js",
+    "sha256": null,
+    "artifacts": []
+  },
+  "mandatory": false
+}

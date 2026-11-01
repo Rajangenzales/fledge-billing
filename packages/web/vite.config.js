@@ -1,9 +1,14 @@
+import { createHash } from "node:crypto";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { defineConfig } from "vite";
 
 const packageRoot = dirname(fileURLToPath(import.meta.url));
 const browserContractEntry = resolve(packageRoot, "src/browser-contract.js");
+const releaseManifest = JSON.parse(
+  readFileSync(resolve(packageRoot, "src/release-manifest.json"), "utf8"),
+);
 
 const forbiddenNodeImport =
   /^(?:node:[^/]+|assert|buffer|child_process|cluster|console|constants|crypto|dgram|diagnostics_channel|dns|domain|events|fs|http|https|module|net|os|path|perf_hooks|process|punycode|querystring|readline|repl|stream|string_decoder|sys|timers|tls|trace_events|tty|url|util|v8|vm|wasi|worker_threads|zlib)(?:\/.*)?$/;
@@ -104,8 +109,41 @@ function browserDependencyGuard() {
   };
 }
 
+function versionedServiceWorker() {
+  return {
+    name: "fledge-versioned-service-worker",
+    writeBundle(outputOptions) {
+      const outputDirectory = outputOptions.dir ?? resolve(packageRoot, "dist");
+      const workerSource = readFileSync(resolve(packageRoot, "public/sw.js"), "utf8");
+      const versionedWorker = workerSource.replace(
+        '"__FLEDGE_BUILD_VERSION__"',
+        JSON.stringify(releaseManifest.version),
+      );
+      if (versionedWorker === workerSource) {
+        this.error("The service-worker build version placeholder was not found.");
+      }
+      writeFileSync(resolve(outputDirectory, "sw.js"), versionedWorker);
+      const release = structuredClone(releaseManifest);
+      release.integrity.sha256 = createHash("sha256").update(versionedWorker).digest("hex");
+      const assetsDirectory = resolve(outputDirectory, "assets");
+      const assetFiles = readdirSync(assetsDirectory, { withFileTypes: true })
+        .filter((entry) => entry.isFile() && /\.(?:css|js)$/.test(entry.name))
+        .map((entry) => "assets/" + entry.name);
+      const artifactFiles = ["index.html", ...assetFiles];
+      release.integrity.artifacts = artifactFiles.map((fileName) => ({
+        url: "/" + fileName,
+        sha256: createHash("sha256").update(readFileSync(resolve(outputDirectory, fileName))).digest("hex"),
+      }));
+      writeFileSync(
+        resolve(outputDirectory, "release-manifest.json"),
+        JSON.stringify(release, null, 2) + "\n",
+      );
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [browserDependencyGuard()],
+  plugins: [browserDependencyGuard(), versionedServiceWorker()],
   server: {
     port: 5173,
     strictPort: true,

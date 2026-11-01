@@ -347,6 +347,8 @@ Requirements:
 - Update/migration failure does not silently destroy local business records.
 - The installed and GST rules versions are visible to the user.
 
+**Current status:** M10 implementation is present but release verification is open. The app has root-scoped PWA metadata and PNG/SVG icons, offline shell caching with prior-cache retention, and a foreground update flow that validates version/platform/browser/schema compatibility and generated SHA-256 hashes before user activation. The approved browser policy is the latest three major releases, with Windows/Android browser support for Chrome/Edge/Firefox and Safari-only iOS/iPadOS support; see [M10 lifecycle and release contract](./33-m10-pwa-lifecycle.md). The version remains `0.0.0-dev`; production hosting is intentionally deferred. Real-platform install/offline/update/recovery verification, minimum OS versions, and production hosting/signing ownership remain release gates.
+
 ### M11 — Quality assurance and release verification
 
 **Objective:** Verify product correctness, data integrity, security and platform reliability.

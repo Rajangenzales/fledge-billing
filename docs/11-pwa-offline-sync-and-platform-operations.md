@@ -40,6 +40,12 @@ A PWA is the selected V1 delivery direction, subject to platform validation. Do 
 - Graceful fallbacks when a platform does not support a browser capability.
 - Browser and OS support matrix documented and tested before V1 release.
 
+The approved evergreen browser policy covers the current and previous two
+major releases of Chrome, Edge, Firefox and Safari on the browser/OS pairs in
+the [M10 lifecycle and release contract](./33-m10-pwa-lifecycle.md). That
+matrix defines supported web browsers separately from native PWA install
+paths; it is not evidence that every pair has been manually verified.
+
 A PWA is not an APK or a native desktop installer. If a future app-store/native wrapper is introduced, it must reuse the domain/application logic and local-data contracts rather than fork billing rules.
 
 ## 3. Local-first data architecture
@@ -303,24 +309,29 @@ For a PWA, updates primarily use the web hosting/CDN and service-worker lifecycl
 
 - Maintain versioned web assets and release metadata.
 - Use service-worker update checks and safe activation.
+- Publish release metadata, the worker, HTML and referenced assets atomically.
 - Show release notes and update status.
 - Avoid breaking a user session or unsaved local transaction during update activation.
 - Maintain backward-compatible API/schema windows where possible.
 - Keep local database migrations versioned, transactional and recoverable.
-- Provide staged rollout/rollback controls where infrastructure supports them.
+- Retain the prior complete app-shell cache; provide staged rollout/rollback controls where infrastructure supports them.
 - Verify deployed assets and API compatibility before broad rollout.
 - Do not force a destructive update or delete local data to enforce a minimum version.
 
 ## 10. Cross-platform validation matrix
 
-Before V1 release, define and test supported browser/OS combinations rather than claiming universal support.
+Before V1 release, test the approved browser/OS combinations and record minimum
+OS versions rather than claiming universal support. The support policy and
+installation paths are defined in the [M10 lifecycle and release contract](./33-m10-pwa-lifecycle.md).
 
-At minimum evaluate:
+The approved browser pairs are:
 
-- Windows: current supported Chrome and Edge.
-- Android: current supported Chrome and installable PWA behaviour.
-- iOS/iPadOS: current supported Safari and Home Screen PWA behaviour.
-- macOS: current supported Safari and Chromium-based browser behaviour.
+- Windows: latest three major releases of Chrome, Edge and Firefox; install with Chrome or Edge.
+- Android: latest three major releases of Chrome, Edge and Firefox; verify each browser's install/add-to-home flow.
+- iOS/iPadOS: latest three major releases of Safari; install with Safari Home Screen flow.
+- macOS: latest three major releases of Chrome, Edge, Firefox and Safari; install with Chrome, Edge or Safari.
+
+No real-browser/device verification has yet been completed for this matrix.
 
 Test:
 - Offline first launch after assets have been cached.

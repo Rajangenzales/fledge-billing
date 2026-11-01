@@ -239,3 +239,15 @@ button{font:inherit;cursor:pointer}
 .backup-feedback{margin:14px 0 0;padding:12px 14px;border:1px solid #d6e8dc;border-radius:8px;background:#eff8f2;color:#2d6548;font-size:11px;line-height:1.5}
 .backup-feedback.error{border-color:#f0d4d1;background:#fff2f0;color:#8f332d}
 @media(max-width:700px){.backup-grid{grid-template-columns:1fr}.backup-warning{font-size:10px}}
+.application-updates{max-width:900px}
+.application-version-panel h2{margin:0 0 16px;color:#20372f;font-size:16px}
+.application-version-panel dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:0 0 18px}
+.application-version-panel dl div{display:grid;gap:5px}
+.application-version-panel dt{color:#7b8981;font-size:10px}
+.application-version-panel dd{margin:0;color:#294238;font-size:12px;font-weight:650}
+.application-update-actions{display:flex;flex-wrap:wrap;gap:9px}
+.application-update-status{min-height:17px;color:#60756b;font-size:11px}
+.application-version-panel h3{margin:22px 0 8px;color:#294238;font-size:12px}
+.application-version-panel ul{padding-left:19px;color:#64736c;font-size:11px;line-height:1.7}
+.application-release-note{margin-top:20px;padding:12px 14px;border:1px solid #e6ece8;border-radius:8px;background:#f8faf8;color:#738078;font-size:10px;line-height:1.65}
+@media(max-width:700px){.application-version-panel dl{grid-template-columns:1fr 1fr}}
