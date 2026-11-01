@@ -693,6 +693,67 @@ describe("PDF export", () => {
       taxTotal: "180",
     });
   });
+  it("snapshots payment details and default invoice notes for historical documents", async () => {
+    const db = database();
+    await prepare(db);
+    const profileDeps = {
+      repository: createBusinessRepository(db),
+      states: listStateUts(db),
+      now: () => "2026-10-31T01:30:00.000Z",
+      createId: () => "biz-1",
+    };
+    await saveBusinessProfile({
+      legalName: "Fledge Traders",
+      address: "12 Market Road, Kochi",
+      stateId: "IN-KL",
+      gstRegistered: true,
+      gstin: keralaGstin,
+      paymentDetails: "UPI: fledge@bank",
+      invoicePreferences: "Please pay within 15 days.",
+    }, profileDeps);
+
+    const deps = documentDeps(db);
+    const draft = await createDocument({
+      customerId: "cust-1",
+      documentType: "non_gst_invoice",
+      documentDate: "2026-10-31",
+      gstEnabled: false,
+      reverseCharge: false,
+      lines: [{ ...notebook, discountType: "none", discountValue: null }],
+    }, deps);
+    const issued = await finalizeDocument(draft.id, deps);
+    expect(issued).toMatchObject({
+      paymentDetailsSnapshot: "UPI: fledge@bank",
+      invoicePreferencesSnapshot: "Please pay within 15 days.",
+    });
+
+    await saveBusinessProfile({
+      legalName: "Fledge Traders",
+      address: "12 Market Road, Kochi",
+      stateId: "IN-KL",
+      gstRegistered: true,
+      gstin: keralaGstin,
+      paymentDetails: "UPI: changed@bank",
+      invoicePreferences: "New terms for future invoices.",
+    }, profileDeps);
+
+    const rendered = await renderIssuedDocument(issued.id, {
+      documents: createDocumentRepository(db),
+      templates: createTemplateRepository(db),
+      states: listStateUts(db),
+    });
+    const fields = rendered.sections.flatMap((section) => section.fields);
+    expect(fields).toContainEqual({
+      key: "payment_details_snapshot",
+      label: "Payment details",
+      value: "UPI: fledge@bank",
+    });
+    expect(fields).toContainEqual({
+      key: "invoice_preferences_snapshot",
+      label: "Notes and terms",
+      value: "Please pay within 15 days.",
+    });
+  });
 });
 
 describe("GST migration", () => {

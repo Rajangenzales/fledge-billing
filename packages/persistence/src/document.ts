@@ -427,6 +427,8 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
     record.notices.join("\n"),
     record.supplierSnapshot ? JSON.stringify(record.supplierSnapshot) : null,
     record.recipientSnapshot ? JSON.stringify(record.recipientSnapshot) : null,
+    record.paymentDetailsSnapshot ?? null,
+    record.invoicePreferencesSnapshot ?? null,
   ];
   if (updating) {
     db.prepare(
@@ -438,7 +440,8 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
         supplier_state_id = ?, supplier_gst_registered = ?, supplier_gstin = ?,
         recipient_state_id = ?, recipient_registration_type = ?, recipient_gstin = ?,
         reverse_charge = ?, exempt_total = ?, non_gst_total = ?, rounding_residual = ?,
-        cess_total = ?, calculation_notes = ?, supplier_snapshot = ?, recipient_snapshot = ?
+        cess_total = ?, calculation_notes = ?, supplier_snapshot = ?, recipient_snapshot = ?,
+        payment_details_snapshot = ?, invoice_preferences_snapshot = ?
        WHERE id = ? AND business_id = ?`,
     ).run(...values, record.id, record.businessId);
   } else {
@@ -450,9 +453,9 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
         finalized_at, updated_at, supplier_state_id, supplier_gst_registered, supplier_gstin,
         recipient_state_id, recipient_registration_type, recipient_gstin, reverse_charge,
         exempt_total, non_gst_total, rounding_residual, cess_total, calculation_notes,
-        supplier_snapshot, recipient_snapshot,
+        supplier_snapshot, recipient_snapshot, payment_details_snapshot, invoice_preferences_snapshot,
         id, business_id, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(...values, record.id, record.businessId, record.createdAt);
   }
   const insertLine = db.prepare(
@@ -562,7 +565,7 @@ function readDocument(db: SchemaDatabase, id: string): BillingDocument {
               supplier_gst_registered, supplier_gstin, recipient_state_id,
               recipient_registration_type, recipient_gstin, reverse_charge, exempt_total,
               non_gst_total, rounding_residual, cess_total, calculation_notes,
-              supplier_snapshot, recipient_snapshot
+              supplier_snapshot, recipient_snapshot, payment_details_snapshot, invoice_preferences_snapshot
        FROM document WHERE id = ?`,
     )
     .get(id);
@@ -624,6 +627,8 @@ function readDocument(db: SchemaDatabase, id: string): BillingDocument {
     recipientGstin: nullableText(row.recipient_gstin),
     supplierSnapshot: documentPartySnapshot(row.supplier_snapshot),
     recipientSnapshot: documentPartySnapshot(row.recipient_snapshot),
+    paymentDetailsSnapshot: nullableText(row.payment_details_snapshot),
+    invoicePreferencesSnapshot: nullableText(row.invoice_preferences_snapshot),
     lines,
     charges,
     taxes,
@@ -921,7 +926,10 @@ function recalculate(db: SchemaDatabase, stored: BillingDocument): BillingDocume
 
 function readBusinessRef(db: SchemaDatabase): BusinessRef | null {
   const row = db
-    .prepare("SELECT id, legal_name, address, state_id, pin_code, gst_registered, gstin, phone, email FROM business")
+    .prepare("SELECT id, legal_name, address, state_id, pin_code, gst_registered, gstin, phone, email,
+            (SELECT value FROM business_setting WHERE business_id = business.id AND key = 'payment_details') AS payment_details,
+            (SELECT value FROM business_setting WHERE business_id = business.id AND key = 'invoice_preferences') AS invoice_preferences
+     FROM business")
     .get();
   if (!row || typeof row.id !== "string") {
     return null;
@@ -936,6 +944,8 @@ function readBusinessRef(db: SchemaDatabase): BusinessRef | null {
     pinCode: nullableText(row.pin_code),
     phone: nullableText(row.phone),
     email: nullableText(row.email),
+    paymentDetails: nullableText(row.payment_details),
+    invoicePreferences: nullableText(row.invoice_preferences),
   };
 }
 

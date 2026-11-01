@@ -201,6 +201,8 @@ export type StoredDocumentRender = {
   customerName: string;
   customerPhone: string | null;
   customerEmail: string | null;
+  paymentDetails?: string | null;
+  invoicePreferences?: string | null;
   placeOfSupplyName: string;
   notes: string;
   reverseCharge: boolean;
@@ -309,7 +311,14 @@ function storedFields(
     label: field.label,
     value: field.value ?? "",
   }));
-  return [...builtIn, ...custom];
+  const businessDetails: PreviewField[] = [];
+  if (sectionVisible && sectionKey === "payment" && document.paymentDetails) {
+    businessDetails.push({ key: "payment_details_snapshot", label: "Payment details", value: document.paymentDetails });
+  }
+  if (sectionVisible && sectionKey === "notes-terms" && document.invoicePreferences) {
+    businessDetails.push({ key: "invoice_preferences_snapshot", label: "Notes and terms", value: document.invoicePreferences });
+  }
+  return [...builtIn, ...custom, ...businessDetails];
 }
 
 function storedCustomFields(document: StoredDocumentRender, sectionKey: string): StoredDocumentRender["customFields"][number][] {
