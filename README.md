@@ -30,6 +30,7 @@ The approved product and engineering baseline is maintained in [`docs/`](./docs/
 20. [M8 Customer Payment Activity Statement](./docs/20-m8-customer-payment-activity-statement.md)
 21. [PWA Frontend Foundation Plan](./docs/21-pwa-frontend-foundation-plan.md)
 22. [W1 Browser Compatibility & Repository Contract Audit](./docs/22-w1-browser-compatibility-and-repository-audit.md)
+23. [W1A Async Repository & Transaction Contract](./docs/23-w1a-async-repository-and-transaction-contract.md)
 
 These documents are the source of truth. Implementation must not silently expand V1 scope or introduce GST rules in UI code.
 
