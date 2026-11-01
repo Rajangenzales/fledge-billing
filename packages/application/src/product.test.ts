@@ -14,49 +14,28 @@ const categories: TaxCategory[] = [
   { id: "non-gst", name: "Non-GST", code: "NGS" },
 ];
 
-function productRecord(overrides: Partial<StoredProduct> = {}): StoredProduct {
-  return {
-    id: "product-1",
-    businessId: "business-1",
-    type: "goods",
-    name: "Rice",
-    code: null,
-    description: null,
-    hsnSac: null,
-    unit: "kg",
-    defaultPrice: "40",
-    defaultDiscount: "0",
-    taxCategoryId: "non-gst",
-    savedGstRateId: null,
-    taxInclusive: false,
-    active: true,
-    createdAt: "2026-10-31T02:00:00.000Z",
-    updatedAt: "2026-10-31T02:00:00.000Z",
-    ...overrides,
-  };
-}
-
 function deps(overrides: Partial<ProductDeps["repository"]> = {}): ProductDeps {
   const stored: StoredProduct[] = [];
+  const repository: ProductDeps["repository"] = {
+    getBusinessId: async () => "business-1",
+    listTaxCategories: async () => categories,
+    listSavedGstRates: async () => [],
+    getSavedGstRate: async () => null,
+    insertSavedGstRate: async () => undefined,
+    updateSavedGstRate: async () => undefined,
+    listProducts: async () => stored,
+    getProduct: async (id) => stored.find((product) => product.id === id) ?? null,
+    insertProduct: async (record) => { stored.push(record); },
+    updateProduct: async (record) => {
+      const index = stored.findIndex((product) => product.id === record.id);
+      if (index >= 0) stored[index] = record;
+    },
+  };
+  Object.assign(repository, overrides);
   return {
+    repository,
     now: () => "2026-10-31T02:00:00.000Z",
     createId: () => "product-1",
-    repository: {
-      getBusinessId: async () => "business-1",
-      listTaxCategories: async () => categories,
-      listSavedGstRates: async () => [],
-      getSavedGstRate: async () => null,
-      insertSavedGstRate: async () => undefined,
-      updateSavedGstRate: async () => undefined,
-      listProducts: async () => stored,
-      getProduct: async (id) => stored.find((product) => product.id === id) ?? null,
-      insertProduct: async (record) => { stored.push(record); },
-      updateProduct: async (record) => {
-        const index = stored.findIndex((product) => product.id === record.id);
-        if (index >= 0) stored[index] = record;
-      },
-      ...overrides,
-    },
   };
 }
 
