@@ -20,7 +20,7 @@ describe("invoice PDF", () => {
     expect(text).toContain("Total: INR 1,180.00");
     expect(text).toContain("CGST INR 90.00, SGST INR 90.00");
     expect(text).toContain("Promotional offer details");
-    expect(text).toContain("Quarterly distributor promotion: Buy 10 cases, get 1 cases free");
+    expect(text).toContain("Quarterly distributor promotion: Buy 10 cases, get 1 free");
     expect(text).toContain("Service: Line 1 with a long description that must stay with its amount");
     expect(text).toContain("Page 2 of");
     expect(pageCount(bytes)).toBeGreaterThan(1);
