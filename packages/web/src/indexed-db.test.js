@@ -1,4 +1,16 @@
-import { createCustomer, getBusinessProfile, listCustomers, saveBusinessProfile } from "@fledge/application/browser";
+import {
+  createCustomer,
+  createProduct,
+  createSavedGstRate,
+  getBusinessProfile,
+  getProduct,
+  listCustomers,
+  listProducts,
+  listSavedGstRates,
+  saveBusinessProfile,
+  updateProduct,
+  updateSavedGstRate,
+} from "@fledge/application/browser";
 import { STATE_UTS } from "@fledge/domain";
 import { IDBFactory } from "fake-indexeddb";
 import { describe, expect, it } from "vitest";
@@ -69,6 +81,194 @@ describe("browser IndexedDB repositories", () => {
     reopenedDatabase.close();
   });
 
+  it("persists saved rates and products across database reopen", async () => {
+    const factory = new IDBFactory();
+    const database = await openFledgeDatabase(factory);
+    const repositories = createBrowserRepositories(database);
+    await repositories.businessRepository.save({ id: "business-1" });
+    const deps = productDeps(repositories.productRepository);
+    const rate = await createSavedGstRate({ name: "GST 18", percentage: "18" }, deps);
+    const product = await createProduct({
+      type: "goods",
+      name: "Notebook",
+      code: "NB-1",
+      hsnSac: "482010",
+      unit: "nos",
+      defaultPrice: "100.50",
+      defaultDiscount: "0",
+      taxCategoryId: "taxable",
+      savedGstRateId: rate.id,
+      taxInclusive: true,
+    }, deps);
+    database.close();
+
+    const reopenedDatabase = await openFledgeDatabase(factory);
+    const reopenedRepositories = createBrowserRepositories(reopenedDatabase);
+    const reopenedDeps = productDeps(reopenedRepositories.productRepository);
+
+    expect(await listSavedGstRates(reopenedDeps)).toMatchObject([
+      { id: rate.id, businessId: "business-1", percentage: "18" },
+    ]);
+    expect(await listProducts(reopenedDeps)).toMatchObject([
+      { id: product.id, name: "Notebook", savedGstRate: { id: rate.id } },
+    ]);
+    expect(await getProduct(product.id, reopenedDeps)).toMatchObject({
+      code: "NB-1",
+      taxCategory: { id: "taxable" },
+    });
+    reopenedDatabase.close();
+  });
+
+  it("supports updates and activation changes for products and saved rates", async () => {
+    const database = await openFledgeDatabase(new IDBFactory());
+    const repositories = createBrowserRepositories(database);
+    await repositories.businessRepository.save({ id: "business-1" });
+    const deps = productDeps(repositories.productRepository);
+    const rate = await createSavedGstRate({ name: "GST 18", percentage: "18" }, deps);
+    const product = await createProduct({
+      type: "goods",
+      name: "Notebook",
+      unit: "nos",
+      defaultPrice: "100",
+      taxCategoryId: "taxable",
+      savedGstRateId: rate.id,
+      taxInclusive: false,
+    }, deps);
+
+    const retiredRate = await updateSavedGstRate(
+      rate.id,
+      { name: "GST 18", percentage: "18", active: false },
+      deps,
+    );
+    const inactiveProduct = await updateProduct(
+      product.id,
+      {
+        type: "goods",
+        name: "Notebook updated",
+        unit: "nos",
+        defaultPrice: "95",
+        taxCategoryId: "taxable",
+        savedGstRateId: rate.id,
+        taxInclusive: false,
+        active: false,
+      },
+      deps,
+    );
+
+    expect(retiredRate.active).toBe(false);
+    expect(inactiveProduct).toMatchObject({ name: "Notebook updated", active: false });
+    await expect(repositories.productRepository.insertProduct({
+      ...inactiveProduct,
+      id: "new-inactive-rate-product",
+      name: "New notebook",
+      active: true,
+    })).rejects.toThrow(/active saved GST rate/);
+    expect(await listProducts(deps)).toEqual([]);
+    expect(await listProducts(deps, { includeInactive: true })).toHaveLength(1);
+    expect(await listSavedGstRates(deps)).toEqual([]);
+    expect(await listSavedGstRates(deps, { includeInactive: true })).toHaveLength(1);
+    database.close();
+  });
+
+  it("rejects duplicate product codes and saved rate names without partial writes", async () => {
+    const database = await openFledgeDatabase(new IDBFactory());
+    const repositories = createBrowserRepositories(database);
+    await repositories.businessRepository.save({ id: "business-1" });
+    const deps = productDeps(repositories.productRepository);
+    const rate = await createSavedGstRate({ name: "GST 18", percentage: "18" }, deps);
+    const product = await createProduct({
+      type: "goods",
+      name: "Notebook",
+      code: "NB-1",
+      unit: "nos",
+      defaultPrice: "100",
+      taxCategoryId: "taxable",
+      savedGstRateId: rate.id,
+      taxInclusive: false,
+    }, deps);
+
+    await expect(repositories.productRepository.insertProduct({
+      ...product,
+      id: "duplicate-product",
+    })).rejects.toThrow(/code already exists/);
+    await expect(repositories.productRepository.insertSavedGstRate({
+      ...rate,
+      id: "duplicate-rate",
+    })).rejects.toThrow(/rate with this name already exists/);
+
+    expect(await listProducts(deps, { includeInactive: true })).toHaveLength(1);
+    expect(await listSavedGstRates(deps, { includeInactive: true })).toHaveLength(1);
+    database.close();
+  });
+
+  it("rejects cross-business product and saved-rate writes", async () => {
+    const database = await openFledgeDatabase(new IDBFactory());
+    const repositories = createBrowserRepositories(database);
+    await repositories.businessRepository.save({ id: "business-1" });
+    const deps = productDeps(repositories.productRepository);
+
+    await expect(repositories.productRepository.insertSavedGstRate({
+      id: "foreign-rate",
+      businessId: "another-business",
+      name: "GST 5",
+      percentage: "5",
+      active: true,
+      createdAt: "2026-11-01T00:00:00.000Z",
+      updatedAt: "2026-11-01T00:00:00.000Z",
+    })).rejects.toThrow(/business profile/);
+
+    const transaction = database.transaction("savedGstRates", "readwrite");
+    transaction.objectStore("savedGstRates").add({
+      id: "foreign-rate",
+      businessId: "another-business",
+      name: "Foreign GST 5",
+      percentage: "5",
+      active: true,
+      createdAt: "2026-11-01T00:00:00.000Z",
+      updatedAt: "2026-11-01T00:00:00.000Z",
+    });
+    await transactionDone(transaction);
+    await expect(repositories.productRepository.insertProduct({
+      id: "foreign-rate-product",
+      businessId: "business-1",
+      type: "goods",
+      name: "Invalid rate reference",
+      code: null,
+      description: null,
+      hsnSac: null,
+      unit: "nos",
+      defaultPrice: "10",
+      defaultDiscount: "0",
+      taxCategoryId: "taxable",
+      savedGstRateId: "foreign-rate",
+      taxInclusive: false,
+      active: true,
+      createdAt: "2026-11-01T00:00:00.000Z",
+      updatedAt: "2026-11-01T00:00:00.000Z",
+    })).rejects.toThrow(/saved GST rate/);
+
+    await expect(repositories.productRepository.insertProduct({
+      id: "foreign-product",
+      businessId: "another-business",
+      type: "goods",
+      name: "Foreign",
+      code: null,
+      description: null,
+      hsnSac: null,
+      unit: "nos",
+      defaultPrice: "10",
+      defaultDiscount: "0",
+      taxCategoryId: "non-gst",
+      savedGstRateId: null,
+      taxInclusive: false,
+      active: true,
+      createdAt: "2026-11-01T00:00:00.000Z",
+      updatedAt: "2026-11-01T00:00:00.000Z",
+    })).rejects.toThrow(/business profile/);
+    expect(await getProduct("foreign-product", deps)).toBeNull();
+    database.close();
+  });
+
   it("rejects customer writes without an active matching business", async () => {
     const database = await openFledgeDatabase(new IDBFactory());
     const repositories = createBrowserRepositories(database);
@@ -132,7 +332,7 @@ describe("browser IndexedDB repositories", () => {
     const repositories = createBrowserRepositories(database);
     await repositories.businessRepository.save({ id: "business-1" });
 
-    const upgrade = factory.open("fledge-billing", 2);
+    const upgrade = factory.open("fledge-billing", 3);
     upgrade.onupgradeneeded = () => {
       upgrade.result.createObjectStore("future", { keyPath: "id" });
     };
@@ -141,6 +341,31 @@ describe("browser IndexedDB repositories", () => {
     expect(() => database.transaction("business", "readonly")).toThrow();
     expect(await requestResult(upgradedDatabase.transaction("business", "readonly")
       .objectStore("business").get("business-1"))).toEqual({ id: "business-1" });
+    upgradedDatabase.close();
+  });
+
+  it("upgrades version 1 customer data to version 2 product stores", async () => {
+    const factory = new IDBFactory();
+    const legacyRequest = factory.open("fledge-billing", 1);
+    legacyRequest.onupgradeneeded = () => {
+      const database = legacyRequest.result;
+      database.createObjectStore("business", { keyPath: "id" });
+      const customers = database.createObjectStore("customers", { keyPath: "id" });
+      customers.createIndex("businessId", "businessId", { unique: false });
+    };
+    const legacyDatabase = await requestResult(legacyRequest);
+    const transaction = legacyDatabase.transaction(["business", "customers"], "readwrite");
+    transaction.objectStore("business").put({ id: "business-1" });
+    transaction.objectStore("customers").put(customerRecord());
+    await transactionDone(transaction);
+    legacyDatabase.close();
+
+    const upgradedDatabase = await openFledgeDatabase(factory);
+    const repositories = createBrowserRepositories(upgradedDatabase);
+    expect(await repositories.businessRepository.get()).toEqual({ id: "business-1" });
+    expect(await repositories.customerRepository.list()).toHaveLength(1);
+    expect(upgradedDatabase.objectStoreNames.contains("products")).toBe(true);
+    expect(upgradedDatabase.objectStoreNames.contains("savedGstRates")).toBe(true);
     upgradedDatabase.close();
   });
 
@@ -184,9 +409,26 @@ function customerRecord(overrides = {}) {
   };
 }
 
+function productDeps(repository) {
+  let sequence = 0;
+  return {
+    repository,
+    now: () => "2026-11-01T00:00:00.000Z",
+    createId: () => `product-record-${++sequence}`,
+  };
+}
+
 function requestResult(request) {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
+  });
+}
+
+function transactionDone(transaction) {
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = resolve;
+    transaction.onabort = () => reject(transaction.error);
+    transaction.onerror = () => reject(transaction.error);
   });
 }

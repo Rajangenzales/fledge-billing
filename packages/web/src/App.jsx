@@ -1,11 +1,19 @@
 import React, { useEffect, useState } from "react";
 import {
   createCustomer,
+  createProduct,
+  createSavedGstRate,
   getBusinessProfile,
   listCustomers,
+  listProducts,
+  listSavedGstRates,
+  listTaxCategories,
   saveBusinessProfile,
+  updateProduct,
+  updateSavedGstRate,
 } from "@fledge/application/browser";
 import { STATE_UTS } from "@fledge/domain";
+import ProductDirectory from "./ProductDirectory.jsx";
 import {
   createBrowserRepositories,
   openFledgeDatabase,
@@ -44,8 +52,8 @@ function Metric({ label, value, note, icon }) {
   </article>;
 }
 
-function Overview({ business, customers, onNavigate }) {
-  const setupCount = Number(Boolean(business)) + Number(customers.length > 0);
+function Overview({ business, customers, products, onNavigate }) {
+  const setupCount = Number(Boolean(business)) + Number(customers.length > 0) + Number(products.length > 0);
   return <>
     <section className="welcome-row">
       <div><div className="eyebrow">YOUR BUSINESS, IN GOOD ORDER</div><h1>Good morning.</h1><p>{business ? `Welcome to ${business.displayName}.` : "Set up your business workspace to get started."}</p></div>
@@ -55,7 +63,7 @@ function Overview({ business, customers, onNavigate }) {
       <Metric label="Total invoices" value="—" note="Not connected yet" icon="file" />
       <Metric label="Outstanding" value="—" note="Not connected yet" icon="wallet" />
       <Metric label="Customers" value={String(customers.length)} note={customers.length ? "Saved on this device" : "Ready to add"} icon="users" />
-      <Metric label="Products & services" value="—" note="Not connected yet" icon="box" />
+      <Metric label="Products & services" value={String(products.length)} note={products.length ? "Saved on this device" : "Ready to add"} icon="box" />
     </section>
     <section className="content-grid">
       <article className="panel setup-panel">
@@ -64,14 +72,14 @@ function Overview({ business, customers, onNavigate }) {
         <div className="setup-list">
           <button className="setup-item" onClick={() => onNavigate("settings")}><span className="setup-number">01</span><span className="setup-text"><strong>{business ? "Business details saved" : "Add your business details"}</strong><small>Business name, address and GST registration</small></span><Icon name="arrow" /></button>
           <button className="setup-item" onClick={() => onNavigate("customers")}><span className="setup-number">02</span><span className="setup-text"><strong>{customers.length ? `${customers.length} customer${customers.length === 1 ? "" : "s"} saved` : "Add your first customer"}</strong><small>Keep customer and billing details together</small></span><Icon name="arrow" /></button>
-          <button className="setup-item" onClick={() => onNavigate("products")}><span className="setup-number">03</span><span className="setup-text"><strong>Add products or services</strong><small>Product workflows are not connected yet</small></span><Icon name="arrow" /></button>
+          <button className="setup-item" onClick={() => onNavigate("products")}><span className="setup-number">03</span><span className="setup-text"><strong>{products.length ? `${products.length} products or services saved` : "Add products or services"}</strong><small>Manage your reusable catalog and saved rates</small></span><Icon name="arrow" /></button>
         </div>
       </article>
       <aside className="panel privacy-panel">
         <div className="privacy-mark"><Icon name="shield" size={22} /></div>
         <div className="eyebrow">LOCAL-FIRST BY DESIGN</div>
         <h2>Your business data stays on this device.</h2>
-        <p>Business and customer records are stored in this browser's IndexedDB. They are not synced or backed up. Browser storage can be cleared or evicted, so do not keep your only copy of critical records here.</p>
+        <p>Business, customer, product and saved-rate records are stored in this browser's IndexedDB. They are not synced or backed up. Browser storage can be cleared or evicted, so do not keep your only copy of critical records here.</p>
         <div className="privacy-status"><span className="status-dot" /> Local database ready <span className="status-divider">·</span> No data sync</div>
       </aside>
     </section>
@@ -249,6 +257,9 @@ export default function App() {
   const [repositories, setRepositories] = useState(null);
   const [business, setBusiness] = useState(null);
   const [customers, setCustomers] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [savedGstRates, setSavedGstRates] = useState([]);
+  const [taxCategories, setTaxCategories] = useState([]);
   const selected = navigation.find((item) => item.id === active);
 
   useEffect(() => {
@@ -269,9 +280,13 @@ export default function App() {
         const nextRepositories = createBrowserRepositories(database);
         const deps = { repository: nextRepositories.businessRepository, states: STATE_UTS };
         const customerDeps = { repository: nextRepositories.customerRepository, states: STATE_UTS };
-        const [profile, customerList] = await Promise.all([
+        const productDeps = { repository: nextRepositories.productRepository };
+        const [profile, customerList, productList, savedRates, categories] = await Promise.all([
           getBusinessProfile(deps),
           listCustomers(customerDeps),
+          listProducts(productDeps, { includeInactive: true }),
+          listSavedGstRates(productDeps, { includeInactive: true }),
+          listTaxCategories(productDeps),
         ]);
         if (disposed) {
           database.close();
@@ -280,6 +295,9 @@ export default function App() {
         setRepositories(nextRepositories);
         setBusiness(profile);
         setCustomers(customerList);
+        setProducts(productList);
+        setSavedGstRates(savedRates);
+        setTaxCategories(categories);
         setDurabilityWarning(warning);
         setStatus("ready");
       } catch (error) {
@@ -307,6 +325,11 @@ export default function App() {
     now: () => new Date().toISOString(),
     createId,
   };
+  const productDeps = repositories && {
+    repository: repositories.productRepository,
+    now: () => new Date().toISOString(),
+    createId,
+  };
 
   async function handleSaveBusiness(input) {
     const profile = await saveBusinessProfile(input, businessDeps);
@@ -316,6 +339,25 @@ export default function App() {
   async function handleCreateCustomer(input) {
     await createCustomer(input, customerDeps);
     setCustomers(await listCustomers(customerDeps));
+  }
+
+  async function handleSaveProduct(input, id) {
+    if (id) {
+      await updateProduct(id, input, productDeps);
+    } else {
+      await createProduct(input, productDeps);
+    }
+    setProducts(await listProducts(productDeps, { includeInactive: true }));
+  }
+
+  async function handleSaveRate(input, id) {
+    if (id) {
+      await updateSavedGstRate(id, input, productDeps);
+    } else {
+      await createSavedGstRate(input, productDeps);
+    }
+    setSavedGstRates(await listSavedGstRates(productDeps, { includeInactive: true }));
+    setProducts(await listProducts(productDeps, { includeInactive: true }));
   }
 
   return <div className="app-shell">
@@ -335,10 +377,19 @@ export default function App() {
         {status === "ready" && durabilityWarning && <p className="storage-warning" role="status">{durabilityWarning}</p>}
         {status === "loading" && <section className="placeholder-panel" role="status"><div className="placeholder-icon"><Icon name="shield" /></div><h1>Opening your local workspace</h1><p>Connecting to this browser's IndexedDB database. Your records stay on this device.</p></section>}
         {status === "error" && <section className="placeholder-panel storage-error" role="alert"><div className="placeholder-icon"><Icon name="shield" /></div><div className="eyebrow">LOCAL STORAGE UNAVAILABLE</div><h1>Workspace could not be opened</h1><p>{storageError}</p><p>Your data was not loaded. Do not clear browser data or reinstall the app as a recovery step.</p><button className="secondary-button" onClick={() => window.location.reload()}>Try again</button></section>}
-        {status === "ready" && active === "overview" && <Overview business={business} customers={customers} onNavigate={setActive} />}
+        {status === "ready" && active === "overview" && <Overview business={business} customers={customers} products={products} onNavigate={setActive} />}
         {status === "ready" && active === "settings" && <BusinessSettings business={business} onSave={handleSaveBusiness} />}
         {status === "ready" && active === "customers" && <CustomerDirectory business={business} customers={customers} onCreate={handleCreateCustomer} onNavigate={setActive} />}
-        {status === "ready" && !["overview", "settings", "customers"].includes(active) && <Placeholder section={active} onBack={() => setActive("overview")} />}
+        {status === "ready" && active === "products" && <ProductDirectory
+          business={business}
+          products={products}
+          rates={savedGstRates}
+          categories={taxCategories}
+          onNavigate={setActive}
+          onSaveProduct={handleSaveProduct}
+          onSaveRate={handleSaveRate}
+        />}
+        {status === "ready" && !["overview", "settings", "customers", "products"].includes(active) && <Placeholder section={active} onBack={() => setActive("overview")} />}
       </div>
     </main>
   </div>;
