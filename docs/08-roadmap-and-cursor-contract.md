@@ -76,7 +76,9 @@ The current main-branch SQLite registry has twelve migrations, including custome
 
 **M8-03 design progress:** Credit/debit note categories, immutable record expectations, original-invoice linkage, date/numbering boundaries, customer-balance interactions and approval gates are documented in [docs/16](./16-m8-03-credit-debit-note-domain-model.md). This is design-only; no schema, migration, tax calculation or note workflow is authorized. D-05 to D-08 and note-specific decisions remain open pending owner/accountant and qualified GST-practitioner review.
 
-**Next implementation focus:** resolve the owner/accounting decisions and obtain qualified GST-practitioner review before authorizing credit/debit-note persistence or statutory behaviour. Keep customer-ledger effects and statutory tax treatment blocked until approved. Do not reconcile payments against mutable or incomplete financial snapshots. Cross-cutting security and PWA foundations remain mandatory before public release. Do not claim production readiness or cross-platform offline PWA support yet.
+**M8 customer payment activity statement in progress:** A read-only customer-scoped view is being added over existing receipt, allocation, refund and reversal events. It is not a full accounting ledger and does not apply credit/debit-note effects or GST treatment.
+
+**Next implementation focus:** complete the read-only payment activity view, then resolve owner/accounting decisions and obtain qualified GST-practitioner review before authorizing credit/debit-note persistence or statutory behaviour. Do not reconcile payments against mutable or incomplete financial snapshots. Cross-cutting security and PWA foundations remain mandatory before public release. Do not claim production readiness or cross-platform offline PWA support yet.
 
 
 ## 3. Cross-cutting platform and service prerequisites
