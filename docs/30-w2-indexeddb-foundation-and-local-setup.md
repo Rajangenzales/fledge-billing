@@ -1,6 +1,6 @@
 # W2 — IndexedDB Foundation and Local Setup Workflow
 
-**Status:** Business, customer, product and saved-rate browser slices implemented
+**Status:** Business, customer, product, saved-rate and initial billing-document browser slices implemented
 **Depends on:** W1H completion, docs/23 async repository contract, docs/29 payment activity snapshot contract  
 **Scope:** Browser persistence and local setup/catalog workflows
 
@@ -8,7 +8,7 @@
 
 The browser persistence adapter uses the browser's native IndexedDB API without a wrapper dependency. This exercises the existing Promise-based application repository contracts and keeps IndexedDB details inside `packages/web`.
 
-The database is named `fledge-billing`, at version 2:
+The database is named `fledge-billing`, at version 3:
 
 | Object store | Key | Indexes | Records |
 | --- | --- | --- | --- |
@@ -16,8 +16,10 @@ The database is named `fledge-billing`, at version 2:
 | `customers` | `id` | `businessId` | Business-owned customer records |
 | `savedGstRates` | `id` | `businessId` | Business-configured saved percentages |
 | `products` | `id` | `businessId` | Business-owned goods and services |
+| `documents` | `id` | `businessId`, `businessTypeYear` | Drafts and immutable finalized document snapshots |
+| `numberSeries` | `id` | Unique `businessTypeYear` | Per-business, type and financial-year numbering state |
 
-Version 2 creates missing stores/indexes inside the browser's version-change transaction and preserves version 1 business/customer data. Future schema changes must increment the database version, preserve existing records, handle blocked upgrades, and include upgrade tests. SQLite migrations 1–12 are unchanged.
+Version 3 creates missing stores/indexes inside the browser's version-change transaction and preserves version 1 business/customer data. Future schema changes must increment the database version, preserve existing records, handle blocked upgrades, and include upgrade tests. SQLite migration 13 adds the optional document due date; earlier migrations remain unchanged.
 
 ## 2. Atomic repository behaviour
 
@@ -26,6 +28,9 @@ Version 2 creates missing stores/indexes inside the browser's version-change tra
 - Product writes use one read-write transaction spanning `business`, `savedGstRates` and `products`. The transaction verifies business ownership, referenced-rate ownership, active-rate selection for new references, existing-product ownership and business-scoped product-code uniqueness before writing. Existing products can retain their previously selected rate after it becomes inactive.
 - Saved-rate writes use one read-write transaction spanning `business` and `savedGstRates`, verifying business ownership and business-scoped name uniqueness.
 - Product and saved-rate reads are scoped to the current business. Inactive records remain retrievable for editing and historical references; default lists omit inactive records.
+- Document reads are business-scoped. Draft create/edit checks current customer and product ownership; finalization recalculates against current business/customer/product/GST references and atomically writes the finalized snapshot and next number-series value.
+- Finalized documents retain their number, document date, optional due date and calculated financial/tax snapshots. Number allocation uses the financial year derived from the document date; retrying finalization returns the existing finalized snapshot without consuming another number.
+- The browser document screen supports tax invoices, non-GST invoices, bills of supply and quotations, with draft creation/editing, catalog lines, saved-draft totals, finalization and draft cancellation. Receipt/payment workflows are separate. Invalid or missing current references fail rather than issuing a partial document.
 - Tax categories come from the domain catalog. Saved percentages remain user configuration and are not statutory tax rules or calculations.
 - Customer list/get operations are scoped to the current business. The persisted customer record is validated and normalized by `@fledge/application` / `@fledge/domain`.
 - Transaction aborts and storage failures reject; they do not return empty or success-shaped values.
@@ -44,12 +49,14 @@ Browser storage may still be cleared or evicted, and quota failures can prevent 
 - fresh database creation;
 - business-profile and customer persistence after closing and reopening the database;
 - product and saved-rate persistence after closing and reopening the database;
+- draft document persistence after closing and reopening the database, optional due-date validation, date-based numbering, GST recalculation, retry-safe finalization and cancellation;
+- transaction rollback when finalization cannot revalidate a referenced product, without consuming a number;
 - product/rate edits and active/inactive filtering;
 - business-scoped code/name uniqueness and rejection of cross-business writes;
 - active-business scoping and rejection of writes for a missing business or stale/cross-business customer;
 - transaction abort on duplicate records without partial changes;
 - surfaced storage quota and unavailable-IndexedDB failures;
-- blocked upgrades, connection closure on version change and preservation of existing records during an upgrade from schema version 1.
+- blocked upgrades, connection closure on version change and preservation of existing records during an upgrade from schema version 1 to 3.
 
 Production `web:build` retains the browser contract and checks required exports, Node built-in imports and Node runtime globals. The SQLite schema/migrations and Node `/health` shell remain separate and unchanged.
 
@@ -57,9 +64,10 @@ Production `web:build` retains the browser contract and checks required exports,
 
 This is a growing W2/W3 foundation, not complete browser billing:
 
-- Invoices, document numbering, templates, receipts, allocations and adjustments are not yet stored in IndexedDB.
+- Browser document templates are limited to built-in defaults; custom template persistence/customization and custom fields remain in B3. PDF, print and share workflows remain in C2.
+- Receipts, allocations, refunds, reversals and customer payment activity are not yet stored in IndexedDB.
 - Payment activity's SQLite implementation reads one consistent snapshot. A future IndexedDB implementation must load all contributing records and totals in one readonly transaction.
-- Invoice finalization and payment commands must preserve their atomic command boundaries; do not implement them as independent object-store requests.
+- Payment commands must preserve their atomic command boundaries; do not implement them as independent object-store requests.
 - The web assets still require a network load. There is no manifest, service worker, offline first-load guarantee, cloud backup, sync, authentication or subscription handling.
 
 Implement additional browser workflows in focused vertical slices, then add the PWA lifecycle and platform matrix separately as described in [docs/21](./21-pwa-frontend-foundation-plan.md) and [docs/11](./11-pwa-offline-sync-and-platform-operations.md).

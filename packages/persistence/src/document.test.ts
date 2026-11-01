@@ -129,6 +129,7 @@ describe("billing documents", () => {
         customerId: "cust-1",
         documentType: "non_gst_invoice",
         documentDate: "2026-10-31",
+        dueDate: "2026-11-30",
         gstEnabled: false, reverseCharge: false,
         lines: [notebook],
       },
@@ -139,6 +140,7 @@ describe("billing documents", () => {
       status: "draft",
       documentNumber: null,
       financialYear: "2026-27",
+      dueDate: "2026-11-30",
       subtotal: "30.3",
       discountTotal: "3.03",
       taxableTotal: "0",
@@ -148,6 +150,16 @@ describe("billing documents", () => {
     expect(draft.lines[0]).toMatchObject({ lineAmount: "27.27", taxableValue: "27.27" });
     expect(await deps.repository.getNumberSeries("non_gst_invoice", "2026-27")).toBeNull();
     expect(db.prepare("SELECT COUNT(*) AS count FROM document_tax").get()).toMatchObject({ count: 0 });
+    expect(await deps.repository.get(draft.id)).toMatchObject({ dueDate: "2026-11-30" });
+    await expect(createDocument({
+      customerId: "cust-1",
+      documentType: "non_gst_invoice",
+      documentDate: "2026-10-31",
+      dueDate: "2026-10-30",
+      gstEnabled: false,
+      reverseCharge: false,
+      lines: [notebook],
+    }, deps)).rejects.toThrow(/due date cannot be before/);
   });
 
   it("recalculates a draft and keeps the previous draft when a line is rejected", async () => {
@@ -270,6 +282,12 @@ describe("billing documents", () => {
       finalizedAt: "2026-10-31T03:00:00.000Z",
     });
     expect(issued.lines[0]).toMatchObject({ lineAmount: "100", taxableValue: "84.75" });
+    await expect(finalizeDocument(issued.id, deps)).resolves.toMatchObject({
+      status: "finalized",
+      documentNumber: "INV/2026-27/0001",
+    });
+    expect(await deps.repository.getNumberSeries("tax_invoice", "2026-27"))
+      .toMatchObject({ nextNumber: 2 });
 
     const cancelled = await cancelDocument(issued.id, deps);
     expect(cancelled).toMatchObject({
@@ -718,7 +736,13 @@ describe("GST migration", () => {
     expect(taxRows).toEqual([]);
 
     const stored = (await getDocument("old-doc", documentDeps(db)));
-    expect(stored).toMatchObject({ templateId: null, grandTotal: "100", taxTotal: "0", status: "finalized" });
+    expect(stored).toMatchObject({
+      templateId: null,
+      grandTotal: "100",
+      taxTotal: "0",
+      status: "finalized",
+      dueDate: null,
+    });
     const rendered = await renderIssuedDocument("old-doc", {
       documents: createDocumentRepository(db),
       templates: createTemplateRepository(db),

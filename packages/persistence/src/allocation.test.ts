@@ -71,8 +71,8 @@ describe("payment allocations", () => {
     databases.push(db);
     migrate(db, migrations.slice(0, 9));
     expect(readSchemaVersion(db)).toBe(9);
-    expect(migrate(db, migrations)).toMatchObject({ fromVersion: 9, toVersion: 12, appliedVersions: [10, 11, 12] });
-    expect(readSchemaVersion(db)).toBe(12);
+    expect(migrate(db, migrations)).toMatchObject({ fromVersion: 9, toVersion: 13, appliedVersions: [10, 11, 12, 13] });
+    expect(readSchemaVersion(db)).toBe(13);
   });
 
   it("allocates receipts to finalized invoices and derives outstanding and advance balances", async () => {

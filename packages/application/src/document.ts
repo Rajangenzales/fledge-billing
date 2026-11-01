@@ -80,6 +80,7 @@ export type BillingDocument = {
   documentNumber: string | null;
   financialYear: string;
   documentDate: string;
+  dueDate: string | null;
   placeOfSupplyStateId: string | null;
   gstEnabled: boolean;
   reverseCharge: boolean;
@@ -174,6 +175,7 @@ export type SaveDocumentInput = {
   customerId: string;
   documentType: BillingDocument["documentType"];
   documentDate: string;
+  dueDate?: string | null;
   placeOfSupplyStateId?: string | null;
   gstEnabled: boolean;
   reverseCharge: boolean;
@@ -233,7 +235,8 @@ export async function updateDocument(
     throw new BillingError("A finalized document cannot be changed.");
   }
   const business = await requireBusiness(deps);
-  const draft = await buildDraft(input, deps, business, existing.templateId, existing.customFields, {
+  const templateId = input.documentType === existing.documentType ? existing.templateId : null;
+  const draft = await buildDraft(input, deps, business, templateId, existing.customFields, {
     id: existing.id,
     businessId: existing.businessId,
     status: "draft",
@@ -312,6 +315,7 @@ async function buildDraft(
   },
 ): Promise<BillingDocument> {
   const financialYear = financialYearOf(input.documentDate);
+  const dueDate = normalizeDueDate(input.dueDate, input.documentDate);
   const customer = await deps.repository.getCustomer(input.customerId);
   if (!customer) {
     throw new BillingError("Choose a customer.");
@@ -364,6 +368,7 @@ async function buildDraft(
     documentType: input.documentType,
     financialYear,
     documentDate: input.documentDate,
+    dueDate,
     placeOfSupplyStateId: input.gstEnabled ? (input.placeOfSupplyStateId ?? "").trim() : null,
     gstEnabled: input.gstEnabled,
     business,
@@ -444,6 +449,7 @@ async function presentDraft(stored: BillingDocument, deps: DocumentDeps): Promis
       documentType: stored.documentType,
       financialYear: stored.financialYear,
       documentDate: stored.documentDate,
+      dueDate: stored.dueDate ?? null,
       placeOfSupplyStateId: stored.placeOfSupplyStateId,
       gstEnabled: stored.gstEnabled,
       business,
@@ -472,6 +478,7 @@ function toDocument(
     documentType: BillingDocument["documentType"];
     financialYear: string;
     documentDate: string;
+    dueDate: string | null;
     placeOfSupplyStateId: string | null;
     gstEnabled: boolean;
     business: BusinessRef;
@@ -494,6 +501,7 @@ function toDocument(
     documentType: context.documentType,
     financialYear: context.financialYear,
     documentDate: context.documentDate,
+    dueDate: context.dueDate,
     placeOfSupplyStateId: context.placeOfSupplyStateId,
     gstEnabled: context.gstEnabled,
     reverseCharge: calculated.reverseCharge,
@@ -537,6 +545,17 @@ function toDocument(
     templateId: context.templateId,
     customFields: context.customFields,
   };
+}
+
+function normalizeDueDate(dueDate: string | null | undefined, documentDate: string): string | null {
+  if (dueDate === undefined || dueDate === null || dueDate === "") {
+    return null;
+  }
+  financialYearOf(dueDate);
+  if (dueDate < documentDate) {
+    throw new BillingError("The due date cannot be before the document date.");
+  }
+  return dueDate;
 }
 
 async function withProductNature(line: GstLineInput, deps: DocumentDeps): Promise<GstLineInput> {

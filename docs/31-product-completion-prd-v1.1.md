@@ -42,13 +42,13 @@ The following is a planning snapshot of the repository as reviewed on 1 November
 | Business setup | Implemented foundation | Verify complete create, edit, validation, persistence and reload workflows in the browser. |
 | Customer management | Implemented foundation | Verify complete browser CRUD, business scoping, validation and persistence. |
 | Products and saved GST rates | Application/domain foundations and initial browser persistence/catalog workflow implemented | Verify complete browser workflows, ownership, referenced-rate behaviour and persistence on supported browsers. |
-| Billing/document engine | Application/domain foundations implemented | Complete browser draft, edit, finalization, retrieval, numbering and lifecycle workflows. |
+| Billing/document engine | Application/domain foundations and initial browser draft, edit, due-date, numbering and finalization workflow implemented | Complete remaining lifecycle and historical presentation workflows; keep template/PDF/print/share scope tracked separately. |
 | GST engine | Core calculations implemented | Close verified compliance gaps and expand scenario coverage before claiming full GST readiness. |
 | Invoice templates | Implemented foundation | Complete vendor-safe customization, persistence, preview and historical rendering workflows. |
 | PDF, print and share | Partial | Complete customer-facing preview, PDF/print output and supported share workflows. |
 | Payments and advances | Domain/application foundations implemented | Complete browser persistence and end-to-end receipt, allocation, release, refund and reversal workflows. |
 | Payment activity statement | Read-model foundation implemented | Complete user-facing presentation and browser-compatible consistent snapshot support. |
-| IndexedDB | Business/customer slice implemented | Extend persistence to products, saved rates, documents, templates and payment entities while preserving atomic commands. |
+| IndexedDB | Business/customer/product/saved-rate and initial billing-document slices implemented | Extend persistence to templates and payment entities while preserving atomic commands. |
 | Backup and recovery | Not implemented | Implement validated backup, restore, recovery and user guidance. |
 | PWA/offline lifecycle | Not implemented as a complete product capability | Implement app manifest, service worker, offline asset lifecycle and supported-platform verification. |
 | Update and distribution system | Architecture/specification documented | Implement release metadata, update lifecycle, integrity verification and migration-safe recovery. |
@@ -56,7 +56,7 @@ The following is a planning snapshot of the repository as reviewed on 1 November
 | Automated CI and release gates | Not established as a complete pipeline | Add reproducible automated checks and enforce release gates. |
 | Production release | Not ready | Complete all mandatory scope, QA, security, operational and release criteria. |
 
-The current browser IndexedDB implementation supports business profiles, customers, products and saved GST rates. It does not establish that browser-based billing documents, payments, backup, sync or offline first-load are complete. Existing SQLite support and its migration history must be preserved while browser persistence is extended.
+The current browser IndexedDB implementation supports business profiles, customers, products, saved GST rates and an initial billing-document workflow. It does not establish that templates, PDF/print/share, payments, backup, sync or offline first-load are complete. Existing SQLite support and its migration history must be preserved while browser persistence is extended.
 
 Refer to [W2 IndexedDB Foundation](./30-w2-indexeddb-foundation-and-local-setup.md), [W1H Audit](./29-w1h-final-async-boundary-audit.md), and the original roadmap for detailed implementation boundaries.
 
