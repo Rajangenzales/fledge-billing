@@ -196,7 +196,7 @@ These decisions require later evidence and must not be smuggled into W1A.
 - [ ] Run the repository test, typecheck and build commands in a pnpm-enabled environment.
 - [x] Implement the product/saved GST rate async migration (W1D, PR #40 merged).
 - [x] Implement the invoice/document async migration (W1E, PR #41 merged).
-- [x] Implement the template repository and rendering async migration (W1F, PR #42 pending review).
+- [x] Implement the template repository and rendering async migration (W1F, PR #42 merged).\n- [x] Implement the receipt, allocation, payment-adjustment and customer-activity async migration (W1G, PR pending review).
 
 ## 11. Source files inspected
 
