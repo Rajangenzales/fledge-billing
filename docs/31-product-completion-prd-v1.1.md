@@ -39,7 +39,7 @@ The following is a planning snapshot of the repository as reviewed on 1 November
 | Product area | Current baseline | Completion boundary |
 | --- | --- | --- |
 | Application foundation and shell | Implemented foundation | Resolve the current CI/test build-order failure and verify clean-checkout commands. |
-| Business setup | Browser workflow implemented | Complete manual browser verification for validation, edit, reload and business scoping. |
+| Business setup | Browser workflow implemented, including seven sector presets and matching invoice-template defaults | Complete manual browser verification for validation, edit, reload and business scoping. |
 | Customer management | Browser workflow implemented | Complete manual browser verification for CRUD, validation, reload and business scoping. |
 | Products and saved GST rates | Browser persistence and catalog workflows implemented | Complete manual verification of editing, inactive states, saved-rate references and reload behaviour. |
 | Billing/document engine | Browser draft, edit, numbering, finalization and historical snapshots implemented | Verify lifecycle edge cases, financial-year boundaries, retries and immutable issued values. |
@@ -67,6 +67,7 @@ Refer to [W2 IndexedDB Foundation](./30-w2-indexeddb-foundation-and-local-setup.
 V1 must provide the following complete business workflows:
 
 - Business profile setup, including State/UT, address, contact details, GST registration status and invoice preferences.
+- Optional ready-to-bill sector presets for Distributor / Stockist, Wholesaler, Small Retail Shop, Taxi / Cab Operator, Travel Agency, General Service Provider and Goods Transport Agency. A selected preset supplies optional document fields and matching GST/non-GST invoice templates; it does not determine GST treatment or change financial calculations.
 - Customer creation, editing, retrieval and business-scoped ownership.
 - Product/service creation, editing, retrieval, HSN/SAC, units, prices, discounts and saved GST-rate configuration.
 - Tax invoice, non-GST invoice, Bill of Supply, quotation and receipt workflows, subject to the approved document rules.
