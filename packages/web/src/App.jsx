@@ -227,7 +227,7 @@ export function BusinessSettings({ business, onSave, logoPreview }) {
   </section>;
 }
 
-function CustomerDirectory({ business, customers, onSave, onNavigate }) {
+export function CustomerDirectory({ business, customers, onSave, onNavigate }) {
   const emptyValues = () => ({ name: "", billingAddress: "", shippingAddress: "", stateId: business?.stateId ?? "", pinCode: "", phone: "", email: "", registrationType: "unregistered", gstin: "", notes: "", creditDays: "0", active: true });
   const [showForm, setShowForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
