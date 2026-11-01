@@ -5,10 +5,24 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   BACKUP_STORE_NAMES,
+  createBrowserRepositories,
   openFledgeDatabase,
   readBackupRecords,
   replaceBackupRecords,
 } from "./indexed-db.js";
+import { gstinCheckCharacter, STATE_UTS } from "@fledge/domain";
+import {
+  allocateReceiptToInvoice as allocatePayment,
+  createDocument,
+  createProduct,
+  createSavedGstRate,
+  createCustomer,
+  finalizeDocument,
+  getCustomerAdvance,
+  getInvoiceSettlement,
+  recordCustomerReceipt,
+  saveBusinessProfile,
+} from "@fledge/application/browser";
 import { createEncryptedBackup, restoreEncryptedBackup } from "./backup.js";
 import BackupRecovery from "./BackupRecovery.jsx";
 
@@ -18,10 +32,13 @@ const KDF_ITERATIONS = 600_000;
 
 describe("encrypted browser backup and recovery", () => {
   let database;
+  let restoredDatabase;
 
   afterEach(() => {
     database?.close();
+    restoredDatabase?.close();
     database = null;
+    restoredDatabase = null;
   });
 
   it("round-trips every business-owned IndexedDB store in the encrypted backup", async () => {
@@ -53,6 +70,38 @@ describe("encrypted browser backup and recovery", () => {
     await restoreEncryptedBackup(database, backup, PASSPHRASE, webcrypto);
 
     expect(await readBackupRecords(database)).toEqual(original);
+  });
+
+  it("restores a financial workspace into a clean profile with counts and balances preserved", async () => {
+    const source = await createFinancialWorkspace(new IDBFactory());
+    database = source.database;
+    const original = await readBackupRecords(database);
+    const expectedCounts = recordCounts(original);
+    const backup = await createEncryptedBackup(database, PASSPHRASE, webcrypto);
+
+    restoredDatabase = await openFledgeDatabase(new IDBFactory());
+    expect(await readBackupRecords(restoredDatabase)).toEqual(
+      Object.fromEntries(BACKUP_STORE_NAMES.map((store) => [store, []])),
+    );
+    await restoreEncryptedBackup(restoredDatabase, backup, PASSPHRASE, webcrypto);
+
+    const restored = await readBackupRecords(restoredDatabase);
+    expect(restored).toEqual(original);
+    expect(recordCounts(restored)).toEqual(expectedCounts);
+
+    const repositories = createBrowserRepositories(restoredDatabase);
+    const payments = createPaymentDependencies(repositories);
+    expect(await getInvoiceSettlement(source.invoiceId, payments.allocation)).toMatchObject({
+      invoiceTotal: "236",
+      allocatedAmount: "50",
+      outstandingAmount: "186",
+      paymentStatus: "partially_paid",
+    });
+    expect(await getCustomerAdvance(source.customerId, payments.receipt)).toMatchObject({
+      customerId: source.customerId,
+      receiptCount: 1,
+      unallocatedAmount: "150",
+    });
   });
 
   it("uses fresh random salt and IV for each export", async () => {
@@ -109,6 +158,11 @@ describe("encrypted browser backup and recovery", () => {
     });
     await expect(restoreEncryptedBackup(database, incompatibleSchema, PASSPHRASE, webcrypto))
       .rejects.toThrow(/incompatible local database schema/i);
+    const olderSchema = await resealPayload(backup, (payload) => {
+      payload.databaseSchemaVersion -= 1;
+    });
+    await expect(restoreEncryptedBackup(database, olderSchema, PASSPHRASE, webcrypto))
+      .rejects.toThrow(/incompatible local database schema/i);
     expect(await readBackupRecords(database)).toEqual(original);
   });
 
@@ -154,6 +208,138 @@ describe("encrypted browser backup and recovery", () => {
     expect(await readBackupRecords(database)).toEqual(original);
   });
 });
+
+async function createFinancialWorkspace(factory) {
+  const database = await openFledgeDatabase(factory);
+  const repositories = createBrowserRepositories(database);
+  const timestamp = "2026-11-01T00:00:00.000Z";
+  const business = await saveBusinessProfile(
+    {
+      legalName: "Fledge Traders",
+      displayName: "Fledge",
+      address: "Market Road",
+      stateId: "IN-KL",
+      gstRegistered: true,
+      gstin: `32AABCU9603R1Z${gstinCheckCharacter("32AABCU9603R1Z")}`,
+    },
+    {
+      repository: repositories.businessRepository,
+      states: STATE_UTS,
+      now: () => timestamp,
+      createId: () => "business-1",
+    },
+  );
+  const customer = await createCustomer(
+    {
+      name: "Harbour Stores",
+      billingAddress: "Beach Road",
+      stateId: "IN-KL",
+      registrationType: "unregistered",
+    },
+    {
+      repository: repositories.customerRepository,
+      states: STATE_UTS,
+      now: () => timestamp,
+      createId: () => "customer-1",
+    },
+  );
+  const productDependencies = {
+    repository: repositories.productRepository,
+    now: () => timestamp,
+    createId: (() => {
+      let sequence = 0;
+      return () => `catalog-${++sequence}`;
+    })(),
+  };
+  const rate = await createSavedGstRate(
+    { name: "GST 18", percentage: "18" },
+    productDependencies,
+  );
+  const product = await createProduct(
+    {
+      type: "goods",
+      name: "Notebook",
+      code: "NB-1",
+      hsnSac: "482010",
+      unit: "nos",
+      defaultPrice: "100",
+      defaultDiscount: "0",
+      taxCategoryId: "taxable",
+      savedGstRateId: rate.id,
+      taxInclusive: false,
+    },
+    productDependencies,
+  );
+  const documentDependencies = {
+    repository: repositories.documentRepository,
+    states: STATE_UTS,
+    now: () => timestamp,
+    createId: (() => {
+      let sequence = 0;
+      return () => `document-${++sequence}`;
+    })(),
+  };
+  const draft = await createDocument({
+    customerId: customer.id,
+    documentType: "tax_invoice",
+    documentDate: "2026-11-01",
+    placeOfSupplyStateId: "IN-KL",
+    gstEnabled: true,
+    reverseCharge: false,
+    lines: [{
+      productId: product.id,
+      description: "Notebook",
+      hsnSac: "482010",
+      quantity: "2",
+      unit: "nos",
+      rate: "100",
+      discountType: "none",
+      taxInclusive: false,
+      gstRatePercent: "18",
+      taxCategoryId: "taxable",
+    }],
+  }, documentDependencies);
+  const invoice = await finalizeDocument(draft.id, documentDependencies);
+  const payments = createPaymentDependencies(repositories);
+  const receipt = await recordCustomerReceipt({
+    customerId: customer.id,
+    amount: "200",
+    paymentDate: "2026-11-01",
+    method: "upi",
+    idempotencyKey: "restore-test-receipt",
+  }, payments.receipt);
+  await allocatePayment({
+    receiptId: receipt.id,
+    invoiceId: invoice.id,
+    amount: "50",
+    idempotencyKey: "restore-test-allocation",
+  }, payments.allocation);
+
+  return {
+    database,
+    business,
+    customerId: customer.id,
+    invoiceId: invoice.id,
+  };
+}
+
+function createPaymentDependencies(repositories) {
+  let sequence = 0;
+  const dependencies = {
+    now: () => "2026-11-01T00:00:00.000Z",
+    createId: () => `payment-${++sequence}`,
+  };
+  return {
+    receipt: { repository: repositories.customerReceiptRepository, ...dependencies },
+    allocation: { repository: repositories.allocationRepository, ...dependencies },
+  };
+}
+
+function recordCounts(records) {
+  return Object.fromEntries(
+    BACKUP_STORE_NAMES.map((store) => [store, records[store].length]),
+  );
+}
 
 async function populateAllStores(db) {
   const examples = {

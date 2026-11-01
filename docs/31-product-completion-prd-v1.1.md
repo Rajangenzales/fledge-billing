@@ -49,7 +49,7 @@ The following is a planning snapshot of the repository as reviewed on 1 November
 | Payments and advances | Browser receipt, allocation, release, refund and reversal workflows implemented | Continue financial invariant and platform verification. |
 | Payment activity statement | Browser presentation and consistent snapshot support implemented | Continue user-facing and platform verification. |
 | IndexedDB | Business/customer/product/rate/document/template/payment stores implemented | Add versioned recovery workflows while preserving atomic commands. |
-| Backup and recovery | Encrypted local backup/restore implementation in progress | Validate completeness, compatibility, atomic recovery and user guidance. |
+| Backup and recovery | Encrypted local backup/restore implemented and tested | Validate on supported real browsers and continue recovery guidance/compatibility maintenance. |
 | PWA/offline lifecycle | Not implemented as a complete product capability | Implement app manifest, service worker, offline asset lifecycle and supported-platform verification. |
 | Update and distribution system | Architecture/specification documented | Implement release metadata, update lifecycle, integrity verification and migration-safe recovery. |
 | Authentication, accounts and subscription services | Specification/architecture only | Implement the approved security, entitlement and payment-service prerequisites before public release. |
@@ -321,7 +321,7 @@ Requirements:
 - Backup and restore operations are tested across supported schema versions.
 - User-facing guidance explains where the backup is stored and how to protect it.
 
-**Current status:** M9 is in progress. The first implementation slice is an encrypted, passphrase-protected local backup/export and validated restore workflow; cloud backup and synchronization are out of scope.
+**Current status:** M9 is complete for the current browser schema. AES-GCM/PBKDF2-protected export and validation-before-atomic-restore cover all ten business-owned IndexedDB stores. Automated tests restore a financial workspace into a clean profile, compare records and per-store counts, and verify invoice settlement and customer advance invariants. Backup format version 1 supports IndexedDB schema version 5 only and rejects other schemas; see [M9 backup and recovery guidance](./32-m9-backup-recovery.md). Real-browser/platform verification and future compatibility conversions remain maintenance work. Cloud backup and synchronization are out of scope.
 
 ### M10 — PWA lifecycle, update system and distribution
 
