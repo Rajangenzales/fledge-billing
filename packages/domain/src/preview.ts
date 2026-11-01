@@ -191,7 +191,7 @@ function fieldsForSection(
       value: builtInValue(field.key, input),
     }));
   const custom = input.template.customFields
-    .filter((field) => field.sectionKey === sectionKey && field.visible)
+    .filter((field) => field.sectionKey === sectionKey && field.visible && !isItemColumnKey(field.key))
     .sort((left, right) => left.sortOrder - right.sortOrder)
     .map((field) => ({
       key: field.key,
