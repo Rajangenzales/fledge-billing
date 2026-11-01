@@ -203,6 +203,7 @@ export function createDocumentRepository(db: SchemaDatabase): DocumentRepository
     async insert(record) {
       withTransaction(db, () => {
         assertBusiness(db, record.businessId);
+        assertDocumentReferences(db, record);
         writeDocument(db, record, false);
       });
     },
@@ -213,6 +214,7 @@ export function createDocumentRepository(db: SchemaDatabase): DocumentRepository
         if (status !== "draft") {
           throw new BillingError("A finalized document cannot be changed.");
         }
+        assertDocumentReferences(db, record);
         deleteChildren(db, record.id);
         writeDocument(db, record, true);
       });
@@ -363,6 +365,28 @@ export function createDocumentRepository(db: SchemaDatabase): DocumentRepository
         .map(toCustomFieldDefinition);
     },
   };
+}
+
+function assertDocumentReferences(db: SchemaDatabase, record: BillingDocument): void {
+  const customer = db
+    .prepare("SELECT id FROM customer WHERE id = ? AND business_id = ?")
+    .get(record.customerId, record.businessId);
+  if (!customer) {
+    throw new BillingError("Choose a customer.");
+  }
+  const checkedProducts = new Set<string>();
+  for (const line of record.lines) {
+    if (!line.productId || checkedProducts.has(line.productId)) {
+      continue;
+    }
+    checkedProducts.add(line.productId);
+    const product = db
+      .prepare("SELECT id FROM product_service WHERE id = ? AND business_id = ?")
+      .get(line.productId, record.businessId);
+    if (!product) {
+      throw new BillingError("That product was not found.");
+    }
+  }
 }
 
 function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: boolean): void {
