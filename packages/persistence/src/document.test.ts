@@ -307,7 +307,7 @@ describe("billing documents", () => {
     expect(second.documentNumber).toBe("INV/2026-27/0002");
 
     const quotation = await finalizeDocument(
-      await createDocument(
+      (await createDocument(
         {
           customerId: "cust-1",
           documentType: "quotation",
@@ -316,13 +316,13 @@ describe("billing documents", () => {
           lines: [{ ...notebook, discountType: "none", discountValue: null }],
         },
         deps,
-      ).id,
+      )).id,
       deps,
     );
     expect(quotation.documentNumber).toBe("QT/2026-27/0001");
 
     const priorYear = await finalizeDocument(
-      await createDocument(
+      (await createDocument(
         {
           customerId: "cust-1",
           documentType: "tax_invoice",
@@ -343,7 +343,7 @@ describe("billing documents", () => {
           ],
         },
         deps,
-      ).id,
+      )).id,
       deps,
     );
     expect(priorYear.documentNumber).toBe("INV/2025-26/0001");
@@ -423,7 +423,7 @@ describe("billing documents", () => {
     await prepare(db);
     const deps = documentDeps(db);
     const issued = await finalizeDocument(
-      await createDocument(
+      (await createDocument(
         {
           customerId: "cust-1",
           documentType: "tax_invoice",
@@ -445,7 +445,7 @@ describe("billing documents", () => {
           ],
         },
         deps,
-      ).id,
+      )).id,
       deps,
     );
     expect(issued.recipientStateId).toBe("IN-KL");
@@ -487,7 +487,7 @@ describe("billing documents", () => {
       },
     );
     const issued = await finalizeDocument(
-      await createDocument(
+      (await createDocument(
         {
           customerId: "cust-ch",
           documentType: "tax_invoice",
@@ -509,7 +509,7 @@ describe("billing documents", () => {
           ],
         },
         documentDeps(db),
-      ).id,
+      )).id,
       documentDeps(db),
     );
     expect(issued.taxes.map((tax) => tax.taxType)).toEqual(["CGST", "UTGST"]);
@@ -522,7 +522,7 @@ describe("billing documents", () => {
     await prepare(db);
     const deps = documentDeps(db);
     const issued = await finalizeDocument(
-      await createDocument(
+      (await createDocument(
         {
           customerId: "cust-1",
           documentType: "tax_invoice",
@@ -544,7 +544,7 @@ describe("billing documents", () => {
           ],
         },
         deps,
-      ).id,
+      )).id,
       deps,
     );
     db.prepare(
@@ -603,7 +603,7 @@ describe("PDF export", () => {
     await prepare(db);
     const deps = documentDeps(db);
     const issued = await finalizeDocument(
-      await createDocument(
+      (await createDocument(
         {
           customerId: "cust-1",
           documentType: "tax_invoice",
@@ -625,7 +625,7 @@ describe("PDF export", () => {
           ],
         },
         deps,
-      ).id,
+      )).id,
       deps,
     );
     const renderDeps = {

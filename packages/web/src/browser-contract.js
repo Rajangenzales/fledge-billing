@@ -45,4 +45,6 @@ export {
   reverseCustomerRefund,
   listReceiptAdjustments,
   getCustomerPaymentActivity,
+  renderCustomerReceipt,
+  customerReceiptPrintLines,
 } from "@fledge/application/browser";

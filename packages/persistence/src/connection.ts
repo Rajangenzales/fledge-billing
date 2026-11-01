@@ -17,6 +17,25 @@ export type SchemaDatabase = {
   close: () => void;
 };
 
+export async function withReadSnapshot<T>(
+  db: SchemaDatabase,
+  read: () => Promise<T>,
+): Promise<T> {
+  db.exec("BEGIN DEFERRED");
+  try {
+    const result = await read();
+    db.exec("COMMIT");
+    return result;
+  } catch (error) {
+    try {
+      db.exec("ROLLBACK");
+    } catch {
+      // The failed statement may already have ended the transaction.
+    }
+    throw error;
+  }
+}
+
 /**
  * Opens a local database. `:memory:` stays in memory. Any other path creates
  * the parent directory and stores a file. The driver is Node's built-in SQLite.

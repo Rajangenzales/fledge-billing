@@ -95,6 +95,7 @@ export { createLogger, type Logger } from "./logger.js";
 export {
   PAYMENT_METHODS,
   CustomerReceiptError,
+  calculateUnallocatedCustomerAdvance,
   recordCustomerReceipt,
   listCustomerReceipts,
   getCustomerAdvance,
@@ -137,8 +138,11 @@ export {
 
 export {
   getCustomerPaymentActivity,
+  CustomerPaymentActivityError,
   type CustomerPaymentActivity,
   type CustomerPaymentActivityDeps,
   type CustomerPaymentActivityEntry,
+  type CustomerPaymentActivityRepository,
+  type CustomerPaymentActivitySnapshot,
   type CustomerPaymentActivityType,
 } from "./customer-payment-activity.js";

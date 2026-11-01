@@ -1,6 +1,6 @@
 # Fledge Billing — PWA Frontend Foundation Plan
 
-**Status:** W0 browser shell merged (PR #35); W1 audit merged (PR #36); W1A contract merged (PR #37); W1B async business/customer migration merged (PR #38); W1C browser-safe entry and bundle guard merged (PR #39); W1D async product/saved GST rate migration merged (PR #40); W1E async invoice/document migration merged (PR #41); W1F async template migration implemented in PR #42, pending review  
+**Status:** W0–W1G merged (PRs #35–43); W1H audit and verification complete; W2/W3 initial IndexedDB business/customer slice implemented in the current worktree
 **Scope:** First customer-facing browser application foundation  
 **Depends on:** docs/01–03, docs/08–11 and the existing domain/application/persistence packages
 
@@ -8,7 +8,7 @@
 
 The current repository is a TypeScript pnpm monorepo. The `@fledge/app` package is a Node.js CLI and local HTTP health shell. Its HTTP server currently exposes only `/` and `/health`; it does not serve a browser UI.
 
-The existing SQLite adapter uses Node.js 22 `node:sqlite` and is isolated in `@fledge/persistence`. The current package scripts build, typecheck and test the monorepo. React/Vite is now present in `packages/web` as a static browser shell. No service worker, web manifest or IndexedDB adapter is present.
+The existing SQLite adapter uses Node.js 22 `node:sqlite` and is isolated in `@fledge/persistence`. The current package scripts build, typecheck and test the monorepo. React/Vite is present in `packages/web`; the shell now opens a versioned IndexedDB database and supports local business-profile and customer workflows. No service worker or installable PWA lifecycle is present.
 
 The domain/application separation and repository interfaces are reusable architectural foundations, but browser compatibility of every transitive import and application dependency must be audited before bundling them into a browser application. The existing Node SQLite adapter cannot be imported into an ordinary browser runtime.
 
@@ -98,21 +98,20 @@ The browser must not import Node built-ins, `node:sqlite`, filesystem APIs or se
 
 The completed audit is recorded in [docs/22](./22-w1-browser-compatibility-and-repository-audit.md). The domain layer is the browser-reuse candidate; the application root barrel is mixed with Node-only exports; persistence is Node/SQLite-only. Most importantly, current repository interfaces are synchronous and cannot be implemented directly with IndexedDB.
 
-W1A is documented in [docs/23](./23-w1a-async-repository-and-transaction-contract.md). W1B (PR #38) migrated business/customer workflows; W1C (PR #39) established the browser-safe entry and production bundle guard; W1D (PR #40) migrated product/saved-rate workflows; W1E (PR #41) migrated document workflows and invoice rendering while preserving atomic finalization. W1F migrates template repository operations, previews, restoration and issued-document rendering to async contracts while preserving built-in installation, default selection and immutable revision transactions; see [docs/27](./27-w1f-async-template-repository.md), pending review in PR #42. IndexedDB remains deferred until the remaining payment/application repositories are migrated.
+W1A is documented in [docs/23](./23-w1a-async-repository-and-transaction-contract.md). W1B–W1G migrated the business/customer, product, document, template and payment repositories. W1H is complete: application callers are audited, the production browser guard passes, payment activity uses a single adapter-neutral snapshot read, and the browser exports a safe receipt render/print-lines model without PDF code. See [docs/29](./29-w1h-final-async-boundary-audit.md).
 
 ### W2 — IndexedDB foundation
 
-- Implement a versioned IndexedDB adapter for one approved vertical slice only after the remaining application repositories have migrated to the approved async contracts and the browser boundary is verified.
-- Preserve business scoping, stable IDs, idempotency and transaction invariants.
-- Add fresh-database, upgrade, interrupted-upgrade, duplicate-retry and data-preservation tests.
-- Do not silently import or overwrite the existing SQLite database.
+The first W2 slice is implemented in [docs/30](./30-w2-indexeddb-foundation-and-local-setup.md). It uses native IndexedDB without a wrapper and includes only the business-profile and customer repositories. Other repositories remain gated behind their own vertical slices.
+
+- Preserve business scoping, stable IDs and transaction invariants.
+- Resolve writes only after the IndexedDB transaction completes; reject aborted/error transactions.
+- Keep SQLite and migrations 1–12 unchanged. No automatic import or overwrite is performed.
+- Add fresh-database, reopen/persistence, ownership, failure and later-version upgrade tests as the schema evolves.
 
 ### W3 — First usable local workflow
 
-- Select one end-to-end workflow only after W1/W2 contracts are verified.
-- Recommended candidate: business profile and customer management before invoice creation.
-- Add loading, validation, empty, error and success states.
-- Ensure the workflow persists locally and survives browser refresh/restart.
+The initial business-profile and customer workflow is implemented in `packages/web`: it has loading/error/empty/success states, domain validation, business scoping, local persistence and a persistence-on-reopen test. Invoice, product and payment workflows are not connected yet.
 
 ### W4 — PWA lifecycle
 
@@ -140,6 +139,6 @@ W1A is documented in [docs/23](./23-w1a-async-repository-and-transaction-contrac
 - Tests cover the browser entry/build smoke path and any interactive navigation behaviour.
 - Documentation distinguishes a browser shell from a completed PWA or offline billing product.
 
-## 10. Remaining decision
+## 10. Current boundary and next decision
 
-The product owner has confirmed React + Vite and `packages/web`. W1 audit and W1A–W1E are merged. W1F template async migration is under review in PR #42. Payment repositories remain to be migrated. The IndexedDB wrapper and schema remain deferred until the remaining application contracts and browser boundary are verified.
+The product owner approved React + Vite, `packages/web` and IndexedDB. W1H is complete. The first IndexedDB slice uses native APIs; it does not select a reusable wrapper or implement invoice/payment stores. Extend the adapter only through focused vertical slices that preserve the atomicity contracts in docs/23 and the payment activity snapshot contract in docs/29. The service worker, manifest, offline first-load lifecycle, backup and sync remain future work.

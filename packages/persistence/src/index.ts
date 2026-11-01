@@ -19,3 +19,4 @@ export { listStateUts, stateUtMaster } from "./state-ut.js";
 export { createCustomerReceiptRepository, customerReceipt } from "./customer-receipt.js";
 export { allocationEvents, createAllocationRepository } from "./allocation.js";
 export { createPaymentAdjustmentRepository, paymentAdjustments } from "./payment-adjustment.js";
+export { createCustomerPaymentActivityRepository } from "./customer-payment-activity.js";

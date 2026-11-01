@@ -1,4 +1,4 @@
-import { Money, MoneyError, roundHalfUp } from "@fledge/domain";
+import { formatInr, Money, MoneyError, roundHalfUp } from "@fledge/domain";
 
 export const PAYMENT_METHODS = ["cash", "upi", "bank_transfer", "card", "cheque", "other"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
@@ -14,6 +14,7 @@ export type CustomerReceipt = {
 export type RecordCustomerReceiptInput = { customerId: string; amount: string; paymentDate: string; method: PaymentMethod; reference?: string | null; notes?: string | null; idempotencyKey: string };
 export type CustomerReceiptRepository = {
   getBusinessId(): Promise<string | null>;
+  customerExists(customerId: string, businessId: string): Promise<boolean>;
   insert(record: CustomerReceipt): Promise<CustomerReceipt>;
   list(customerId: string): Promise<CustomerReceipt[]>;
   getById(receiptId: string, businessId: string): Promise<CustomerReceipt | null>;
@@ -77,7 +78,7 @@ export function customerReceiptPrintLines(receipt: PrintableCustomerReceipt): st
     ...(receipt.customerPhone ? ["Phone: " + receipt.customerPhone] : []),
     ...(receipt.customerEmail ? ["Email: " + receipt.customerEmail] : []),
     ...(receipt.customerGstin ? ["GSTIN: " + receipt.customerGstin] : []),
-    "", "Amount received: INR " + formatReceiptAmount(receipt.amount), "Payment method: " + receipt.method,
+    "", "Amount received: " + formatReceiptAmount(receipt.amount), "Payment method: " + receipt.method,
     ...(receipt.externalReference ? ["Transaction reference: " + receipt.externalReference] : []),
     ...(receipt.notes ? ["Notes:", receipt.notes] : []), "",
     "This document acknowledges receipt of payment. It is not a tax invoice or statutory GST receipt voucher.",
@@ -87,7 +88,7 @@ export async function printCustomerReceipt(receiptId: string, deps: CustomerRece
   return customerReceiptPrintLines(await renderCustomerReceipt(receiptId, deps)).join("\n");
 }
 function formatReceiptAmount(value: string): string {
-  try { const amount = Money.parse(value).toDecimalString(); const parts = amount.split("."); return (parts[0] ?? "0") + "." + (parts[1] ?? "00").padEnd(2, "0"); }
+  try { return formatInr(Money.parse(value).toDecimalString()); }
   catch { throw new CustomerReceiptError("The saved receipt amount is invalid."); }
 }
 export async function listCustomerReceipts(customerId: string, deps: CustomerReceiptDeps): Promise<CustomerReceipt[]> {
@@ -99,7 +100,12 @@ export async function getCustomerAdvance(customerId: string, deps: CustomerRecei
   const [receipts,total,allocated,adjustments] = await Promise.all([
     deps.repository.list(customerId), deps.repository.total(customerId), deps.repository.allocatedTotal(customerId), deps.repository.adjustmentTotals(customerId),
   ]);
-  return { customerId, currency: "INR", receiptCount: receipts.length, unallocatedAmount: subtractAmounts(total, allocated, adjustments) };
+  return {
+    customerId,
+    currency: "INR",
+    receiptCount: receipts.length,
+    unallocatedAmount: calculateUnallocatedCustomerAdvance(total, allocated, adjustments),
+  };
 }
 async function assertCustomer(customerId: string, deps: CustomerReceiptDeps): Promise<void> {
   const businessId = await deps.repository.getBusinessId();
@@ -132,7 +138,11 @@ function optional(value: string | null | undefined, max: number): string | null 
   if (value.trim().length > max) throw new CustomerReceiptError("A receipt text field is too long.");
   return value.trim();
 }
-function subtractAmounts(total: string, allocated: string, adjustments: { refundedAmount: string; reversedReceiptAmount: string }): string {
+export function calculateUnallocatedCustomerAdvance(
+  total: string,
+  allocated: string,
+  adjustments: { refundedAmount: string; reversedReceiptAmount: string },
+): string {
   try {
     const remaining = Money.parse(total).subtract(Money.parse(allocated)).subtract(Money.parse(adjustments.refundedAmount)).subtract(Money.parse(adjustments.reversedReceiptAmount));
     if (remaining.compare(Money.zero()) < 0) throw new CustomerReceiptError("Customer allocations exceed the available receipts.");

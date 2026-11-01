@@ -84,7 +84,9 @@ export {
 } from "./preview.js";
 
 export {
-  PAYMENT_METHODS, CustomerReceiptError, recordCustomerReceipt, listCustomerReceipts, getCustomerAdvance,
+  PAYMENT_METHODS, CustomerReceiptError, calculateUnallocatedCustomerAdvance,
+  recordCustomerReceipt, listCustomerReceipts, getCustomerAdvance, renderCustomerReceipt,
+  customerReceiptPrintLines,
   type CustomerReceipt, type CustomerReceiptDeps, type CustomerReceiptRepository, type PaymentMethod,
   type ReceiptIdentitySnapshot, type RecordCustomerReceiptInput,
 } from "./customer-receipt.js";
@@ -98,6 +100,7 @@ export {
   type PaymentAdjustmentTotals, type PaymentAdjustmentType,
 } from "./payment-adjustment.js";
 export {
-  getCustomerPaymentActivity, type CustomerPaymentActivity, type CustomerPaymentActivityDeps,
-  type CustomerPaymentActivityEntry, type CustomerPaymentActivityType,
+  getCustomerPaymentActivity, CustomerPaymentActivityError,
+  type CustomerPaymentActivity, type CustomerPaymentActivityDeps, type CustomerPaymentActivityEntry,
+  type CustomerPaymentActivityRepository, type CustomerPaymentActivitySnapshot, type CustomerPaymentActivityType,
 } from "./customer-payment-activity.js";

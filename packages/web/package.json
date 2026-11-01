@@ -10,10 +10,12 @@
   },
   "dependencies": {
     "@fledge/application": "workspace:*",
+    "@fledge/domain": "workspace:^",
     "react": "19.2.0",
     "react-dom": "19.2.0"
   },
   "devDependencies": {
+    "fake-indexeddb": "^6.2.7",
     "vite": "7.3.7"
   }
 }

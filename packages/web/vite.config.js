@@ -49,6 +49,8 @@ const requiredBrowserExports = [
   "reverseCustomerRefund",
   "listReceiptAdjustments",
   "getCustomerPaymentActivity",
+  "renderCustomerReceipt",
+  "customerReceiptPrintLines",
 ];
 
 function browserDependencyGuard() {
@@ -110,6 +112,7 @@ export default defineConfig({
     target: "es2022",
     sourcemap: true,
     rollupOptions: {
+      preserveEntrySignatures: "strict",
       input: {
         index: resolve(packageRoot, "index.html"),
         browserContract: browserContractEntry,

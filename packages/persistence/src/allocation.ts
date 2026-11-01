@@ -1,4 +1,4 @@
-import type { AllocationEvent, AllocationRepository, InvoiceSettlement } from "@fledge/application";
+import type { AllocationEvent, AllocationRepository } from "@fledge/application";
 import { AllocationError } from "@fledge/application";
 import type { SchemaDatabase } from "./connection.js";
 import type { Migration } from "./migrate.js";
