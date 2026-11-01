@@ -70,7 +70,7 @@ describe("customer refunds and receipt reversals", () => {
   });
 
   it("reverses a refund entry without pretending money was returned, and supports receipt reversal", async () => {
-    const { customer, receipt, receiptDeps, adjustmentDeps } = setup();
+    const { customer, receipt, receiptDeps, adjustmentDeps } = await setup();
     const refund = recordCustomerRefund({ receiptId: receipt.id, amount: "50", paymentDate: "2026-10-31", method: "upi", reason: "Duplicate refund entry", idempotencyKey: "refund-1" }, adjustmentDeps);
     expect(getCustomerAdvance(customer.id, receiptDeps).unallocatedAmount).toBe("100");
     const reversal = reverseCustomerRefund({ refundEventId: refund.id, reason: "Refund was entered in error", idempotencyKey: "refund-reversal-1" }, adjustmentDeps);
