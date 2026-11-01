@@ -45,8 +45,8 @@ function productDeps(db: SchemaDatabase) {
   };
 }
 
-function saveBusiness(db: SchemaDatabase): void {
-  saveBusinessProfile(
+async function saveBusiness(db: SchemaDatabase): Promise<void> {
+  await saveBusinessProfile(
     {
       legalName: "Fledge Traders",
       address: "12 Market Road, Kochi",
@@ -63,7 +63,7 @@ function saveBusiness(db: SchemaDatabase): void {
 }
 
 describe("products and services", () => {
-  it("requires a business profile before a product can be saved", () => {
+  it("requires a business profile before a product can be saved", async () => {
     const db = database();
     expect(listTaxCategories(productDeps(db)).map((category) => category.id)).toEqual([
       "taxable",
@@ -76,9 +76,9 @@ describe("products and services", () => {
     ).toThrow(ProductError);
   });
 
-  it("saves a user GST rate and a taxable product without calculating tax", () => {
+  it("saves a user GST rate and a taxable product without calculating tax", async () => {
     const db = database();
-    saveBusiness(db);
+    await saveBusiness(db);
     const deps = productDeps(db);
     const rate = createSavedGstRate({ name: "GST 18", percentage: "18.00" }, deps);
     const created = createProduct(
@@ -154,7 +154,7 @@ describe("products and services", () => {
     expect(getProduct(created.id, deps)?.savedGstRate?.active).toBe(false);
   });
 
-  it("leaves the saved product unchanged when the price is rejected", () => {
+  it("leaves the saved product unchanged when the price is rejected", async () => {
     const db = database();
     saveBusiness(db);
     const deps = productDeps(db);
