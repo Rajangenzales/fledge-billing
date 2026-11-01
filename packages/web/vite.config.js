@@ -34,7 +34,7 @@ function browserDependencyGuard() {
           for (const exportName of requiredBrowserExports) {
             if (!output.exports.includes(exportName)) {
               violations.push(
-                `${fileName}: browser contract is missing export "${exportName}"`,
+                \`\${fileName}: browser contract is missing export "\${exportName}"\`,
               );
             }
           }
@@ -42,12 +42,12 @@ function browserDependencyGuard() {
 
         for (const importedId of [...output.imports, ...output.dynamicImports]) {
           if (forbiddenNodeImport.test(importedId)) {
-            violations.push(`${fileName}: forbidden Node.js dependency "${importedId}"`);
+            violations.push(\`\${fileName}: forbidden Node.js dependency "\${importedId}"\`);
           }
         }
 
-        if (/\\bprocess\\.env\\b|\\b__dirname\\b|\\b__filename\\b/.test(output.code)) {
-          violations.push(`${fileName}: Node.js runtime global found in browser output`);
+        if (/\bprocess\.env\b|\b__dirname\b|\b__filename\b/.test(output.code)) {
+          violations.push(\`\${fileName}: Node.js runtime global found in browser output\`);
         }
       }
 
@@ -57,7 +57,7 @@ function browserDependencyGuard() {
 
       if (violations.length > 0) {
         this.error(
-          `Fledge browser dependency guard failed:\\n- ${violations.join("\\n- ")}`,
+          \`Fledge browser dependency guard failed:\n- \${violations.join("\n- ")}\`,
         );
       }
     },
