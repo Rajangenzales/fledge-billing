@@ -1,25 +1,11 @@
 export type PaymentAdjustmentType = "refund" | "reverse_receipt" | "reverse_refund";
-
 export type PaymentAdjustmentEvent = {
-  id: string;
-  businessId: string;
-  customerId: string;
-  receiptId: string;
-  eventType: PaymentAdjustmentType;
-  originalEventId: string | null;
-  amount: string;
-  paymentDate: string | null;
+  id: string; businessId: string; customerId: string; receiptId: string; eventType: PaymentAdjustmentType;
+  originalEventId: string | null; amount: string; paymentDate: string | null;
   method: "cash" | "upi" | "bank_transfer" | "card" | "cheque" | "other" | null;
-  reason: string;
-  idempotencyKey: string;
-  recordedAt: string;
+  reason: string; idempotencyKey: string; recordedAt: string;
 };
-
-export type PaymentAdjustmentTotals = {
-  refundedAmount: string;
-  reversedReceiptAmount: string;
-};
-
+export type PaymentAdjustmentTotals = { refundedAmount: string; reversedReceiptAmount: string };
 export type PaymentAdjustmentRepository = {
   getBusinessId(): Promise<string | null>;
   customerExists(customerId: string, businessId: string): Promise<boolean>;
@@ -29,43 +15,23 @@ export type PaymentAdjustmentRepository = {
   list(receiptId: string): Promise<PaymentAdjustmentEvent[]>;
   totals(customerId: string): Promise<PaymentAdjustmentTotals>;
 };
-
-export type PaymentAdjustmentDeps = {
-  repository: PaymentAdjustmentRepository;
-  now: () => string;
-  createId: () => string;
-};
-
+export type PaymentAdjustmentDeps = { repository: PaymentAdjustmentRepository; now: () => string; createId: () => string };
 export class PaymentAdjustmentError extends Error {
   readonly userMessage: string;
-  constructor(message: string) {
-    super(message);
-    this.name = "PaymentAdjustmentError";
-    this.userMessage = message;
-  }
+  constructor(message: string) { super(message); this.name = "PaymentAdjustmentError"; this.userMessage = message; }
 }
-
-export function recordCustomerRefund(
-  input: { receiptId: string; amount: string; paymentDate: string; method: PaymentAdjustmentEvent["method"]; reason: string; idempotencyKey: string },
-  deps: PaymentAdjustmentDeps,
-): Promise<PaymentAdjustmentEvent> {
+export async function recordCustomerRefund(input: { receiptId: string; amount: string; paymentDate: string; method: PaymentAdjustmentEvent["method"]; reason: string; idempotencyKey: string }, deps: PaymentAdjustmentDeps): Promise<PaymentAdjustmentEvent> {
   const businessId = await requireBusiness(deps);
   if (!isDate(input.paymentDate)) throw new PaymentAdjustmentError("Enter a valid refund date.");
-  if (!input.method || !["cash", "upi", "bank_transfer", "card", "cheque", "other"].includes(input.method)) {
-    throw new PaymentAdjustmentError("Choose a valid refund method.");
-  }
+  if (!input.method || !["cash", "upi", "bank_transfer", "card", "cheque", "other"].includes(input.method)) throw new PaymentAdjustmentError("Choose a valid refund method.");
   return deps.repository.recordRefund({
     id: deps.createId(), businessId, customerId: "", receiptId: required(input.receiptId, "Choose the original customer receipt.", 120),
-    eventType: "refund", originalEventId: null, amount: positiveAmount(input.amount),
-    paymentDate: input.paymentDate, method: input.method, reason: required(input.reason, "Enter a refund reason.", 1000),
+    eventType: "refund", originalEventId: null, amount: positiveAmount(input.amount), paymentDate: input.paymentDate,
+    method: input.method, reason: required(input.reason, "Enter a refund reason.", 1000),
     idempotencyKey: required(input.idempotencyKey, "A refund request key is required.", 120), recordedAt: deps.now(),
   });
 }
-
-export function reverseCustomerReceipt(
-  input: { receiptId: string; reason: string; idempotencyKey: string },
-  deps: PaymentAdjustmentDeps,
-): Promise<PaymentAdjustmentEvent> {
+export async function reverseCustomerReceipt(input: { receiptId: string; reason: string; idempotencyKey: string }, deps: PaymentAdjustmentDeps): Promise<PaymentAdjustmentEvent> {
   const businessId = await requireBusiness(deps);
   return deps.repository.reverseReceipt({
     id: deps.createId(), businessId, customerId: "", receiptId: required(input.receiptId, "Choose the receipt to reverse.", 120),
@@ -74,25 +40,19 @@ export function reverseCustomerReceipt(
     idempotencyKey: required(input.idempotencyKey, "A reversal request key is required.", 120), recordedAt: deps.now(),
   });
 }
-
-export function reverseCustomerRefund(
-  input: { refundEventId: string; reason: string; idempotencyKey: string },
-  deps: PaymentAdjustmentDeps,
-): Promise<PaymentAdjustmentEvent> {
+export async function reverseCustomerRefund(input: { refundEventId: string; reason: string; idempotencyKey: string }, deps: PaymentAdjustmentDeps): Promise<PaymentAdjustmentEvent> {
   const businessId = await requireBusiness(deps);
   return deps.repository.reverseRefund({
     id: deps.createId(), businessId, customerId: "", receiptId: "", eventType: "reverse_refund",
-    originalEventId: required(input.refundEventId, "Choose the refund entry to reverse.", 120), amount: "0",
-    paymentDate: null, method: null, reason: required(input.reason, "Enter why this refund entry is being reversed.", 1000),
+    originalEventId: required(input.refundEventId, "Choose the refund entry to reverse.", 120), amount: "0", paymentDate: null, method: null,
+    reason: required(input.reason, "Enter why this refund entry is being reversed.", 1000),
     idempotencyKey: required(input.idempotencyKey, "A refund reversal request key is required.", 120), recordedAt: deps.now(),
   });
 }
-
-export function listReceiptAdjustments(receiptId: string, deps: PaymentAdjustmentDeps): PaymentAdjustmentEvent[] {
+export async function listReceiptAdjustments(receiptId: string, deps: PaymentAdjustmentDeps): Promise<PaymentAdjustmentEvent[]> {
   await requireBusiness(deps);
   return deps.repository.list(required(receiptId, "Choose a customer receipt.", 120));
 }
-
 async function requireBusiness(deps: PaymentAdjustmentDeps): Promise<string> {
   const id = await deps.repository.getBusinessId();
   if (!id) throw new PaymentAdjustmentError("Save the business profile before recording a refund or reversal.");
@@ -106,8 +66,7 @@ function positiveAmount(value: string): string {
   return formatPaise(paise);
 }
 function formatPaise(value: bigint): string {
-  const whole = value / 100n;
-  const fraction = (value % 100n).toString().padStart(2, "0");
+  const whole = value / 100n; const fraction = (value % 100n).toString().padStart(2, "0");
   return fraction === "00" ? whole.toString() : `${whole}.${fraction}`;
 }
 function required(value: string, message: string, max: number): string {
