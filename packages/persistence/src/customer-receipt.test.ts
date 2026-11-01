@@ -37,7 +37,7 @@ describe("customer receipts", () => {
     dbs.push(db);
     migrate(db, migrations.slice(0, 8));
     expect(readSchemaVersion(db)).toBe(8);
-    expect(migrate(db, migrations)).toEqual({ fromVersion: 8, toVersion: 17, appliedVersions: [9, 10, 11, 12, 13, 14, 15, 16] });
+    expect(migrate(db, migrations)).toEqual({ fromVersion: 8, toVersion: 17, appliedVersions: [9, 10, 11, 12, 13, 14, 15, 16, 17] });
     expect(db.prepare("SELECT name FROM schema_migration WHERE version = 8").get()).toEqual({ name: "custom-field" });
     expect(db.prepare("SELECT name FROM schema_migration WHERE version = 9").get()).toEqual({ name: "customer-receipt" });
     expect(db.prepare("SELECT name FROM schema_migration WHERE version = 12").get()).toEqual({ name: "receipt-identity-snapshot" });
