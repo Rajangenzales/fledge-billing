@@ -230,8 +230,8 @@ describe("invoice templates", () => {
     await expect(
       reviseTemplate(revised.id, { fields: [{ key: "supplier_gstin", visible: false }] }, templates),
     ).rejects.toThrow(TemplateError);
-    expect(await getTemplate(revised.id, templates)?.version).toBe(2);
-    expect(await listTemplates(templates).filter((template) => template.key === "gst:tax_invoice")).toHaveLength(2);
+    expect((await getTemplate(revised.id, templates))?.version).toBe(2);
+    expect((await listTemplates(templates)).filter((template) => template.key === "gst:tax_invoice")).toHaveLength(2);
   });
 
   it("stores custom field values on the document and leaves them when the template changes", async () => {
@@ -251,7 +251,7 @@ describe("invoice templates", () => {
       templates,
     );
     expect(revised.customFields.map((field) => field.key)).toEqual(["batch-no", "delivery-date"]);
-    expect(await getTemplate("tpl:biz-1:gst:tax_invoice:1", templates)?.customFields).toEqual([]);
+    expect((await getTemplate("tpl:biz-1:gst:tax_invoice:1", templates))?.customFields).toEqual([]);
 
     const input = {
       customerId: "cust-1",
@@ -311,7 +311,7 @@ describe("invoice templates", () => {
       label: "Batch No.",
       value: "A-12",
     });
-    expect(await getTemplate(revised.id, templates)?.customFields[0]?.label).toBe("Batch No.");
+    expect((await getTemplate(revised.id, templates))?.customFields[0]?.label).toBe("Batch No.");
   });
 
   it("previews sample invoices without saving a document or a template edit", async () => {
@@ -338,12 +338,12 @@ describe("invoice templates", () => {
     expect(quotation.sections.flatMap((section) => section.fields).some((field) => field.key === "tax_components")).toBe(
       false,
     );
-    expect(await previewTemplate("tpl:biz-1:standard:non_gst_invoice:1", previewDeps).totals.grandTotal).toBe("27.27");
-    expect(await previewTemplate("tpl:biz-1:receipt:receipt:1", previewDeps).totals).toMatchObject({
+    expect((await previewTemplate("tpl:biz-1:standard:non_gst_invoice:1", previewDeps)).totals.grandTotal).toBe("27.27");
+    expect((await previewTemplate("tpl:biz-1:receipt:receipt:1", previewDeps)).totals).toMatchObject({
       taxTotal: "0",
       grandTotal: "27.27",
     });
-    expect(await previewTemplate("tpl:biz-1:bill-of-supply:bill_of_supply:1", previewDeps).totals).toMatchObject({
+    expect((await previewTemplate("tpl:biz-1:bill-of-supply:bill_of_supply:1", previewDeps)).totals).toMatchObject({
       taxTotal: "0",
       grandTotal: "40",
     });
@@ -358,7 +358,7 @@ describe("invoice templates", () => {
       false,
     );
     expect(edited.totals.grandTotal).toBe("1180");
-    expect(await getTemplate("tpl:biz-1:gst:tax_invoice:1", templates)?.sections.find((section) => section.key === "customer")?.label).toBe(
+    expect((await getTemplate("tpl:biz-1:gst:tax_invoice:1", templates))?.sections.find((section) => section.key === "customer")?.label).toBe(
       "Customer",
     );
     await expect(
@@ -376,17 +376,17 @@ describe("invoice templates", () => {
       { sections: [{ key: "customer", label: "Buyer" }] },
       templates,
     );
-    expect(await previewTemplate("tpl:biz-1:gst:tax_invoice:1", previewDeps).sections.find((section) => section.key === "customer")?.label).toBe(
+    expect((await previewTemplate("tpl:biz-1:gst:tax_invoice:1", previewDeps)).sections.find((section) => section.key === "customer")?.label).toBe(
       "Customer",
     );
-    expect(await previewTemplate(renamed.id, previewDeps).sections.find((section) => section.key === "customer")?.label).toBe(
+    expect((await previewTemplate(renamed.id, previewDeps)).sections.find((section) => section.key === "customer")?.label).toBe(
       "Buyer",
     );
     const restored = await restoreTemplate(renamed.id, templates);
     expect(restored.version).toBe(3);
     expect(restored.sections.find((section) => section.key === "customer")?.label).toBe("Customer");
-    expect(await getTemplate(renamed.id, templates)?.sections.find((section) => section.key === "customer")?.label).toBe("Buyer");
-    expect(await previewTemplate(renamed.id, previewDeps).totals.grandTotal).toBe("1180");
+    expect((await getTemplate(renamed.id, templates))?.sections.find((section) => section.key === "customer")?.label).toBe("Buyer");
+    expect((await previewTemplate(renamed.id, previewDeps)).totals.grandTotal).toBe("1180");
   });
 
   it("renders an issued invoice from its saved template after the default changes", async () => {
