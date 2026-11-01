@@ -471,7 +471,7 @@ export default function DocumentDirectory({
 
   return <section className="workflow-page">
     <div className="page-title">
-      <div><div className="eyebrow">YOUR BUSINESS</div><h1>Invoices &amp; documents</h1><p>Create drafts, review calculated totals, and issue numbered billing documents.</p></div>
+      <div><div className="eyebrow">YOUR BUSINESS</div><h1>Billing</h1><p>Create, save, review and issue invoices and other billing documents in one workspace.</p></div>
       {business && activeCustomers.length > 0 && activeProducts.length > 0 &&
         <button className="primary-button" onClick={startNew}>＋ New document</button>}
     </div>

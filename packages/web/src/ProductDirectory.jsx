@@ -15,7 +15,7 @@ const emptyProduct = {
   active: true,
 };
 
-function ProductForm({ product, rates, categories, onSave, onCancel }) {
+function ProductForm({ product, rates, categories, onSave, onSaveRate, onCancel }) {
   const [values, setValues] = useState(product ? {
     type: product.type,
     name: product.name,
@@ -32,6 +32,7 @@ function ProductForm({ product, rates, categories, onSave, onCancel }) {
   } : emptyProduct);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [showRateForm, setShowRateForm] = useState(false);
 
   function update(field, value) {
     setValues((current) => ({
@@ -68,7 +69,8 @@ function ProductForm({ product, rates, categories, onSave, onCancel }) {
     (rate) => rate.active || rate.id === values.savedGstRateId,
   );
 
-  return <form className="panel form-panel" onSubmit={submit}>
+  return <>
+  <form className="panel form-panel" onSubmit={submit}>
     <h2>{product ? "Edit product or service" : "New product or service"}</h2>
     <div className="form-grid">
       <label>Type<select value={values.type} onChange={(event) => update("type", event.target.value)}><option value="goods">Goods</option><option value="service">Service</option></select></label>
@@ -80,16 +82,19 @@ function ProductForm({ product, rates, categories, onSave, onCancel }) {
       <label>Default discount (₹)<input inputMode="decimal" value={values.defaultDiscount} onChange={(event) => update("defaultDiscount", event.target.value)} /></label>
       <label>Tax category<select value={values.taxCategoryId} onChange={(event) => update("taxCategoryId", event.target.value)}>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
       {values.taxCategoryId === "taxable" && <>
-        <label>Saved GST rate<select required value={values.savedGstRateId} onChange={(event) => update("savedGstRateId", event.target.value)}><option value="">Choose saved rate</option>{selectableRates.map((rate) => <option key={rate.id} value={rate.id}>{rate.name} · {rate.percentage}%{rate.active ? "" : " (inactive)"}</option>)}</select></label>
+        <label>GST rate<select required value={values.savedGstRateId} onChange={(event) => update("savedGstRateId", event.target.value)}><option value="">Choose saved rate</option>{selectableRates.map((rate) => <option key={rate.id} value={rate.id}>{rate.name} · {rate.percentage}%{rate.active ? "" : " (inactive)"}</option>)}</select></label>
+        <button className="list-action form-span" type="button" onClick={() => setShowRateForm((visible) => !visible)}>{showRateForm ? "Close GST rate setup" : selectableRates.length ? "Add another GST rate" : "＋ Add GST rate here"}</button>
         <label className="checkbox-field"><input type="checkbox" checked={values.taxInclusive} onChange={(event) => update("taxInclusive", event.target.checked)} /> Default price includes tax</label>
-        {selectableRates.length === 0 && <p className="form-message form-span">Add an active saved GST rate below before saving a taxable product.</p>}
+        {selectableRates.length === 0 && <p className="form-message form-span">A GST rate is required for a taxable item. Add it here, then select it above.</p>}
       </>}
       <label className="form-span">Description (optional)<textarea rows="2" maxLength={2000} value={values.description} onChange={(event) => update("description", event.target.value)} /></label>
       {product && <label className="checkbox-field form-span"><input type="checkbox" checked={values.active} onChange={(event) => update("active", event.target.checked)} /> Active and available for new documents</label>}
     </div>
     {message && <p className="form-message error-message" role="alert">{message}</p>}
     <div className="form-actions"><span>Product defaults do not calculate or lock document tax.</span><div className="button-row"><button className="secondary-button" type="button" onClick={onCancel}>Cancel</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Saving…" : product ? "Save changes" : "Save product"}</button></div></div>
-  </form>;
+  </form>
+  {showRateForm && <div className="panel form-panel"><h2>Add GST rate</h2><RateForm rate={null} onSave={onSaveRate} onCancel={() => setShowRateForm(false)} /></div>}
+  </>;
 }
 
 function RateForm({ rate, onSave, onCancel }) {
@@ -139,8 +144,8 @@ export default function ProductDirectory({
   const [editingRate, setEditingRate] = useState(undefined);
 
   return <section className="workflow-page">
-    <div className="page-title"><div><div className="eyebrow">YOUR BUSINESS</div><h1>Products &amp; services</h1><p>Manage business-scoped catalog items and user-configured GST rates.</p></div>
-      {business && <button className="primary-button" onClick={() => { setEditingProduct(null); setEditingRate(undefined); }}><span aria-hidden="true">＋</span> Add product</button>}
+    <div className="page-title"><div><div className="eyebrow">YOUR BUSINESS</div><h1>Products &amp; services</h1><p>Manage reusable items. GST rates can now be added without leaving this form.</p></div>
+      {business && <button className="primary-button" onClick={() => { setEditingProduct(null); setEditingRate(undefined); }}><span aria-hidden="true">＋</span> Add product or service</button>}
     </div>
     {!business && <div className="panel empty-state"><h2>Set up your business first</h2><p>A business profile is required before products and saved rates can be added.</p><button className="primary-button" onClick={() => onNavigate("settings")}>Add business details</button></div>}
     {business && <>
@@ -150,6 +155,7 @@ export default function ProductDirectory({
         rates={rates}
         categories={categories}
         onSave={onSaveProduct}
+        onSaveRate={onSaveRate}
         onCancel={() => setEditingProduct(undefined)}
       />}
       <div className="panel customer-list-panel">
