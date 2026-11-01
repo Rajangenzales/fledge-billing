@@ -57,14 +57,14 @@ export type RecordCustomerReceiptInput = {
 };
 
 export type CustomerReceiptRepository = {
-  getBusinessId(): string | null;
-  customerExists(customerId: string, businessId: string): boolean;
-  insert(record: CustomerReceipt): CustomerReceipt;
-  list(customerId: string): CustomerReceipt[];
-  getById(receiptId: string, businessId: string): CustomerReceipt | null;
-  total(customerId: string): string;
-  allocatedTotal(customerId: string): string;
-  adjustmentTotals(customerId: string): { refundedAmount: string; reversedReceiptAmount: string };
+  getBusinessId(): Promise<string | null>;
+  customerExists(customerId: string, businessId: string): Promise<boolean>;
+  insert(record: CustomerReceipt): Promise<CustomerReceipt>;
+  list(customerId: string): Promise<CustomerReceipt[]>;
+  getById(receiptId: string, businessId: string): Promise<CustomerReceipt | null>;
+  total(customerId: string): Promise<string>;
+  allocatedTotal(customerId: string): Promise<string>;
+  adjustmentTotals(customerId: string): Promise<{ refundedAmount: string; reversedReceiptAmount: string }>;
 };
 
 export type PrintableCustomerReceipt = {
@@ -104,10 +104,10 @@ export class CustomerReceiptError extends Error {
 export function recordCustomerReceipt(
   input: RecordCustomerReceiptInput,
   deps: CustomerReceiptDeps,
-): CustomerReceipt {
-  const businessId = deps.repository.getBusinessId();
+): Promise<CustomerReceipt> {
+  const businessId = await deps.repository.getBusinessId();
   if (!businessId) throw new CustomerReceiptError("Save the business profile before recording a receipt.");
-  if (!deps.repository.customerExists(input.customerId, businessId)) {
+  if (!await deps.repository.customerExists(input.customerId, businessId)) {
     throw new CustomerReceiptError("Choose a customer belonging to this business.");
   }
   const amount = normalizeAmount(input.amount);
@@ -134,11 +134,11 @@ export function recordCustomerReceipt(
 }
 
 
-export function renderCustomerReceipt(receiptId: string, deps: CustomerReceiptDeps): PrintableCustomerReceipt {
-  const businessId = deps.repository.getBusinessId();
+export async function renderCustomerReceipt(receiptId: string, deps: CustomerReceiptDeps): Promise<PrintableCustomerReceipt> {
+  const businessId = await deps.repository.getBusinessId();
   if (!businessId) throw new CustomerReceiptError("Save the business profile before viewing receipts.");
   const id = required(receiptId, "Choose a valid receipt.", 120);
-  const receipt = deps.repository.getById(id, businessId);
+  const receipt = await deps.repository.getById(id, businessId);
   if (!receipt) throw new CustomerReceiptError("That receipt was not found for this business.");
   const snapshot = receipt.identitySnapshot;
   if (!snapshot) throw new CustomerReceiptError("This legacy receipt has no receipt-time identity snapshot and cannot be formally printed.");
@@ -190,8 +190,8 @@ export function customerReceiptPrintLines(receipt: PrintableCustomerReceipt): st
   ];
 }
 
-export function printCustomerReceipt(receiptId: string, deps: CustomerReceiptDeps): string {
-  return customerReceiptPrintLines(renderCustomerReceipt(receiptId, deps)).join("\n");
+export async function printCustomerReceipt(receiptId: string, deps: CustomerReceiptDeps): Promise<string> {
+  return customerReceiptPrintLines(await renderCustomerReceipt(receiptId, deps)).join("\n");
 }
 
 function formatReceiptAmount(value: string): string {
@@ -204,29 +204,22 @@ function formatReceiptAmount(value: string): string {
   }
 }
 
-export function listCustomerReceipts(customerId: string, deps: CustomerReceiptDeps): CustomerReceipt[] {
-  assertCustomer(customerId, deps);
+export async function listCustomerReceipts(customerId: string, deps: CustomerReceiptDeps): Promise<CustomerReceipt[]> {
+  await assertCustomer(customerId, deps);
   return deps.repository.list(customerId);
 }
 
-export function getCustomerAdvance(customerId: string, deps: CustomerReceiptDeps): {
-  customerId: string;
-  currency: "INR";
-  receiptCount: number;
-  unallocatedAmount: string;
-} {
-  assertCustomer(customerId, deps);
-  return {
-    customerId,
-    currency: "INR",
-    receiptCount: deps.repository.list(customerId).length,
-    unallocatedAmount: subtractAmounts(deps.repository.total(customerId), deps.repository.allocatedTotal(customerId), deps.repository.adjustmentTotals(customerId)),
-  };
+export async function getCustomerAdvance(customerId: string, deps: CustomerReceiptDeps): Promise<{
+  customerId: string; currency: "INR"; receiptCount: number; unallocatedAmount: string;
+}> {
+  await assertCustomer(customerId, deps);
+  const [receipts,total,allocated,adjustments] = await Promise.all([deps.repository.list(customerId),deps.repository.total(customerId),deps.repository.allocatedTotal(customerId),deps.repository.adjustmentTotals(customerId)]);
+  return { customerId, currency: "INR", receiptCount: receipts.length, unallocatedAmount: subtractAmounts(total,allocated,adjustments) };
 }
 
-function assertCustomer(customerId: string, deps: CustomerReceiptDeps): void {
-  const businessId = deps.repository.getBusinessId();
-  if (!businessId || !deps.repository.customerExists(customerId, businessId)) {
+async function assertCustomer(customerId: string, deps: CustomerReceiptDeps): Promise<void> {
+  const businessId = await deps.repository.getBusinessId();
+  if (!businessId || !await deps.repository.customerExists(customerId, businessId)) {
     throw new CustomerReceiptError("That customer was not found for this business.");
   }
 }
