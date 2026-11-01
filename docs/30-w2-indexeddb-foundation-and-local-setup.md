@@ -37,7 +37,10 @@ Browser storage may still be cleared or evicted, and quota failures can prevent 
 
 - fresh database creation;
 - business-profile and customer persistence after closing and reopening the database;
-- active-business scoping and rejection of a customer write without a matching business.
+- active-business scoping and rejection of writes for a missing business or stale/cross-business customer;
+- transaction abort on duplicate records without partial changes;
+- surfaced storage quota and unavailable-IndexedDB failures;
+- blocked upgrades, connection closure on version change and preservation of existing records during an upgrade.
 
 Production `web:build` retains the browser contract and checks required exports, Node built-in imports and Node runtime globals. The SQLite schema/migrations and Node `/health` shell remain separate and unchanged.
 
