@@ -24,15 +24,15 @@ import { listStateUts } from "./state-ut.js";
 const databases: SchemaDatabase[] = [];
 afterEach(() => { for (const db of databases.splice(0)) db.close(); });
 
-function setup() {
+async function setup() {
   const db = openDatabase(":memory:");
   databases.push(db);
   migrate(db, migrations);
   const states = listStateUts(db);
-  saveBusinessProfile({
+  await saveBusinessProfile({
     legalName: "Fledge Traders", address: "Market Road, Kochi", stateId: "IN-KL", gstRegistered: false,
   }, { repository: createBusinessRepository(db), states, now: () => "2026-10-31T08:00:00.000Z", createId: () => "biz-1" });
-  const customer = createCustomer({
+  const customer = await createCustomer({
     name: "Harbour Stores", billingAddress: "Beach Road, Kochi", stateId: "IN-KL", registrationType: "unregistered",
   }, { repository: createCustomerRepository(db), states, now: () => "2026-10-31T08:01:00.000Z", createId: () => "cust-1" });
   const receiptDeps = {
@@ -66,7 +66,7 @@ function setup() {
 }
 
 describe("payment allocations", () => {
-  it("upgrades a version-9 database with migration 10", () => {
+  it("upgrades a version-9 database with migration 10", async () => {
     const db = openDatabase(":memory:");
     databases.push(db);
     migrate(db, migrations.slice(0, 9));
@@ -75,8 +75,8 @@ describe("payment allocations", () => {
     expect(readSchemaVersion(db)).toBe(10);
   });
 
-  it("allocates receipts to finalized invoices and derives outstanding and advance balances", () => {
-    const { receipt, invoice, allocationDeps, receiptDeps } = setup();
+  it("allocates receipts to finalized invoices and derives outstanding and advance balances", async () => {
+    const { receipt, invoice, allocationDeps, receiptDeps } = await setup();
     const first = allocateReceiptToInvoice({
       receiptId: receipt.id, invoiceId: invoice.id, amount: "60", idempotencyKey: "alloc-1",
     }, allocationDeps);
@@ -93,7 +93,7 @@ describe("payment allocations", () => {
     expect(getCustomerAdvance("cust-1", receiptDeps).unallocatedAmount).toBe("50");
   });
 
-  it("releases an allocation as a compensating event without deleting history", () => {
+  it("releases an allocation as a compensating event without deleting history", async () => {
     const { receipt, invoice, allocationDeps, receiptDeps } = setup();
     const allocation = allocateReceiptToInvoice({
       receiptId: receipt.id, invoiceId: invoice.id, amount: "60", idempotencyKey: "alloc-release-1",
@@ -112,8 +112,8 @@ describe("payment allocations", () => {
     expect(allocationDeps.repository.listReceiptEvents(receipt.id)).toHaveLength(2);
   });
 
-  it("rejects draft invoices and over-allocation", () => {
-    const { receipt, customer, documentDeps, allocationDeps } = setup();
+  it("rejects draft invoices and over-allocation", async () => {
+    const { receipt, customer, documentDeps, allocationDeps } = await setup();
     const draft = createDocument({
       customerId: customer.id, documentType: "non_gst_invoice", documentDate: "2026-10-31",
       gstEnabled: false, reverseCharge: false,
