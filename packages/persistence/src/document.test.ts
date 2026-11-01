@@ -457,7 +457,7 @@ describe("billing documents", () => {
 
   it("stores UTGST for an intra-Union Territory supply in Chandigarh", async () => {
     const db = database();
-    saveBusinessProfile(
+    await saveBusinessProfile(
       {
         legalName: "Chandigarh Supplies",
         address: "1 Sector 17",
@@ -472,7 +472,7 @@ describe("billing documents", () => {
         createId: () => "biz-ch",
       },
     );
-    createCustomer(
+    await createCustomer(
       {
         name: "Local buyer",
         billingAddress: "2 Sector 17",
@@ -662,7 +662,7 @@ describe("GST migration", async () => {
     const db = openDatabase(":memory:");
     openDatabases.push(db);
     migrate(db, migrations.slice(0, 5));
-    saveBusinessProfile(
+    await saveBusinessProfile(
       {
         legalName: "Fledge Traders",
         address: "12 Market Road, Kochi",
@@ -677,7 +677,7 @@ describe("GST migration", async () => {
         createId: () => "biz-1",
       },
     );
-    createCustomer(
+    await createCustomer(
       {
         name: "Meera",
         billingAddress: "1 Beach Road, Kochi",
