@@ -228,6 +228,7 @@ function insertMissingTemplates(db: SchemaDatabase, businessId: string, now: str
         field.protected ? 1 : 0,
       );
     }
+    insertCustomFields(db, id, builtin.customFields ?? []);
   }
 }
 
