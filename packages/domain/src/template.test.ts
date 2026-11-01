@@ -88,6 +88,23 @@ describe("template label revisions", () => {
     expect(revised.sections.find((section) => section.key === "tax-summary")?.label).toBe("Tax summary");
   });
 
+  it("allows business-specific labels for non-statutory billing fields", () => {
+    const revised = reviseTemplateConfiguration(gst(), {
+      fields: [
+        { key: "document_number", label: "Trip ID" },
+        { key: "document_date", label: "Trip Date" },
+        { key: "supplier_legal_name", label: "Transport Operator" },
+        { key: "customer_name", label: "Passenger" },
+        { key: "grand_total", label: "Total Fare" },
+      ],
+    });
+    expect(revised.fields.find((field) => field.key === "document_number")?.label).toBe("Trip ID");
+    expect(revised.fields.find((field) => field.key === "document_date")?.label).toBe("Trip Date");
+    expect(revised.fields.find((field) => field.key === "supplier_legal_name")?.label).toBe("Transport Operator");
+    expect(revised.fields.find((field) => field.key === "customer_name")?.label).toBe("Passenger");
+    expect(revised.fields.find((field) => field.key === "grand_total")?.label).toBe("Total Fare");
+  });
+
   it("rejects a hidden statutory field, a renamed statutory label, and a statutory alias", () => {
     expect(() => reviseTemplateConfiguration(gst(), { fields: [{ key: "supplier_gstin", visible: false }] })).toThrow(
       /stay visible/,

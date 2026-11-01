@@ -251,7 +251,16 @@ export function templateMatchesDocument(template: { documentType: DocumentType }
   return template.documentType === documentType;
 }
 
-const EDITABLE_FIELD_KEYS = new Set<TemplateFieldKey>(["customer_name", "customer_phone", "customer_email", "notes"]);
+const EDITABLE_FIELD_KEYS = new Set<TemplateFieldKey>([
+  "document_number",
+  "document_date",
+  "supplier_legal_name",
+  "customer_name",
+  "customer_phone",
+  "customer_email",
+  "grand_total",
+  "notes",
+]);
 
 const EDITABLE_SECTION_KEYS = new Set<TemplateSectionKey>([
   "header",

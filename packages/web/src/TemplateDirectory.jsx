@@ -7,9 +7,13 @@ import {
 import { CUSTOM_FIELD_TYPES } from "@fledge/domain";
 
 const editableFieldLabels = new Set([
+  "document_number",
+  "document_date",
+  "supplier_legal_name",
   "customer_name",
   "customer_phone",
   "customer_email",
+  "grand_total",
   "notes",
 ]);
 const editableSectionLabels = new Set([
