@@ -61,7 +61,7 @@ describe("browser document directory", () => {
       ...callbacks,
     }));
 
-    expect(html).toContain("Invoices &amp; documents");
+    expect(html).toContain("<h1>Billing</h1>");
     expect(html).toContain("INV/2026-27/0001");
     expect(html).toContain("Harbour Stores");
     expect(html).toContain("Due 2026-11-30");
