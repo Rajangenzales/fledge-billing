@@ -8,12 +8,12 @@
     "Development build; release notes will be published with a production release."
   ],
   "database": {
-    "schemaVersion": 5,
-    "compatibleSchemaVersions": [5],
+    "schemaVersion": 6,
+    "compatibleSchemaVersions": [5, 6],
     "migration": {
       "fromSchemaVersion": 5,
-      "toSchemaVersion": 5,
-      "strategy": "none",
+      "toSchemaVersion": 6,
+      "strategy": "transactional",
       "failureRecovery": "preserve-existing-data"
     }
   },

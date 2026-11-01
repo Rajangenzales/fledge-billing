@@ -92,6 +92,8 @@ button{font:inherit;cursor:pointer}
 .form-grid textarea{resize:vertical;min-height:74px}
 .form-grid input:focus,.form-grid select:focus,.form-grid textarea:focus{border-color:#5a9a7a;box-shadow:0 0 0 3px rgba(67,137,101,.12)}
 .form-span{grid-column:1/-1}
+.logo-upload-field{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.business-logo-preview{display:block;max-width:180px;max-height:90px;object-fit:contain;margin:10px 0}
 .checkbox-field{flex-direction:row!important;align-items:center;gap:9px!important;cursor:pointer}
 .checkbox-field input{width:16px;height:16px;min-height:0;accent-color:#246b53}
 .form-actions{display:flex;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid #edf0f2;margin-top:22px;padding-top:18px}

@@ -39,6 +39,7 @@ import { IDBFactory } from "fake-indexeddb";
 import { describe, expect, it } from "vitest";
 import {
   BrowserStorageError,
+  DATABASE_VERSION,
   createBrowserRepositories,
   openFledgeDatabase,
 } from "./indexed-db.js";
@@ -925,7 +926,7 @@ describe("browser IndexedDB repositories", () => {
     const repositories = createBrowserRepositories(database);
     await repositories.businessRepository.save({ id: "business-1" });
 
-    const upgrade = factory.open("fledge-billing", 6);
+    const upgrade = factory.open("fledge-billing", DATABASE_VERSION + 1);
     upgrade.onupgradeneeded = () => {
       upgrade.result.createObjectStore("future", { keyPath: "id" });
     };
@@ -937,7 +938,7 @@ describe("browser IndexedDB repositories", () => {
     upgradedDatabase.close();
   });
 
-  it("upgrades version 1 customer data to version 5 payment, product, document, and template stores", async () => {
+  it("upgrades version 1 customer data to version 6 payment, product, document, template, and logo stores", async () => {
     const factory = new IDBFactory();
     const legacyRequest = factory.open("fledge-billing", 1);
     legacyRequest.onupgradeneeded = () => {
@@ -965,6 +966,7 @@ describe("browser IndexedDB repositories", () => {
     expect(upgradedDatabase.objectStoreNames.contains("customerReceipts")).toBe(true);
     expect(upgradedDatabase.objectStoreNames.contains("paymentAllocationEvents")).toBe(true);
     expect(upgradedDatabase.objectStoreNames.contains("paymentAdjustmentEvents")).toBe(true);
+    expect(upgradedDatabase.objectStoreNames.contains("logoAssets")).toBe(true);
     upgradedDatabase.close();
   });
 
@@ -1055,7 +1057,9 @@ describe("browser IndexedDB repositories", () => {
 
   it("rejects a blocked database upgrade and closes the late connection", async () => {
     const factory = new IDBFactory();
-    const existing = await requestResult(factory.open("fledge-billing", 1));
+    const seeded = await openFledgeDatabase(factory);
+    seeded.close();
+    const existing = await requestResult(factory.open("fledge-billing", DATABASE_VERSION));
     let lateRequest;
     const blockingFactory = {
       open(name, version) {

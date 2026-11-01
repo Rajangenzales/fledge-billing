@@ -926,10 +926,10 @@ function recalculate(db: SchemaDatabase, stored: BillingDocument): BillingDocume
 
 function readBusinessRef(db: SchemaDatabase): BusinessRef | null {
   const row = db
-    .prepare("SELECT id, legal_name, address, state_id, pin_code, gst_registered, gstin, phone, email,
+    .prepare(`SELECT id, legal_name, address, state_id, pin_code, gst_registered, gstin, phone, email,
             (SELECT value FROM business_setting WHERE business_id = business.id AND key = 'payment_details') AS payment_details,
             (SELECT value FROM business_setting WHERE business_id = business.id AND key = 'invoice_preferences') AS invoice_preferences
-     FROM business")
+     FROM business`)
     .get();
   if (!row || typeof row.id !== "string") {
     return null;

@@ -114,9 +114,9 @@ describe("PWA update lifecycle", () => {
     ["database schema", {
       database: {
         ...makeRelease().database,
-        schemaVersion: 6,
-        compatibleSchemaVersions: [6],
-        migration: { ...makeRelease().database.migration, toSchemaVersion: 6 },
+        schemaVersion: 7,
+        compatibleSchemaVersions: [7],
+        migration: { ...makeRelease().database.migration, toSchemaVersion: 7 },
       },
     }, /database schema/i],
     ["operating system", { support: { ...makeRelease().support, operatingSystems: ["android"] } }, /operating system/i],

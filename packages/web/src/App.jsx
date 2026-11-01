@@ -29,7 +29,7 @@ import {
   updateSavedGstRate,
   updateDocument,
 } from "@fledge/application/browser";
-import { GST_RULE_VERSIONS, STATE_UTS } from "@fledge/domain";
+import { GST_RULE_VERSIONS, STATE_UTS, assertInvoiceLogo } from "@fledge/domain";
 import DocumentDirectory from "./DocumentDirectory.jsx";
 import ProductDirectory from "./ProductDirectory.jsx";
 import TemplateDirectory from "./TemplateDirectory.jsx";
@@ -129,7 +129,7 @@ function Placeholder({ section, onBack }) {
   </section>;
 }
 
-export function BusinessSettings({ business, onSave }) {
+export function BusinessSettings({ business, onSave, logoPreview }) {
   const [values, setValues] = useState(() => ({
     legalName: business?.legalName ?? "",
     displayName: business?.displayName ?? "",
@@ -147,6 +147,26 @@ export function BusinessSettings({ business, onSave }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [saved, setSaved] = useState(false);
+  const [selectedLogo, setSelectedLogo] = useState(null);
+  const [removeLogo, setRemoveLogo] = useState(false);
+
+  async function chooseLogo(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const kind = assertInvoiceLogo(bytes);
+      const mimeType = kind === "png" ? "image/png" : "image/jpeg";
+      setSelectedLogo({ bytes: Array.from(bytes), mimeType, preview: logoBytesToDataUrl(bytes, mimeType) });
+      setRemoveLogo(false);
+      setMessage("");
+      setSaved(false);
+    } catch (error) {
+      setSelectedLogo(null);
+      setMessage(userMessage(error));
+      event.target.value = "";
+    }
+  }
 
   function update(field, value) {
     setValues((current) => ({
@@ -164,7 +184,9 @@ export function BusinessSettings({ business, onSave }) {
     setMessage("");
     setSaved(false);
     try {
-      await onSave(values);
+      await onSave(values, { selectedLogo, removeLogo });
+      setSelectedLogo(null);
+      setRemoveLogo(false);
       setSaved(true);
     } catch (error) {
       setMessage(userMessage(error));
@@ -185,6 +207,13 @@ export function BusinessSettings({ business, onSave }) {
         <label>Phone<input autoComplete="tel" value={values.phone} onChange={(event) => update("phone", event.target.value)} /></label>
         <label>Email<input type="email" autoComplete="email" value={values.email} onChange={(event) => update("email", event.target.value)} /></label>
         <label>Business type<input maxLength={80} placeholder="Retail, wholesale, manufacturing…" value={values.businessType} onChange={(event) => update("businessType", event.target.value)} /></label>
+        <div className="form-span logo-upload-field">
+          <label>Business logo<input type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" onChange={chooseLogo} /></label>
+          <small>PNG or JPEG only. Maximum file size: 1 MB.</small>
+          {(selectedLogo?.preview || (!removeLogo && logoPreview)) && <img className="business-logo-preview" src={selectedLogo?.preview ?? logoPreview} alt="Business logo preview" />}
+          {(selectedLogo || logoPreview) && !removeLogo && <button className="list-action" type="button" onClick={() => { setSelectedLogo(null); setRemoveLogo(true); setMessage(""); setSaved(false); }}>Remove logo</button>}
+          {removeLogo && <p className="form-message">Logo will be removed from future invoices. Previously issued invoices keep their original logo.</p>}
+        </div>
         <label className="form-span">Payment details (optional)<textarea rows="2" maxLength={2000} placeholder="Bank account, UPI ID or payment instructions" value={values.paymentDetails} onChange={(event) => update("paymentDetails", event.target.value)} /></label>
         <label className="form-span">Default invoice notes and preferences (optional)<textarea rows="3" maxLength={2000} placeholder="Default notes, payment terms or invoice instructions" value={values.invoicePreferences} onChange={(event) => update("invoicePreferences", event.target.value)} /></label>
         <label className="checkbox-field form-span"><input type="checkbox" checked={values.gstRegistered} onChange={(event) => update("gstRegistered", event.target.checked)} /> GST-registered business</label>
@@ -267,6 +296,14 @@ function CustomerDirectory({ business, customers, onSave, onNavigate }) {
   </section>;
 }
 
+function logoBytesToDataUrl(bytes, mimeType) {
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return `data:${mimeType};base64,${btoa(binary)}`;
+}
+
 function userMessage(error) {
   return error?.userMessage || error?.message || "The requested change could not be saved.";
 }
@@ -308,6 +345,7 @@ export default function App() {
   const [repositories, setRepositories] = useState(null);
   const [database, setDatabase] = useState(null);
   const [business, setBusiness] = useState(null);
+  const [businessLogo, setBusinessLogo] = useState(null);
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
   const [documents, setDocuments] = useState([]);
@@ -377,6 +415,9 @@ export default function App() {
           now: () => new Date().toISOString(),
         };
         const templateList = profile ? await listTemplates(templateDeps) : [];
+        const logoAsset = profile?.logoReference
+          ? await nextRepositories.logoAssetRepository.get(profile.logoReference)
+          : null;
         if (disposed) {
           database.close();
           return;
@@ -384,6 +425,7 @@ export default function App() {
         setRepositories(nextRepositories);
         setDatabase(database);
         setBusiness(profile);
+        setBusinessLogo(logoAsset ? logoBytesToDataUrl(new Uint8Array(logoAsset.bytes), logoAsset.mimeType) : null);
         setCustomers(customerList);
         setProducts(productList);
         setDocuments(documentList);
@@ -451,9 +493,24 @@ export default function App() {
     repository: repositories.customerPaymentActivityRepository,
   });
 
-  async function handleSaveBusiness(input) {
-    const profile = await saveBusinessProfile(input, businessDeps);
+  async function handleSaveBusiness(input, logoChange = {}) {
+    let profile = await saveBusinessProfile({ ...input, logoReference: business?.logoReference ?? null }, businessDeps);
+    if (logoChange.selectedLogo) {
+      const asset = {
+        id: createId(),
+        businessId: profile.id,
+        mimeType: logoChange.selectedLogo.mimeType,
+        bytes: logoChange.selectedLogo.bytes,
+        createdAt: new Date().toISOString(),
+      };
+      await repositories.logoAssetRepository.insert(asset);
+      profile = await saveBusinessProfile({ ...input, logoReference: asset.id }, businessDeps);
+    } else if (logoChange.removeLogo) {
+      profile = await saveBusinessProfile({ ...input, logoReference: null }, businessDeps);
+    }
+    const logoAsset = profile.logoReference ? await repositories.logoAssetRepository.get(profile.logoReference) : null;
     setBusiness(profile);
+    setBusinessLogo(logoAsset ? logoBytesToDataUrl(new Uint8Array(logoAsset.bytes), logoAsset.mimeType) : null);
     setTemplates(await listTemplates(templateDeps));
   }
 
@@ -504,6 +561,7 @@ export default function App() {
       documents: repositories.documentRepository,
       templates: repositories.templateRepository,
       states: STATE_UTS,
+      logoAssets: repositories.logoAssetRepository,
     });
   }
 
@@ -567,7 +625,9 @@ export default function App() {
       listTaxCategories({ repository: repositories.productRepository }),
       listDocuments({ repository: repositories.documentRepository, states: STATE_UTS }),
     ]);
+    const logoAsset = profile?.logoReference ? await repositories.logoAssetRepository.get(profile.logoReference) : null;
     setBusiness(profile);
+    setBusinessLogo(logoAsset ? logoBytesToDataUrl(new Uint8Array(logoAsset.bytes), logoAsset.mimeType) : null);
     setCustomers(customerList);
     setProducts(productList);
     setSavedGstRates(savedRates);
@@ -597,7 +657,7 @@ export default function App() {
         {status === "loading" && <section className="placeholder-panel" role="status"><div className="placeholder-icon"><Icon name="shield" /></div><h1>Opening your local workspace</h1><p>Connecting to this browser's IndexedDB database. Your records stay on this device.</p></section>}
         {status === "error" && <section className="placeholder-panel storage-error" role="alert"><div className="placeholder-icon"><Icon name="shield" /></div><div className="eyebrow">LOCAL STORAGE UNAVAILABLE</div><h1>Workspace could not be opened</h1><p>{storageError}</p><p>Your data was not loaded. Do not clear browser data or reinstall the app as a recovery step.</p><button className="secondary-button" onClick={() => window.location.reload()}>Try again</button></section>}
         {status === "ready" && active === "overview" && <Overview business={business} customers={customers} products={products} documents={documents} outstandingBalance={outstandingBalance} onNavigate={setActive} />}
-        {status === "ready" && active === "settings" && <BusinessSettings business={business} onSave={handleSaveBusiness} />}
+        {status === "ready" && active === "settings" && <BusinessSettings business={business} onSave={handleSaveBusiness} logoPreview={businessLogo} />}
         {status === "ready" && active === "backup" && <BackupRecovery database={database} onRestore={handleRestoreBackup} />}
         <ApplicationUpdates active={status === "ready" && active === "application"} gstRulesVersion={GST_RULE_VERSIONS[0]?.id ?? "unknown"} />
         {status === "ready" && active === "templates" && <TemplateDirectory

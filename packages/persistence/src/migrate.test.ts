@@ -46,6 +46,7 @@ describe("migrate", () => {
       "document-due-date",
       "document-party-snapshot",
       "customer-credit-period",
+      "invoice-business-detail-snapshots",
     ]);
   });
 

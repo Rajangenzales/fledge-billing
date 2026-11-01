@@ -15,7 +15,8 @@ export async function buildInvoicePdf(render: IssuedRender, logo?: Uint8Array): 
   pdf.setProducer("Fledge Billing");
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const image = logo ? await embedLogo(pdf, logo) : null;
+  const logoBytes = logo ?? render.logoBytes;
+  const image = logoBytes ? await embedLogo(pdf, logoBytes) : null;
   const lines = presentationLines(render);
   const totals = lines.slice(-5);
   const body = lines.slice(0, -5);

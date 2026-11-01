@@ -158,6 +158,14 @@ describe("encrypted browser backup and recovery", () => {
     });
     await expect(restoreEncryptedBackup(database, incompatibleSchema, PASSPHRASE, webcrypto))
       .rejects.toThrow(/incompatible local database schema/i);
+    const legacySchema = await resealPayload(backup, (payload) => {
+      payload.databaseSchemaVersion -= 1;
+      payload.stores = payload.stores.filter((store) => store !== "logoAssets");
+      delete payload.records.logoAssets;
+    });
+    await restoreEncryptedBackup(database, legacySchema, PASSPHRASE, webcrypto);
+    expect((await readBackupRecords(database)).logoAssets).toEqual([]);
+
     const olderSchema = await resealPayload(backup, (payload) => {
       payload.databaseSchemaVersion -= 1;
     });
@@ -381,6 +389,7 @@ async function populateAllStores(db) {
       customerId: "customer-1",
       idempotencyKey: "adjustment-key",
     }],
+    logoAssets: [],
   };
   const transaction = db.transaction(BACKUP_STORE_NAMES, "readwrite");
   for (const store of BACKUP_STORE_NAMES) {

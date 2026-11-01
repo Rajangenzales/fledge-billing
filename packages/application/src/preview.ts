@@ -20,6 +20,14 @@ import {
 import type { DocumentRepository } from "./document.js";
 import { reviseTemplate, type InvoiceTemplate, type TemplateDeps, type TemplateRepository } from "./template.js";
 
+function encodeLogoBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return btoa(binary);
+}
+
 export const PREVIEW_DATE = "2026-10-31";
 
 const SAMPLE_CUSTOMER = {
@@ -39,6 +47,7 @@ export type IssuedRenderDeps = {
   documents: DocumentRepository;
   templates: TemplateRepository;
   states: readonly StateUt[];
+  logoAssets?: { get: (id: string) => Promise<{ mimeType: "image/png" | "image/jpeg"; bytes: number[] } | null> };
 };
 
 export async function previewTemplate(
@@ -98,7 +107,7 @@ export async function renderIssuedDocument(id: string, deps: IssuedRenderDeps): 
   }
   const contact = await deps.documents.getCustomerContact(stored.customerId);
   const place = stored.placeOfSupplyStateId ? findStateUtById(stored.placeOfSupplyStateId, deps.states) : null;
-  return renderStoredDocument({
+  const rendered = renderStoredDocument({
     fallback: saved === null,
     template,
     document: {
@@ -144,6 +153,17 @@ export async function renderIssuedDocument(id: string, deps: IssuedRenderDeps): 
       grandTotal: stored.grandTotal,
     },
   });
+  const logo = stored.logoReferenceSnapshot && deps.logoAssets
+    ? await deps.logoAssets.get(stored.logoReferenceSnapshot)
+    : null;
+  if (stored.logoReferenceSnapshot && deps.logoAssets && !logo) {
+    throw new TemplateError("The original invoice logo is missing from local storage. Restore it from a Fledge backup before exporting this document.");
+  }
+  const logoBytes = logo ? new Uint8Array(logo.bytes) : undefined;
+  const logoDataUrl = logo
+    ? `data:${logo.mimeType};base64,${encodeLogoBase64(new Uint8Array(logo.bytes))}`
+    : undefined;
+  return { ...rendered, logoBytes, logoMimeType: logo?.mimeType, logoDataUrl };
 }
 
 export async function restoreTemplate(id: string, deps: TemplateDeps): Promise<InvoiceTemplate> {

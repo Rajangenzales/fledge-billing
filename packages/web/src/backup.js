@@ -192,6 +192,19 @@ function validatePayload(payload) {
   if (payload.formatVersion !== BACKUP_FORMAT_VERSION) {
     throw new BackupError("This backup format version is not supported by this app.");
   }
+  if (payload.databaseSchemaVersion === DATABASE_VERSION - 1 && isRecord(payload.records) && Array.isArray(payload.stores)) {
+    const legacyStores = BACKUP_STORE_NAMES.filter((store) => store !== "logoAssets");
+    const isLegacyStoreSet =
+      payload.stores.length === legacyStores.length &&
+      payload.stores.every((store, index) => store === legacyStores[index]) &&
+      Object.keys(payload.records).length === legacyStores.length &&
+      legacyStores.every((store) => Object.hasOwn(payload.records, store));
+    if (isLegacyStoreSet) {
+      payload.stores = [...BACKUP_STORE_NAMES];
+      payload.records.logoAssets = [];
+      payload.databaseSchemaVersion = DATABASE_VERSION;
+    }
+  }
   if (payload.databaseSchemaVersion !== DATABASE_VERSION) {
     throw new BackupError("This backup was made with an incompatible local database schema.");
   }
@@ -230,6 +243,16 @@ function validatePayload(payload) {
         businessId = record.id;
       } else if (typeof record.businessId !== "string" || !record.businessId.trim()) {
         throw new BackupError(`A ${storeName} record has no business owner.`);
+      }
+      if (storeName === "logoAssets" && (
+        !["image/png", "image/jpeg"].includes(record.mimeType) ||
+        !Array.isArray(record.bytes) ||
+        record.bytes.length < 4 || record.bytes.length > 1_000_000 ||
+        record.bytes.some((byte) => !Number.isInteger(byte) || byte < 0 || byte > 255) ||
+        (record.mimeType === "image/png" && ![137, 80, 78, 71, 13, 10, 26, 10].every((byte, index) => record.bytes[index] === byte)) ||
+        (record.mimeType === "image/jpeg" && !(record.bytes[0] === 255 && record.bytes[1] === 216 && record.bytes[2] === 255))
+      )) {
+        throw new BackupError("A saved business logo asset is invalid.");
       }
       const requiredIndexFields = REQUIRED_INDEX_FIELDS[storeName] ?? [];
       if (requiredIndexFields.some((field) => record[field] === undefined || record[field] === null)) {
