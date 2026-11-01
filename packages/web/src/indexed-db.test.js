@@ -104,6 +104,35 @@ describe("browser IndexedDB repositories", () => {
     reopenedDatabase.close();
   });
 
+  it("stores customer credit periods and defaults legacy records to immediate payment", async () => {
+    const database = await openFledgeDatabase(new IDBFactory());
+    const repositories = createBrowserRepositories(database);
+    await repositories.businessRepository.save({ id: "business-1" });
+    const deps = {
+      repository: repositories.customerRepository,
+      states: STATE_UTS,
+      now: () => "2026-11-01T00:00:00.000Z",
+      createId: () => "credit-customer",
+    };
+    const customer = await createCustomer({
+      name: "Credit Customer",
+      billingAddress: "Market Road",
+      stateId: "IN-KL",
+      registrationType: "unregistered",
+      creditDays: 30,
+    }, deps);
+    expect(customer.creditDays).toBe(30);
+
+    await repositories.customerRepository.insert(customerRecord({
+      id: "legacy-customer",
+      creditDays: undefined,
+    }));
+    const customers = await listCustomers(deps, { includeInactive: true });
+    expect(customers.find((item) => item.id === "legacy-customer")?.creditDays).toBe(0);
+    expect(customers.find((item) => item.id === "credit-customer")?.creditDays).toBe(30);
+    database.close();
+  });
+
   it("persists saved rates and products across database reopen", async () => {
     const factory = new IDBFactory();
     const database = await openFledgeDatabase(factory);
