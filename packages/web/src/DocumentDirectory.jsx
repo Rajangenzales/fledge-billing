@@ -8,11 +8,19 @@ const documentTypes = [
   ["quotation", "Quotation"],
 ];
 
-function defaultForm(business, customers) {
+function defaultForm(business, customers, templates) {
+  const documentType = business?.gstRegistered ? "tax_invoice" : "non_gst_invoice";
+  const defaultTemplate = templates.find((template) =>
+    template.documentType === documentType && template.isDefault && template.active,
+  );
   return {
     id: null,
     customerId: customers.find((customer) => customer.active)?.id ?? "",
-    documentType: business?.gstRegistered ? "tax_invoice" : "non_gst_invoice",
+    documentType,
+    templateId: defaultTemplate?.id ?? "",
+    customFieldValues: Object.fromEntries(
+      (defaultTemplate?.customFields ?? []).map((field) => [field.key, field.defaultValue ?? ""]),
+    ),
     documentDate: new Date().toISOString().slice(0, 10),
     dueDate: "",
     placeOfSupplyStateId: business?.stateId ?? "",
@@ -27,6 +35,8 @@ function formFromDocument(document) {
     id: document.id,
     customerId: document.customerId,
     documentType: document.documentType,
+    templateId: document.templateId ?? "",
+    customFieldValues: Object.fromEntries(document.customFields.map((field) => [field.key, field.value ?? ""])),
     documentDate: document.documentDate,
     dueDate: document.dueDate ?? "",
     placeOfSupplyStateId: document.placeOfSupplyStateId ?? "",
@@ -70,6 +80,8 @@ function documentInput(form) {
   return {
     customerId: form.customerId,
     documentType: form.documentType,
+    templateId: form.templateId || null,
+    customFields: Object.entries(form.customFieldValues).map(([key, value]) => ({ key, value: value || null })),
     documentDate: form.documentDate,
     dueDate: form.dueDate || null,
     placeOfSupplyStateId: gstEnabled ? form.placeOfSupplyStateId : null,
@@ -97,6 +109,7 @@ export default function DocumentDirectory({
   business,
   customers,
   products,
+  templates,
   documents,
   onNavigate,
   onSave,
@@ -114,13 +127,17 @@ export default function DocumentDirectory({
   const activeProducts = products.filter((product) => product.active);
   const activeCustomers = customers.filter((customer) => customer.active);
   const selectedDocument = documents.find((document) => document.id === selectedDocumentId);
+  const applicableTemplates = templates.filter((template) =>
+    template.documentType === form?.documentType && template.active,
+  );
+  const selectedTemplate = applicableTemplates.find((template) => template.id === form?.templateId);
   const gstEnabled = form && (
     form.documentType === "tax_invoice" ||
     (form.documentType === "quotation" && form.quotationGstEnabled)
   );
 
   function startNew() {
-    setForm(defaultForm(business, activeCustomers));
+    setForm(defaultForm(business, activeCustomers, templates));
     setSelectedDocumentId(null);
     setConfirmCancel(false);
     setConfirmFinalize(false);
@@ -141,6 +158,49 @@ export default function DocumentDirectory({
 
   function updateForm(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
+    setMessage("");
+    setDirty(true);
+    setSavedPreview(null);
+    setConfirmFinalize(false);
+  }
+
+  function changeDocumentType(documentType) {
+    const defaultTemplate = templates.find((template) =>
+      template.documentType === documentType && template.isDefault && template.active,
+    );
+    setForm((current) => ({
+      ...current,
+      documentType,
+      templateId: defaultTemplate?.id ?? "",
+      customFieldValues: Object.fromEntries(
+        (defaultTemplate?.customFields ?? []).map((field) => [field.key, field.defaultValue ?? ""]),
+      ),
+      quotationGstEnabled: documentType === "quotation" ? current.quotationGstEnabled : false,
+    }));
+    setMessage("");
+    setDirty(true);
+    setSavedPreview(null);
+  }
+
+  function changeTemplate(templateId) {
+    const template = applicableTemplates.find((item) => item.id === templateId);
+    setForm((current) => ({
+      ...current,
+      templateId,
+      customFieldValues: Object.fromEntries(
+        (template?.customFields ?? []).map((field) => [field.key, field.defaultValue ?? ""]),
+      ),
+    }));
+    setMessage("");
+    setDirty(true);
+    setSavedPreview(null);
+  }
+
+  function updateCustomValue(key, value) {
+    setForm((current) => ({
+      ...current,
+      customFieldValues: { ...current.customFieldValues, [key]: value },
+    }));
     setMessage("");
     setDirty(true);
     setSavedPreview(null);
@@ -230,7 +290,7 @@ export default function DocumentDirectory({
       {business && activeCustomers.length > 0 && activeProducts.length > 0 &&
         <button className="primary-button" onClick={startNew}>＋ New document</button>}
     </div>
-    <p className="template-limitation">Built-in templates are used. Custom templates and custom fields are not yet available in this browser workflow.</p>
+    <p className="template-limitation">Choose a saved template revision for each document. Manage layouts and custom fields under Document templates.</p>
     {!business && <div className="panel empty-state"><h2>Set up your business first</h2><p>A business profile is required before billing documents can be created.</p><button className="primary-button" onClick={() => onNavigate("settings")}>Add business details</button></div>}
     {business && activeCustomers.length === 0 && <div className="panel empty-state"><h2>Add a customer first</h2><p>Choose an active customer for each billing document.</p><button className="primary-button" onClick={() => onNavigate("customers")}>Add customer</button></div>}
     {business && activeCustomers.length > 0 && activeProducts.length === 0 && <div className="panel empty-state"><h2>Add a product or service first</h2><p>Document lines are selected from your active business catalog.</p><button className="primary-button" onClick={() => onNavigate("products")}>Add product or service</button></div>}
@@ -239,9 +299,9 @@ export default function DocumentDirectory({
       <div className="panel-heading"><div><div className="eyebrow">{form.id ? "SAVED DRAFT" : "NEW DOCUMENT"}</div><h2>{form.id ? "Edit draft" : "Create billing document"}</h2></div><button className="list-action" type="button" onClick={() => setForm(null)}>Close</button></div>
       <div className="form-grid">
         <label>Document type<select value={form.documentType} onChange={(event) => {
-          updateForm("documentType", event.target.value);
-          if (event.target.value !== "quotation") updateForm("quotationGstEnabled", false);
+          changeDocumentType(event.target.value);
         }}>{documentTypes.filter(([type]) => type !== "tax_invoice" || business.gstRegistered).map(([type, label]) => <option key={type} value={type}>{label}</option>)}</select></label>
+        <label>Template<select required value={form.templateId} onChange={(event) => changeTemplate(event.target.value)}><option value="">Choose template</option>{applicableTemplates.map((template) => <option key={template.id} value={template.id}>{template.name} · v{template.version}{template.isDefault ? " · default" : ""}</option>)}</select></label>
         <label>Document date<input required type="date" value={form.documentDate} onChange={(event) => updateForm("documentDate", event.target.value)} /></label>
         <label>Due date (optional)<input type="date" min={form.documentDate} value={form.dueDate} onChange={(event) => updateForm("dueDate", event.target.value)} /></label>
         <label>Customer<select required value={form.customerId} onChange={(event) => updateForm("customerId", event.target.value)}><option value="">Choose customer</option>{activeCustomers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
@@ -249,6 +309,21 @@ export default function DocumentDirectory({
         {form.documentType === "quotation" && business.gstRegistered && <label className="checkbox-field"><input type="checkbox" checked={form.quotationGstEnabled} onChange={(event) => updateForm("quotationGstEnabled", event.target.checked)} /> Calculate GST on this quotation</label>}
         {gstEnabled && <label className="checkbox-field"><input type="checkbox" checked={form.reverseCharge} onChange={(event) => updateForm("reverseCharge", event.target.checked)} /> Reverse charge applies</label>}
       </div>
+      {selectedTemplate?.customFields.filter((field) => field.visible).map((field) => <label className="document-custom-field" key={field.key}>
+        {field.label}{field.required && " *"}
+        {field.type === "long_text"
+          ? <textarea required={field.required} maxLength={2000} value={form.customFieldValues[field.key] ?? ""} onChange={(event) => updateCustomValue(field.key, event.target.value)} />
+          : field.type === "checkbox"
+          ? <input type="checkbox" checked={form.customFieldValues[field.key] === "yes"} onChange={(event) => updateCustomValue(field.key, event.target.checked ? "yes" : "no")} />
+          : <input
+            required={field.required}
+            type={field.type === "date" ? "date" : field.type === "email" ? "email" : field.type === "url" ? "url" : field.type === "number" ? "number" : "text"}
+            maxLength={field.type === "short_text" ? 120 : undefined}
+            value={form.customFieldValues[field.key] ?? ""}
+            onChange={(event) => updateCustomValue(field.key, event.target.value)}
+          />}
+        {field.helperText && <small>{field.helperText}</small>}
+      </label>)}
       <div className="document-lines-heading"><h3>Items</h3><select aria-label="Choose a product to add" value="" onChange={(event) => {
         const product = activeProducts.find((item) => item.id === event.target.value);
         if (product) addProductLine(product);

@@ -5,6 +5,7 @@ import {
   ProductError,
   STATE_UTS,
   TAX_CATEGORIES,
+  TemplateError,
   assertRequiredCustomFields,
   calculateGstDocument,
   defaultDocumentPrefix,
@@ -12,13 +13,14 @@ import {
 } from "@fledge/domain";
 
 const DATABASE_NAME = "fledge-billing";
-const DATABASE_VERSION = 3;
+const DATABASE_VERSION = 4;
 const BUSINESS_STORE = "business";
 const CUSTOMER_STORE = "customers";
 const SAVED_GST_RATE_STORE = "savedGstRates";
 const PRODUCT_STORE = "products";
 const DOCUMENT_STORE = "documents";
 const NUMBER_SERIES_STORE = "numberSeries";
+const TEMPLATE_STORE = "templates";
 
 export class BrowserStorageError extends Error {
   constructor(message) {
@@ -66,6 +68,13 @@ export function openFledgeDatabase(factory = globalThis.indexedDB) {
       if (!database.objectStoreNames.contains(NUMBER_SERIES_STORE)) {
         const series = database.createObjectStore(NUMBER_SERIES_STORE, { keyPath: "id" });
         series.createIndex("businessTypeYear", ["businessId", "documentType", "financialYear"], {
+          unique: true,
+        });
+      }
+      if (!database.objectStoreNames.contains(TEMPLATE_STORE)) {
+        const templates = database.createObjectStore(TEMPLATE_STORE, { keyPath: "id" });
+        templates.createIndex("businessId", "businessId", { unique: false });
+        templates.createIndex("businessKeyVersion", ["businessId", "key", "version"], {
           unique: true,
         });
       }
@@ -231,13 +240,19 @@ export function createBrowserRepositories(database) {
     },
   };
 
-  const documentRepository = createDocumentRepository(database, businessRepository);
+  const templateRepository = createTemplateRepository(database, businessRepository);
+  const documentRepository = createDocumentRepository(
+    database,
+    businessRepository,
+    templateRepository,
+  );
 
   return {
     businessRepository,
     customerRepository,
     productRepository,
     documentRepository,
+    templateRepository,
   };
 }
 
@@ -276,7 +291,192 @@ function writeSavedGstRate(database, record, updating) {
   );
 }
 
-function createDocumentRepository(database, businessRepository) {
+function createTemplateRepository(database, businessRepository) {
+  const getBusinessId = () =>
+    businessRepository.get().then((business) => business?.id ?? null);
+
+  return {
+    getBusinessId,
+    async getBusiness() {
+      const business = await businessRepository.get();
+      return business
+        ? {
+            legalName: business.legalName,
+            stateId: business.stateId,
+            gstRegistered: business.gstRegistered,
+            gstin: business.gstin,
+          }
+        : null;
+    },
+    ensureBuiltIns(businessId, now) {
+      return transact(database, [BUSINESS_STORE, TEMPLATE_STORE], "readwrite", (transaction, set, fail) => {
+        const businessRequest = transaction.objectStore(BUSINESS_STORE).getAll();
+        businessRequest.onsuccess = () => {
+          const business = activeBusiness(businessRequest.result, fail);
+          if (!business) return;
+          if (business.id !== businessId) {
+            fail(new TemplateError("Save the business profile before choosing a template."));
+            return;
+          }
+          const store = transaction.objectStore(TEMPLATE_STORE);
+          const templatesRequest = store.index("businessId").getAll(businessId);
+          templatesRequest.onsuccess = () => {
+            const existing = templatesRequest.result;
+            const keys = new Set(existing.map((template) => `${template.key}:${template.version}`));
+            const currentDefaults = new Set(
+              existing.filter((template) => template.isDefault && template.active)
+                .map((template) => template.documentType),
+            );
+            for (const builtin of BUILT_IN_TEMPLATES) {
+              const identity = `${builtin.key}:1`;
+              if (keys.has(identity)) continue;
+              const makeDefault = builtin.isDefault && !currentDefaults.has(builtin.documentType);
+              const template = browserTemplateRecord(businessId, builtin, now, makeDefault);
+              store.add(template);
+              if (makeDefault) currentDefaults.add(builtin.documentType);
+            }
+            set(undefined);
+          };
+        };
+      });
+    },
+    list(businessId) {
+      return transact(database, [TEMPLATE_STORE], "readonly", (transaction, set) => {
+        const request = transaction.objectStore(TEMPLATE_STORE).index("businessId").getAll(businessId);
+        request.onsuccess = () => set(request.result.sort(compareTemplates));
+      });
+    },
+    get(businessId, id) {
+      return transact(database, [TEMPLATE_STORE], "readonly", (transaction, set) => {
+        const request = transaction.objectStore(TEMPLATE_STORE).get(id);
+        request.onsuccess = () =>
+          set(request.result?.businessId === businessId ? request.result : null);
+      });
+    },
+    setDefault(businessId, id, now) {
+      return transact(database, [BUSINESS_STORE, TEMPLATE_STORE], "readwrite", (transaction, set, fail) => {
+        const businessRequest = transaction.objectStore(BUSINESS_STORE).getAll();
+        businessRequest.onsuccess = () => {
+          const business = activeBusiness(businessRequest.result, fail);
+          if (!business) return;
+          if (business.id !== businessId) {
+            fail(new TemplateError("That template was not found."));
+            return;
+          }
+          const store = transaction.objectStore(TEMPLATE_STORE);
+          const request = store.get(id);
+          request.onsuccess = () => {
+            const selected = request.result;
+            if (selected?.businessId !== businessId || !selected.active) {
+              fail(new TemplateError("That template was not found."));
+              return;
+            }
+            const templatesRequest = store.index("businessId").getAll(businessId);
+            templatesRequest.onsuccess = () => {
+              for (const template of templatesRequest.result) {
+                if (template.documentType !== selected.documentType) continue;
+                const isDefault = template.id === selected.id;
+                if (template.isDefault !== isDefault || template.id === selected.id) {
+                  store.put({ ...template, isDefault, updatedAt: now });
+                }
+              }
+              set(undefined);
+            };
+          };
+        };
+      });
+    },
+    saveRevision(businessId, sourceId, sections, fields, customFields, now) {
+      return transact(database, [BUSINESS_STORE, TEMPLATE_STORE], "readwrite", (transaction, set, fail) => {
+        const businessRequest = transaction.objectStore(BUSINESS_STORE).getAll();
+        businessRequest.onsuccess = () => {
+          const business = activeBusiness(businessRequest.result, fail);
+          if (!business) return;
+          if (business.id !== businessId) {
+            fail(new TemplateError("That template was not found."));
+            return;
+          }
+          const store = transaction.objectStore(TEMPLATE_STORE);
+          const templatesRequest = store.index("businessId").getAll(businessId);
+          templatesRequest.onsuccess = () => {
+            const existing = templatesRequest.result;
+            const source = existing.find((template) => template.id === sourceId && template.active);
+            if (!source) {
+              fail(new TemplateError("That template was not found."));
+              return;
+            }
+            const latestVersion = existing
+              .filter((template) => template.key === source.key)
+              .reduce((latest, template) => Math.max(latest, template.version), 0);
+            if (latestVersion !== source.version) {
+              fail(new TemplateError("Edit the current version of this template."));
+              return;
+            }
+            const version = source.version + 1;
+            const id = `tpl:${businessId}:${source.key}:${version}`;
+            if (source.isDefault) {
+              for (const template of existing) {
+                if (template.documentType === source.documentType && template.isDefault) {
+                  store.put({ ...template, isDefault: false, updatedAt: now });
+                }
+              }
+            }
+            const revision = {
+              ...source,
+              id,
+              version,
+              isDefault: source.isDefault,
+              active: true,
+              sections: sections.map((section) => ({ ...section, id: `${id}:${section.key}` })),
+              fields: fields.map((field) => ({ ...field, id: `${id}:${field.key}` })),
+              customFields: customFields.map((field) => ({
+                ...field,
+                id: `tcf:${id}:${field.key}`,
+              })),
+              createdAt: now,
+              updatedAt: now,
+            };
+            store.add(revision);
+            set(id);
+          };
+        };
+      });
+    },
+  };
+}
+
+function browserTemplateRecord(businessId, builtin, now, isDefault) {
+  const id = `tpl:${businessId}:${builtin.key}:1`;
+  return {
+    id,
+    businessId,
+    key: builtin.key,
+    family: builtin.family,
+    name: builtin.name,
+    purpose: builtin.purpose,
+    documentType: builtin.documentType,
+    version: 1,
+    brandColor: builtin.brandColor,
+    fontFamily: builtin.fontFamily,
+    density: builtin.density,
+    isDefault,
+    active: true,
+    sections: builtin.sections.map((section) => ({ ...section, id: `${id}:${section.key}` })),
+    fields: builtin.fields.map((field) => ({ ...field, id: `${id}:${field.key}` })),
+    customFields: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function compareTemplates(left, right) {
+  return left.documentType.localeCompare(right.documentType) ||
+    Number(right.isDefault) - Number(left.isDefault) ||
+    left.name.localeCompare(right.name) ||
+    left.version - right.version;
+}
+
+function createDocumentRepository(database, businessRepository, templateRepository) {
   const getBusinessId = () =>
     businessRepository.get().then((business) => business?.id ?? null);
 
@@ -431,16 +631,17 @@ function createDocumentRepository(database, businessRepository) {
         });
       });
     },
-    resolveTemplate(documentType, templateId) {
-      return getBusinessId().then((businessId) => {
+    resolveTemplate(documentType, templateId, now) {
+      return getBusinessId().then(async (businessId) => {
         if (!businessId) {
           throw new BillingError("Save the business profile before creating a document.");
         }
-        const available = BUILT_IN_TEMPLATES.filter(
-          (template) => template.documentType === documentType,
+        await templateRepository.ensureBuiltIns(businessId, now);
+        const available = (await templateRepository.list(businessId)).filter(
+          (template) => template.documentType === documentType && template.active,
         );
         const selected = templateId
-          ? available.find((template) => browserTemplateId(businessId, template) === templateId)
+          ? available.find((template) => template.id === templateId)
           : available.find((template) => template.isDefault);
         if (!selected) {
           throw new BillingError(
@@ -449,11 +650,16 @@ function createDocumentRepository(database, businessRepository) {
               : "Choose a template for this document.",
           );
         }
-        return browserTemplateId(businessId, selected);
+        return selected.id;
       });
     },
-    listCustomFields() {
-      return Promise.resolve([]);
+    listCustomFields(templateId) {
+      return getBusinessId().then(async (businessId) => {
+        if (!businessId) return [];
+        const template = await templateRepository.get(businessId, templateId);
+        if (!template?.active) return [];
+        return template.customFields.map(({ id: _id, ...field }) => field);
+      });
     },
   };
 }
@@ -466,10 +672,6 @@ function productRef(product, savedRate) {
     savedGstRatePercent:
       savedRate?.businessId === product.businessId ? savedRate.percentage : null,
   };
-}
-
-function browserTemplateId(businessId, template) {
-  return `tpl:${businessId}:${template.key}:1`;
 }
 
 function writeDocument(database, record, replacingDraft) {

@@ -12,8 +12,13 @@ import {
   listDocuments,
   listProducts,
   listSavedGstRates,
+  listTemplates,
+  previewTemplate,
+  renderIssuedDocument,
+  reviseTemplate,
   saveBusinessProfile,
   saveNumberSeries,
+  setDefaultTemplate,
   updateDocument,
   updateProduct,
   updateSavedGstRate,
@@ -124,6 +129,87 @@ describe("browser IndexedDB repositories", () => {
       taxCategory: { id: "taxable" },
     });
     reopenedDatabase.close();
+  });
+
+  it("persists scoped template revisions, defaults, previews, and document snapshots", async () => {
+    const factory = new IDBFactory();
+    const workspace = await setupDocumentWorkspace(factory);
+    const templateDeps = {
+      repository: workspace.repositories.templateRepository,
+      now: () => "2026-11-01T00:00:00.000Z",
+    };
+    const templates = await listTemplates(templateDeps);
+    const taxTemplates = templates.filter((template) => template.documentType === "tax_invoice");
+    const builtInDefault = taxTemplates.find((template) => template.isDefault);
+    const alternative = taxTemplates.find((template) => !template.isDefault);
+    expect(builtInDefault).toBeTruthy();
+    expect(alternative).toBeTruthy();
+
+    await setDefaultTemplate(alternative.id, templateDeps);
+    const revised = await reviseTemplate(alternative.id, {
+      sections: [{ key: "custom-details", visible: true }],
+      fields: [{ key: "customer_name", label: "Buyer" }],
+      customFields: [{
+        label: "Purchase order",
+        type: "short_text",
+        required: true,
+      }],
+    }, templateDeps);
+
+    expect(revised).toMatchObject({
+      id: `tpl:business-1:${alternative.key}:2`,
+      version: 2,
+      isDefault: true,
+      fields: expect.arrayContaining([expect.objectContaining({ key: "customer_name", label: "Buyer" })]),
+      customFields: [expect.objectContaining({ key: "purchase-order", label: "Purchase order", required: true })],
+    });
+    expect(await workspace.repositories.templateRepository.get("another-business", revised.id)).toBeNull();
+    await expect(reviseTemplate(revised.id, {
+      fields: [{ key: "tax_components", label: "Tax details" }],
+    }, templateDeps)).rejects.toThrow(/Keep the label/);
+
+    const preview = await previewTemplate(revised.id, templateDeps);
+    expect(preview).toMatchObject({ saved: true, templateId: revised.id, version: 2 });
+    expect(preview.sections.flatMap((section) => section.fields))
+      .toContainEqual(expect.objectContaining({ label: "Buyer" }));
+
+    const draft = await createDocument({
+      ...documentInput(workspace),
+      templateId: revised.id,
+      customFields: [{ key: "purchase-order", value: "PO-42" }],
+    }, workspace.documentDeps);
+    expect(draft).toMatchObject({
+      templateId: revised.id,
+      customFields: [expect.objectContaining({ key: "purchase-order", label: "Purchase order", value: "PO-42" })],
+    });
+    const finalized = await finalizeDocument(draft.id, workspace.documentDeps);
+    await setDefaultTemplate(builtInDefault.id, templateDeps);
+    const rendered = await renderIssuedDocument(finalized.id, {
+      documents: workspace.repositories.documentRepository,
+      templates: workspace.repositories.templateRepository,
+      states: STATE_UTS,
+    });
+    expect(rendered.templateId).toBe(revised.id);
+    expect(rendered.sections.flatMap((section) => section.fields))
+      .toContainEqual(expect.objectContaining({
+        key: "purchase-order",
+        label: "Purchase order",
+        value: "PO-42",
+      }));
+
+    workspace.database.close();
+    const reopened = await openFledgeDatabase(factory);
+    const reopenedRepositories = createBrowserRepositories(reopened);
+    const reopenedTemplates = await listTemplates({
+      repository: reopenedRepositories.templateRepository,
+      now: () => "2026-11-02T00:00:00.000Z",
+    });
+    expect(reopenedTemplates).toContainEqual(expect.objectContaining({
+      id: revised.id,
+      isDefault: false,
+      customFields: [expect.objectContaining({ key: "purchase-order" })],
+    }));
+    reopened.close();
   });
 
   it("persists and edits a draft document across database reopen", async () => {
@@ -514,7 +600,7 @@ describe("browser IndexedDB repositories", () => {
     const repositories = createBrowserRepositories(database);
     await repositories.businessRepository.save({ id: "business-1" });
 
-    const upgrade = factory.open("fledge-billing", 4);
+    const upgrade = factory.open("fledge-billing", 5);
     upgrade.onupgradeneeded = () => {
       upgrade.result.createObjectStore("future", { keyPath: "id" });
     };
@@ -526,7 +612,7 @@ describe("browser IndexedDB repositories", () => {
     upgradedDatabase.close();
   });
 
-  it("upgrades version 1 customer data to version 3 product and document stores", async () => {
+  it("upgrades version 1 customer data to version 4 product, document, and template stores", async () => {
     const factory = new IDBFactory();
     const legacyRequest = factory.open("fledge-billing", 1);
     legacyRequest.onupgradeneeded = () => {
@@ -550,6 +636,7 @@ describe("browser IndexedDB repositories", () => {
     expect(upgradedDatabase.objectStoreNames.contains("savedGstRates")).toBe(true);
     expect(upgradedDatabase.objectStoreNames.contains("documents")).toBe(true);
     expect(upgradedDatabase.objectStoreNames.contains("numberSeries")).toBe(true);
+    expect(upgradedDatabase.objectStoreNames.contains("templates")).toBe(true);
     upgradedDatabase.close();
   });
 
