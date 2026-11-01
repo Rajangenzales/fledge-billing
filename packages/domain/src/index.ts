@@ -113,6 +113,7 @@ export {
   type PreviewCharge,
   type PreviewField,
   type PreviewItem,
+  type ItemColumnLabels,
   type PreviewSection,
   type IssuedRender,
   type PreviewTemplate,

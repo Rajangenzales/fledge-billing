@@ -25,12 +25,20 @@ export function presentationLines(render: IssuedRender): string[] {
     }
   }
   if (render.items.length > 0) {
+    const labels = render.itemColumnLabels;
     lines.push("Items");
+    lines.push([labels.description, labels.quantity, labels.unit, labels.rate, labels.amount,
+      ...(render.items.some((item) => item.hsnSac) ? [labels.hsnSac] : [])].join(" | "));
     for (const item of render.items) {
-      const hsn = item.hsnSac ? ` HSN ${item.hsnSac}` : "";
-      lines.push(
-        `${item.description} — ${item.quantity} ${item.unit}${hsn} — ${formatInr(item.rate)} — ${formatInr(item.amount)}`,
-      );
+      const columns = [
+        `${labels.description}: ${item.description}`,
+        `${labels.quantity}: ${item.quantity}`,
+        `${labels.unit}: ${item.unit}`,
+        `${labels.rate}: ${formatInr(item.rate)}`,
+        `${labels.amount}: ${formatInr(item.amount)}`,
+      ];
+      if (item.hsnSac) columns.push(`${labels.hsnSac}: ${item.hsnSac}`);
+      lines.push(columns.join(" | "));
     }
   }
   if (render.charges.length > 0) {
