@@ -657,7 +657,7 @@ describe("PDF export", () => {
   });
 });
 
-describe("GST migration", async () => {
+describe("GST migration", () => {
   it("leaves an already finalized M4 document untaxed", async () => {
     const db = openDatabase(":memory:");
     openDatabases.push(db);
