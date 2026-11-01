@@ -138,13 +138,13 @@ export const billingDocument: Migration = {
 
 export function createDocumentRepository(db: SchemaDatabase): DocumentRepository {
   return {
-    getBusinessId() {
+    async getBusinessId() {
       return readBusinessId(db);
     },
-    getBusiness() {
+    async getBusiness() {
       return readBusinessRef(db);
     },
-    getCustomerContact(id) {
+    async getCustomerContact(id) {
       const businessId = readBusinessId(db);
       if (!businessId) {
         return null;
@@ -161,24 +161,24 @@ export function createDocumentRepository(db: SchemaDatabase): DocumentRepository
         email: nullableText(row.email),
       };
     },
-    getCustomer(id) {
+    async getCustomer(id) {
       const businessId = readBusinessId(db);
       if (!businessId) {
         return null;
       }
       return readCustomerRef(db, id, businessId);
     },
-    getProduct(id) {
+    async getProduct(id) {
       const businessId = readBusinessId(db);
       if (!businessId) {
         return null;
       }
       return readProductRef(db, id, businessId);
     },
-    listGstRuleVersions() {
+    async listGstRuleVersions() {
       return readGstRuleVersions(db);
     },
-    list() {
+    async list() {
       const businessId = readBusinessId(db);
       if (!businessId) {
         return [];
@@ -192,7 +192,7 @@ export function createDocumentRepository(db: SchemaDatabase): DocumentRepository
         .all(businessId)
         .map((row) => readDocument(db, text(row.id, "id")));
     },
-    get(id) {
+    async get(id) {
       const businessId = readBusinessId(db);
       if (!businessId) {
         return null;
@@ -200,13 +200,13 @@ export function createDocumentRepository(db: SchemaDatabase): DocumentRepository
       const row = db.prepare("SELECT id FROM document WHERE id = ? AND business_id = ?").get(id, businessId);
       return row ? readDocument(db, id) : null;
     },
-    insert(record) {
+    async insert(record) {
       withTransaction(db, () => {
         assertBusiness(db, record.businessId);
         writeDocument(db, record, false);
       });
     },
-    replaceDraft(record) {
+    async replaceDraft(record) {
       withTransaction(db, () => {
         assertBusiness(db, record.businessId);
         const status = readStatus(db, record.id, record.businessId);
@@ -217,7 +217,7 @@ export function createDocumentRepository(db: SchemaDatabase): DocumentRepository
         writeDocument(db, record, true);
       });
     },
-    finalize(id, finalizedAt) {
+    async finalize(id, finalizedAt) {
       return withTransaction(db, () => {
         const businessId = readBusinessId(db);
         if (!businessId) {
@@ -264,7 +264,7 @@ export function createDocumentRepository(db: SchemaDatabase): DocumentRepository
         return readDocument(db, id);
       });
     },
-    cancel(id, updatedAt) {
+    async cancel(id, updatedAt) {
       return withTransaction(db, () => {
         const businessId = readBusinessId(db);
         if (!businessId) {
@@ -291,14 +291,14 @@ export function createDocumentRepository(db: SchemaDatabase): DocumentRepository
         return readDocument(db, id);
       });
     },
-    getNumberSeries(documentType, financialYear) {
+    async getNumberSeries(documentType, financialYear) {
       const businessId = readBusinessId(db);
       if (!businessId) {
         return null;
       }
       return readSeries(db, businessId, documentType, financialYear);
     },
-    saveNumberSeries(record) {
+    async saveNumberSeries(record) {
       withTransaction(db, () => {
         assertBusiness(db, record.businessId);
         const issued = issuedNumber(db, record.businessId, record.documentType, record.financialYear);
@@ -337,21 +337,21 @@ export function createDocumentRepository(db: SchemaDatabase): DocumentRepository
         }
       });
     },
-    hasIssuedNumber(documentType, financialYear) {
+    async hasIssuedNumber(documentType, financialYear) {
       const businessId = readBusinessId(db);
       if (!businessId) {
         return false;
       }
       return issuedNumber(db, businessId, documentType, financialYear);
     },
-    resolveTemplate(documentType, templateId, now) {
+    async resolveTemplate(documentType, templateId, now) {
       const businessId = readBusinessId(db);
       if (!businessId) {
         throw new BillingError("Save the business profile before creating a document.");
       }
       return resolveTemplateId(db, businessId, documentType, templateId, now);
     },
-    listCustomFields(templateId) {
+    async listCustomFields(templateId) {
       return db
         .prepare(
           `SELECT field_key, section_key, label, field_type, helper_text, required, visible, sort_order, default_value
