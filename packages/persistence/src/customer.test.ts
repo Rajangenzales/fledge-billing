@@ -88,6 +88,7 @@ describe("customers", () => {
         registrationType: "registered",
         gstin: keralaGstin,
         notes: "Pays weekly",
+        creditDays: 30,
       },
       deps,
     );
@@ -101,8 +102,9 @@ describe("customers", () => {
       deps,
     );
 
+    expect(harbour.creditDays).toBe(30);
     await expect(listCustomers(deps)).resolves.toEqual(expect.arrayContaining([
-      expect.objectContaining({ name: "Alpha Traders" }),
+      expect.objectContaining({ name: "Alpha Traders", creditDays: 0 }),
       expect.objectContaining({ name: "Harbour Stores" }),
     ]));
     expect(harbour).toMatchObject({
@@ -111,6 +113,7 @@ describe("customers", () => {
       gstin: keralaGstin,
       registrationType: "registered",
       active: true,
+      creditDays: 30,
     });
     expect(harbour.stateUt.gstStateCode).toBe("32");
 

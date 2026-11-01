@@ -45,6 +45,7 @@ describe("migrate", () => {
       "receipt-identity-snapshot",
       "document-due-date",
       "document-party-snapshot",
+      "customer-credit-period",
     ]);
   });
 
