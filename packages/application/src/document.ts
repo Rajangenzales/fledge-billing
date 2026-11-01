@@ -102,8 +102,8 @@ export type BillingDocument = {
   recipientGstin: string | null;
   supplierSnapshot?: DocumentPartySnapshot;
   recipientSnapshot?: DocumentPartySnapshot;
-  paymentDetailsSnapshot: string | null;
-  invoicePreferencesSnapshot: string | null;
+  paymentDetailsSnapshot?: string | null;
+  invoicePreferencesSnapshot?: string | null;
   lines: DocumentLine[];
   charges: DocumentCharge[];
   taxes: DocumentTax[];
