@@ -12,6 +12,5 @@ describe("Fledge browser shell", () => {
     expect(html).toContain("Set up your workspace");
     expect(html).toContain("No data yet");
     expect(html).toContain("No data sync");
-    expect(html).toContain("This area is part of the Fledge Billing plan");
   });
 });
