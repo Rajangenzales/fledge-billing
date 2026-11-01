@@ -65,23 +65,23 @@ async function saveBusiness(db: SchemaDatabase): Promise<void> {
 describe("products and services", () => {
   it("requires a business profile before a product can be saved", async () => {
     const db = database();
-    expect(listTaxCategories(productDeps(db)).map((category) => category.id)).toEqual([
+    expect((await listTaxCategories(productDeps(db))).map((category) => category.id)).toEqual([
       "taxable",
       "exempt",
       "nil-rated",
       "non-gst",
     ]);
-    expect(() =>
+    await expect(
       createSavedGstRate({ name: "GST 18", percentage: "18" }, productDeps(db)),
-    ).toThrow(ProductError);
+    ).rejects.toThrow(ProductError);
   });
 
   it("saves a user GST rate and a taxable product without calculating tax", async () => {
     const db = database();
     await saveBusiness(db);
     const deps = productDeps(db);
-    const rate = createSavedGstRate({ name: "GST 18", percentage: "18.00" }, deps);
-    const created = createProduct(
+    const rate = await createSavedGstRate({ name: "GST 18", percentage: "18.00" }, deps);
+    const created = await createProduct(
       {
         type: "goods",
         name: "Notebook",
@@ -96,7 +96,7 @@ describe("products and services", () => {
       },
       deps,
     );
-    createProduct(
+    await createProduct(
       {
         type: "service",
         name: "Delivery",
@@ -117,9 +117,9 @@ describe("products and services", () => {
     });
     expect(created.savedGstRate?.percentage).toBe("18");
     expect(created.taxCategory.id).toBe("taxable");
-    expect(listProducts(deps).map((product) => product.name)).toEqual(["Delivery", "Notebook"]);
+    expect((await listProducts(deps)).map((product) => product.name)).toEqual(["Delivery", "Notebook"]);
 
-    const updated = updateProduct(
+    const updated = await updateProduct(
       created.id,
       {
         type: "goods",
@@ -141,24 +141,24 @@ describe("products and services", () => {
       createdAt: created.createdAt,
       updatedAt: "2026-10-31T03:00:00.000Z",
     });
-    expect(listProducts(deps).map((product) => product.name)).toEqual(["Delivery"]);
-    expect(getProduct(created.id, deps)?.active).toBe(false);
+    expect((await listProducts(deps)).map((product) => product.name)).toEqual(["Delivery"]);
+    expect((await getProduct(created.id, deps))?.active).toBe(false);
 
-    const retired = updateSavedGstRate(
+    const retired = await updateSavedGstRate(
       rate.id,
       { name: "GST 18", percentage: "18", active: false },
       deps,
     );
     expect(retired.active).toBe(false);
-    expect(listSavedGstRates(deps)).toEqual([]);
-    expect(getProduct(created.id, deps)?.savedGstRate?.active).toBe(false);
+    expect(await listSavedGstRates(deps)).toEqual([]);
+    expect((await getProduct(created.id, deps))?.savedGstRate?.active).toBe(false);
   });
 
   it("leaves the saved product unchanged when the price is rejected", async () => {
     const db = database();
-    saveBusiness(db);
+    await saveBusiness(db);
     const deps = productDeps(db);
-    const created = createProduct(
+    const created = await createProduct(
       {
         type: "goods",
         name: "Rice",
@@ -169,7 +169,7 @@ describe("products and services", () => {
       },
       deps,
     );
-    expect(() =>
+    await expect(
       updateProduct(
         created.id,
         {
@@ -182,7 +182,34 @@ describe("products and services", () => {
         },
         deps,
       ),
-    ).toThrow(ProductError);
-    expect(getProduct(created.id, deps)?.defaultPrice).toBe("40");
+    ).rejects.toThrow(ProductError);
+    expect((await getProduct(created.id, deps))?.defaultPrice).toBe("40");
+  });
+
+  it("rejects a saved GST rate owned by a different business at the storage boundary", async () => {
+    const db = database();
+    await saveBusiness(db);
+    const deps = productDeps(db);
+    const rate = await createSavedGstRate({ name: "GST 5", percentage: "5" }, deps);
+    const foreignRecord = {
+      id: "foreign-product",
+      businessId: "another-business",
+      type: "goods" as const,
+      name: "Foreign",
+      code: null,
+      description: null,
+      hsnSac: null,
+      unit: "nos",
+      defaultPrice: "10",
+      defaultDiscount: "0",
+      taxCategoryId: "taxable" as const,
+      savedGstRateId: rate.id,
+      taxInclusive: false,
+      active: true,
+      createdAt: "2026-10-31T02:00:00.000Z",
+      updatedAt: "2026-10-31T02:00:00.000Z",
+    };
+    await expect(deps.repository.insertProduct(foreignRecord)).rejects.toThrow(ProductError);
+    expect(await deps.repository.getProduct("foreign-product")).toBeNull();
   });
 });
