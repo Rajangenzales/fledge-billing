@@ -38,25 +38,25 @@ The following is a planning snapshot of the repository as reviewed on 1 November
 
 | Product area | Current baseline | Completion boundary |
 | --- | --- | --- |
-| Application foundation and shell | Implemented | Stabilize the development/build workflow, CI, error handling and supported browser contract. |
-| Business setup | Implemented foundation | Verify complete create, edit, validation, persistence and reload workflows in the browser. |
-| Customer management | Implemented foundation | Verify complete browser CRUD, business scoping, validation and persistence. |
-| Products and saved GST rates | Browser persistence/catalog workflows implemented | Verify complete browser workflows, ownership, referenced-rate behaviour and persistence on supported browsers. |
-| Billing/document engine | Browser draft, edit, due-date, numbering, finalization and historical presentation workflows implemented | Continue lifecycle and historical-output verification. |
-| GST engine | Core calculations implemented | Close verified compliance gaps and expand scenario coverage before claiming full GST readiness. |
-| Invoice templates | Browser customization, persistence, preview and historical rendering implemented | Continue template/output verification. |
-| PDF, print and share | Initial browser preview, PDF/print output and supported share workflows merged | Complete realistic output verification, template font/logo support and supported-platform manual checks. |
-| Payments and advances | Browser receipt, allocation, release, refund and reversal workflows implemented | Continue financial invariant and platform verification. |
-| Payment activity statement | Browser presentation and consistent snapshot support implemented | Continue user-facing and platform verification. |
-| IndexedDB | Business/customer/product/rate/document/template/payment stores implemented | Add versioned recovery workflows while preserving atomic commands. |
-| Backup and recovery | Encrypted local backup/restore implemented and tested | Validate on supported real browsers and continue recovery guidance/compatibility maintenance. |
-| PWA/offline lifecycle | Not implemented as a complete product capability | Implement app manifest, service worker, offline asset lifecycle and supported-platform verification. |
-| Update and distribution system | Architecture/specification documented | Implement release metadata, update lifecycle, integrity verification and migration-safe recovery. |
-| Authentication, accounts and subscription services | Specification/architecture only | Implement the approved security, entitlement and payment-service prerequisites before public release. |
-| Automated CI and release gates | Not established as a complete pipeline | Add reproducible automated checks and enforce release gates. |
-| Production release | Not ready | Complete all mandatory scope, QA, security, operational and release criteria. |
+| Application foundation and shell | Implemented foundation | Resolve the current CI/test build-order failure and verify clean-checkout commands. |
+| Business setup | Browser workflow implemented | Complete manual browser verification for validation, edit, reload and business scoping. |
+| Customer management | Browser workflow implemented | Complete manual browser verification for CRUD, validation, reload and business scoping. |
+| Products and saved GST rates | Browser persistence and catalog workflows implemented | Complete manual verification of editing, inactive states, saved-rate references and reload behaviour. |
+| Billing/document engine | Browser draft, edit, numbering, finalization and historical snapshots implemented | Verify lifecycle edge cases, financial-year boundaries, retries and immutable issued values. |
+| GST engine | Core calculations implemented; supported scenarios documented | Complete the source-backed scenario review and record qualified reviewer evidence; unsupported legal determinations must remain constrained. |
+| Invoice templates | Browser persistence, safe customization, revision history and preview implemented | Verify realistic output, historical rendering and remaining brand/layout requirements. |
+| PDF, print and share | Initial browser preview, PDF download, print and supported share/fallback flows implemented | Complete realistic browser/device output checks, font/logo support and long-document verification. |
+| Payments and advances | Browser receipts, advances, allocations, releases, refunds and reversals implemented | Complete manual financial-invariant and retry/reload verification. |
+| Payment activity statement | Browser customer activity view and consistent snapshot support implemented | Verify presentation and derived balances against realistic scenarios. |
+| IndexedDB | Business, customer, product, saved-rate, document, template and payment stores implemented | Continue browser transaction, upgrade, quota, blocked-upgrade and real-browser durability verification. |
+| Backup and recovery | Encrypted backup and validation-before-atomic-restore implemented; automated schema-v5 coverage present | Verify on supported real browsers and document the schema-v5 compatibility boundary. |
+| PWA/offline lifecycle | Manifest, icons, service worker, offline shell cache and foreground update flow implemented | Verify install, previously-loaded offline startup, update and recovery on each supported platform. |
+| Update and distribution system | Release manifest, compatibility checks and generated SHA-256 artifact checks implemented | Production release metadata, hosting/signing ownership and real-platform update verification remain open. |
+| Authentication, accounts and subscription services | Not implemented | Resolve whether these are required for private testing or only a later public/commercial release; do not imply they exist. |
+| Automated CI and release gates | GitHub Actions workflow exists; latest observed run fails during test resolution | Repair workspace build ordering, then require green test, typecheck and build checks. |
+| Production release | Not ready; deployment intentionally deferred | Complete product verification, owner decisions, security/release gates and production operations. |
 
-The current browser IndexedDB implementation supports business profiles, customers, products, saved GST rates, billing documents, templates and payment records. C2's initial preview/PDF/print/share implementation is merged; encrypted local backup and restore are now in progress. These implementations do not establish that all browser, output, backup, sync or offline-first acceptance criteria are complete. Existing SQLite support and its migration history must be preserved while browser persistence is extended.
+The current main-branch browser implementation includes IndexedDB persistence for business profiles, customers, products, saved GST rates, billing documents, templates and payment events; browser document output; encrypted backup/restore; and the PWA shell/update lifecycle. These capabilities are implemented foundations, not proof of release readiness. Real-browser/device verification, supported-output checks, GST review evidence, CI repair, security/product decisions and end-to-end acceptance testing remain open. Cloud backup and synchronization are not part of the current testing scope. Existing SQLite support and its migration history must be preserved.
 
 Refer to [W2 IndexedDB Foundation](./30-w2-indexeddb-foundation-and-local-setup.md), [W1H Audit](./29-w1h-final-async-boundary-audit.md), and the original roadmap for detailed implementation boundaries.
 
