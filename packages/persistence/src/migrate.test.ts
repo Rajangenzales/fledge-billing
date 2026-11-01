@@ -47,6 +47,7 @@ describe("migrate", () => {
       "document-party-snapshot",
       "customer-credit-period",
       "invoice-business-detail-snapshots",
+      "document-promotional-offers",
     ]);
   });
 
