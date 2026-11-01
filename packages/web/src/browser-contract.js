@@ -11,4 +11,12 @@ export {
   getCustomer,
   createCustomer,
   updateCustomer,
+  createProduct,
+  createSavedGstRate,
+  getProduct,
+  listProducts,
+  listSavedGstRates,
+  listTaxCategories,
+  updateProduct,
+  updateSavedGstRate,
 } from "@fledge/application/browser";
