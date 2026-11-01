@@ -6,7 +6,7 @@ const packageRoot = dirname(fileURLToPath(import.meta.url));
 const browserContractEntry = resolve(packageRoot, "src/browser-contract.js");
 
 const forbiddenNodeImport =
-  /^(?:node:|assert|buffer|child_process|cluster|console|constants|crypto|dgram|diagnostics_channel|dns|domain|events|fs|http|https|module|net|os|path|perf_hooks|process|punycode|querystring|readline|repl|stream|string_decoder|sys|timers|tls|trace_events|tty|url|util|v8|vm|wasi|worker_threads|zlib)(?:\/.*)?$/;
+  /^(?:node:[^/]+|assert|buffer|child_process|cluster|console|constants|crypto|dgram|diagnostics_channel|dns|domain|events|fs|http|https|module|net|os|path|perf_hooks|process|punycode|querystring|readline|repl|stream|string_decoder|sys|timers|tls|trace_events|tty|url|util|v8|vm|wasi|worker_threads|zlib)(?:\/.*)?$/;
 
 const requiredBrowserExports = [
   "getBusinessProfile",
