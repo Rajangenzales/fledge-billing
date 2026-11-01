@@ -144,23 +144,23 @@ export type NumberSeries = {
 };
 
 export type DocumentRepository = {
-  getBusinessId: () => string | null;
-  getBusiness: () => BusinessRef | null;
-  getCustomer: (id: string) => CustomerRef | null;
-  getCustomerContact: (id: string) => { name: string; phone: string | null; email: string | null } | null;
-  getProduct: (id: string) => ProductRef | null;
-  listGstRuleVersions: () => GstRuleVersion[];
-  list: () => BillingDocument[];
-  get: (id: string) => BillingDocument | null;
-  insert: (record: BillingDocument) => void;
-  replaceDraft: (record: BillingDocument) => void;
-  finalize: (id: string, finalizedAt: string) => BillingDocument;
-  cancel: (id: string, updatedAt: string) => BillingDocument;
-  getNumberSeries: (documentType: BillingDocument["documentType"], financialYear: string) => NumberSeries | null;
-  saveNumberSeries: (record: NumberSeries) => void;
-  hasIssuedNumber: (documentType: BillingDocument["documentType"], financialYear: string) => boolean;
-  resolveTemplate: (documentType: DocumentType, templateId: string | null, now: string) => string;
-  listCustomFields: (templateId: string) => CustomFieldDefinition[];
+  getBusinessId: () => Promise<string | null>;
+  getBusiness: () => Promise<BusinessRef | null>;
+  getCustomer: (id: string) => Promise<CustomerRef | null>;
+  getCustomerContact: (id: string) => Promise<{ name: string; phone: string | null; email: string | null } | null>;
+  getProduct: (id: string) => Promise<ProductRef | null>;
+  listGstRuleVersions: () => Promise<GstRuleVersion[]>;
+  list: () => Promise<BillingDocument[]>;
+  get: (id: string) => Promise<BillingDocument | null>;
+  insert: (record: BillingDocument) => Promise<void>;
+  replaceDraft: (record: BillingDocument) => Promise<void>;
+  finalize: (id: string, finalizedAt: string) => Promise<BillingDocument>;
+  cancel: (id: string, updatedAt: string) => Promise<BillingDocument>;
+  getNumberSeries: (documentType: BillingDocument["documentType"], financialYear: string) => Promise<NumberSeries | null>;
+  saveNumberSeries: (record: NumberSeries) => Promise<void>;
+  hasIssuedNumber: (documentType: BillingDocument["documentType"], financialYear: string) => Promise<boolean>;
+  resolveTemplate: (documentType: DocumentType, templateId: string | null, now: string) => Promise<string>;
+  listCustomFields: (templateId: string) => Promise<CustomFieldDefinition[]>;
 };
 
 export type DocumentDeps = {
@@ -191,18 +191,23 @@ export type SaveNumberSeriesInput = {
   padding: number;
 };
 
-export function listDocuments(deps: DocumentDeps): BillingDocument[] {
-  return deps.repository.list().map((document) => presentDraft(document, deps));
+export async function listDocuments(deps: DocumentDeps): Promise<BillingDocument[]> {
+  const stored = await deps.repository.list();
+  const documents: BillingDocument[] = [];
+  for (const document of stored) {
+    documents.push(await presentDraft(document, deps));
+  }
+  return documents;
 }
 
-export function getDocument(id: string, deps: DocumentDeps): BillingDocument | null {
-  const stored = deps.repository.get(id);
+export async function getDocument(id: string, deps: DocumentDeps): Promise<BillingDocument | null> {
+  const stored = await deps.repository.get(id);
   return stored ? presentDraft(stored, deps) : null;
 }
 
-export function createDocument(input: SaveDocumentInput, deps: DocumentDeps): BillingDocument {
-  const business = requireBusiness(deps);
-  const draft = buildDraft(input, deps, business, null, [], {
+export async function createDocument(input: SaveDocumentInput, deps: DocumentDeps): Promise<BillingDocument> {
+  const business = await requireBusiness(deps);
+  const draft = await buildDraft(input, deps, business, null, [], {
     id: deps.createId(),
     businessId: business.id,
     status: "draft",
@@ -211,24 +216,24 @@ export function createDocument(input: SaveDocumentInput, deps: DocumentDeps): Bi
     finalizedAt: null,
     updatedAt: deps.now(),
   });
-  deps.repository.insert(draft);
+  await deps.repository.insert(draft);
   return draft;
 }
 
-export function updateDocument(
+export async function updateDocument(
   id: string,
   input: SaveDocumentInput,
   deps: DocumentDeps,
-): BillingDocument {
-  const existing = deps.repository.get(id);
+): Promise<BillingDocument> {
+  const existing = await deps.repository.get(id);
   if (!existing) {
     throw new BillingError("That document was not found.");
   }
   if (existing.status !== "draft") {
     throw new BillingError("A finalized document cannot be changed.");
   }
-  const business = requireBusiness(deps);
-  const draft = buildDraft(input, deps, business, existing.templateId, existing.customFields, {
+  const business = await requireBusiness(deps);
+  const draft = await buildDraft(input, deps, business, existing.templateId, existing.customFields, {
     id: existing.id,
     businessId: existing.businessId,
     status: "draft",
@@ -237,20 +242,20 @@ export function updateDocument(
     finalizedAt: null,
     updatedAt: deps.now(),
   });
-  deps.repository.replaceDraft(draft);
+  await deps.repository.replaceDraft(draft);
   return draft;
 }
 
-export function finalizeDocument(id: string, deps: DocumentDeps): BillingDocument {
+export async function finalizeDocument(id: string, deps: DocumentDeps): Promise<BillingDocument> {
   return deps.repository.finalize(id, deps.now());
 }
 
-export function cancelDocument(id: string, deps: DocumentDeps): BillingDocument {
+export async function cancelDocument(id: string, deps: DocumentDeps): Promise<BillingDocument> {
   return deps.repository.cancel(id, deps.now());
 }
 
-export function saveNumberSeries(input: SaveNumberSeriesInput, deps: DocumentDeps): NumberSeries {
-  const business = requireBusiness(deps);
+export async function saveNumberSeries(input: SaveNumberSeriesInput, deps: DocumentDeps): Promise<NumberSeries> {
+  const business = await requireBusiness(deps);
   assertDocumentGstMode(input.documentType, input.documentType === "tax_invoice");
   const financialYear = assertFinancialYearLabel(input.financialYear);
   const prefix = normalizeSeriesPrefix(input.prefix);
@@ -260,10 +265,10 @@ export function saveNumberSeries(input: SaveNumberSeriesInput, deps: DocumentDep
   if (!Number.isInteger(input.nextNumber) || input.nextNumber < 1) {
     throw new BillingError("The next document number must be a whole number of at least 1.");
   }
-  const existing = deps.repository.getNumberSeries(input.documentType, financialYear);
+  const existing = await deps.repository.getNumberSeries(input.documentType, financialYear);
   if (
     existing &&
-    deps.repository.hasIssuedNumber(input.documentType, financialYear) &&
+    await deps.repository.hasIssuedNumber(input.documentType, financialYear) &&
     input.nextNumber < existing.nextNumber
   ) {
     throw new BillingError("The next number can only move forward after a document is issued.");
@@ -278,7 +283,7 @@ export function saveNumberSeries(input: SaveNumberSeriesInput, deps: DocumentDep
     padding: input.padding,
     active: true,
   };
-  deps.repository.saveNumberSeries(record);
+  await deps.repository.saveNumberSeries(record);
   return record;
 }
 
@@ -290,7 +295,7 @@ export function seriesId(
   return `ns:${businessId}:${documentType}:${financialYear}`;
 }
 
-function buildDraft(
+async function buildDraft(
   input: SaveDocumentInput,
   deps: DocumentDeps,
   business: BusinessRef,
@@ -305,27 +310,30 @@ function buildDraft(
     finalizedAt: null;
     updatedAt: string;
   },
-): BillingDocument {
+): Promise<BillingDocument> {
   const financialYear = financialYearOf(input.documentDate);
-  const customer = deps.repository.getCustomer(input.customerId);
+  const customer = await deps.repository.getCustomer(input.customerId);
   if (!customer) {
     throw new BillingError("Choose a customer.");
   }
   if (!customer.active) {
     throw new BillingError("Choose an active customer.");
   }
-  const templateId = deps.repository.resolveTemplate(
+  const templateId = await deps.repository.resolveTemplate(
     input.documentType,
     input.templateId === undefined ? existingTemplateId : input.templateId,
     deps.now(),
   );
   const customFields = snapshotCustomFields(
-    deps.repository.listCustomFields(templateId),
+    await deps.repository.listCustomFields(templateId),
     input.customFields,
     existingCustomFields,
   ).map((field) => ({ ...field, id: `dcf:${identity.id}:${field.key}` }));
-  const lines = input.lines.map((line) => withProductNature(line, deps));
-  const context = productContext(lines, deps);
+  const lines: GstLineInput[] = [];
+  for (const line of input.lines) {
+    lines.push(await withProductNature(line, deps));
+  }
+  const context = await productContext(lines, deps);
   const calculated = calculateGstDocument({
     documentType: input.documentType,
     documentDate: input.documentDate,
@@ -344,7 +352,7 @@ function buildDraft(
     },
     lines,
     charges: input.charges,
-    rules: deps.repository.listGstRuleVersions(),
+    rules: await deps.repository.listGstRuleVersions(),
     states: deps.states,
     productRates: context.rates,
     productCategories: context.categories,
@@ -367,12 +375,12 @@ function buildDraft(
   });
 }
 
-function presentDraft(stored: BillingDocument, deps: DocumentDeps): BillingDocument {
+async function presentDraft(stored: BillingDocument, deps: DocumentDeps): Promise<BillingDocument> {
   if (stored.status !== "draft") {
     return stored;
   }
-  const business = deps.repository.getBusiness();
-  const customer = deps.repository.getCustomer(stored.customerId);
+  const business = await deps.repository.getBusiness();
+  const customer = await deps.repository.getCustomer(stored.customerId);
   if (!business || !customer) {
     throw new BillingError("That document was not found.");
   }
@@ -390,7 +398,7 @@ function presentDraft(stored: BillingDocument, deps: DocumentDeps): BillingDocum
     taxCategoryId: line.taxCategoryId,
     supplyNature: line.supplyNature,
   }));
-  const context = productContext(lines, deps);
+  const context = await productContext(lines, deps);
   const calculated = calculateGstDocument({
     documentType: stored.documentType,
     documentDate: stored.documentDate,
@@ -415,7 +423,7 @@ function presentDraft(stored: BillingDocument, deps: DocumentDeps): BillingDocum
       taxCategoryId: charge.taxCategoryId,
       gstRatePercent: charge.gstRatePercent,
     })),
-    rules: deps.repository.listGstRuleVersions(),
+    rules: await deps.repository.listGstRuleVersions(),
     states: deps.states,
     productRates: context.rates,
     productCategories: context.categories,
@@ -531,25 +539,25 @@ function toDocument(
   };
 }
 
-function withProductNature(line: GstLineInput, deps: DocumentDeps): GstLineInput {
+async function withProductNature(line: GstLineInput, deps: DocumentDeps): Promise<GstLineInput> {
   const productId = line.productId?.trim();
   if (!productId || line.supplyNature) {
     return line;
   }
-  const product = deps.repository.getProduct(productId);
+  const product = await deps.repository.getProduct(productId);
   if (!product) {
     throw new BillingError("That product was not found.");
   }
   return { ...line, supplyNature: product.type };
 }
 
-function productContext(
+async function productContext(
   lines: readonly GstLineInput[],
   deps: DocumentDeps,
-): {
+): Promise<{
   rates: Record<string, string | null>;
   categories: Record<string, TaxCategoryId>;
-} {
+}> {
   const rates: Record<string, string | null> = {};
   const categories: Record<string, TaxCategoryId> = {};
   for (const line of lines) {
@@ -557,7 +565,7 @@ function productContext(
     if (!productId || productId in rates) {
       continue;
     }
-    const product = deps.repository.getProduct(productId);
+    const product = await deps.repository.getProduct(productId);
     if (!product) {
       throw new BillingError("That product was not found.");
     }
@@ -567,8 +575,8 @@ function productContext(
   return { rates, categories };
 }
 
-function requireBusiness(deps: DocumentDeps): BusinessRef {
-  const business = deps.repository.getBusiness();
+async function requireBusiness(deps: DocumentDeps): Promise<BusinessRef> {
+  const business = await deps.repository.getBusiness();
   if (!business) {
     throw new BillingError("Save the business profile before creating a document.");
   }
