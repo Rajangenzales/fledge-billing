@@ -1,6 +1,6 @@
 # Fledge Billing — M8-04B Ordinary Payment Receipt Print and PDF
 
-**Status:** Implementation proposed in PR; not yet merged  
+**Status:** Merged in PR #30  
 **Depends on:** M8-04 contract (docs/17) and receipt-time identity snapshots (docs/18)
 
 ## Scope
