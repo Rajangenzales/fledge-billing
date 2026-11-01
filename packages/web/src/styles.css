@@ -135,6 +135,7 @@ button{font:inherit;cursor:pointer}
 .document-line input{width:100%;min-height:37px;border:1px solid #dfe6e2;border-radius:7px;padding:8px;color:#25382f;font:inherit;font-size:11px}
 .document-line .list-action{white-space:nowrap}
 .empty-line-note,.template-limitation{color:#87938d;font-size:10px;line-height:1.55}
+.gst-limitation{margin:0;padding:12px 14px;border:1px solid #f0dfb8;border-radius:9px;background:#fff9ed;color:#84662b;font-size:11px;line-height:1.55}
 .template-limitation{margin-top:16px}
 .document-preview{margin-top:16px;padding:15px 17px;border-radius:9px;background:#f4f8f5}
 .document-preview dl{display:flex;justify-content:flex-end;gap:34px;margin:12px 0 0}

@@ -63,6 +63,21 @@ describe("GST rule selection", () => {
     expect(() => selectGstRuleVersion("2017-06-30", GST_RULE_VERSIONS)).toThrow(GstError);
   });
 
+  it("keeps the active UTGST jurisdiction set and statutory source traceable", () => {
+    const rule = GST_RULE_VERSIONS[0]!;
+    expect(rule).toMatchObject({
+      id: "gst-structure-2017-07-01",
+      version: "2017-07-01",
+      effectiveFrom: "2017-07-01",
+      effectiveTo: null,
+      status: "active",
+    });
+    expect(rule.sourceReference).toContain("IGST Act, 2017, sections 7 and 8");
+    expect(rule.sourceReference).toContain("CGST Act, 2017, sections 9, 15(3) and 31");
+    expect(rule.sourceReference).toContain("UTGST Act, 2017, sections 2(8) and 7");
+    expect(rule.utgstStateCodes).toEqual(["04", "26", "31", "35", "38"]);
+  });
+
   it("refuses overlapping active rules", () => {
     const overlap: GstRuleVersion = {
       ...GST_RULE_VERSIONS[0]!,
@@ -140,6 +155,35 @@ describe("GST components", () => {
       }),
     );
     expect(delhi.taxes.map((tax) => tax.taxType)).toEqual(["CGST", "SGST"]);
+  });
+
+  it.each(["04", "26", "31", "35", "38"])(
+    "uses CGST and UTGST for active UTGST jurisdiction code %s",
+    (gstStateCode) => {
+      const territory = STATE_UTS.find((state) => state.active && state.gstStateCode === gstStateCode);
+      if (!territory || territory.type !== "union_territory") {
+        throw new Error(`Missing active Union Territory for GST code ${gstStateCode}.`);
+      }
+      const gstinPrefix = `${gstStateCode}AABCU9603R1Z`;
+      const result = calculateGstDocument(
+        input({
+          placeOfSupplyStateId: territory.id,
+          supplier: {
+            stateId: territory.id,
+            gstRegistered: true,
+            gstin: `${gstinPrefix}${gstinCheckCharacter(gstinPrefix)}`,
+          },
+          recipient: { stateId: territory.id, registrationType: "unregistered" },
+        }),
+      );
+      expect(result.taxes.map((tax) => tax.taxType)).toEqual(["CGST", "UTGST"]);
+    },
+  );
+
+  it("rejects the inactive former Daman and Diu code as place of supply", () => {
+    expect(() => calculateGstDocument(input({ placeOfSupplyStateId: "IN-DD" }))).toThrow(
+      /active place of supply/,
+    );
   });
 
   it("keeps the same components for goods and services when place of supply is explicit", () => {

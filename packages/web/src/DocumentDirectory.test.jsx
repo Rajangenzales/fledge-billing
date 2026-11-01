@@ -50,6 +50,8 @@ describe("browser document directory", () => {
     expect(html).toContain("Harbour Stores");
     expect(html).toContain("Due 2026-11-30");
     expect(html).toContain("Choose a saved template revision");
+    expect(html).toContain("Fledge does not verify rates against HSN/SAC");
+    expect(html).toContain("determine place of supply or reverse-charge applicability");
     expect(html).not.toContain("No documents yet");
   });
 });

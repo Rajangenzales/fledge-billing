@@ -290,6 +290,7 @@ export default function DocumentDirectory({
       {business && activeCustomers.length > 0 && activeProducts.length > 0 &&
         <button className="primary-button" onClick={startNew}>＋ New document</button>}
     </div>
+    <p className="gst-limitation" role="note">GST calculations use the rate you enter and place of supply you select. Fledge does not verify rates against HSN/SAC or determine place of supply or reverse-charge applicability. Verify these details against current rules before issuing.</p>
     <p className="template-limitation">Choose a saved template revision for each document. Manage layouts and custom fields under Document templates.</p>
     {!business && <div className="panel empty-state"><h2>Set up your business first</h2><p>A business profile is required before billing documents can be created.</p><button className="primary-button" onClick={() => onNavigate("settings")}>Add business details</button></div>}
     {business && activeCustomers.length === 0 && <div className="panel empty-state"><h2>Add a customer first</h2><p>Choose an active customer for each billing document.</p><button className="primary-button" onClick={() => onNavigate("customers")}>Add customer</button></div>}
