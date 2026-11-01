@@ -640,6 +640,8 @@ packages:
   react-dom@19.2.0:
     resolution: {integrity: sha512-UlbRu4cAiGaIewkPyiRGJk0imDN2T3JjieT6spoL2UeSf5od4n5LB/mQ4ejmxhCFT1tYe8IvaFulzynWovsEFQ==}
     engines: {node: '>=0.10.0'}
+    dependencies:
+      scheduler: ^0.27.0
     peerDependencies:
       react: ^19.2.0
 
