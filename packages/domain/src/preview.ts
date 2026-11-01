@@ -323,7 +323,7 @@ export function renderStoredDocument(input: {
     itemColumnLabels: resolveItemColumnLabels(template?.fields ?? []),
     items,
     charges,
-    promotionalOffers: input.document.promotionalOffers ?? [],
+    promotionalOffers: [...(input.document.promotionalOffers ?? [])],
     totals: {
       subtotal: input.document.subtotal,
       discountTotal: input.document.discountTotal,
