@@ -162,6 +162,42 @@ describe("billing documents", () => {
     }, deps)).rejects.toThrow(/due date cannot be before/);
   });
 
+  it("snapshots promotional offer details without changing invoice totals", async () => {
+    const db = database();
+    await prepare(db);
+    const deps = documentDeps(db);
+    const draft = await createDocument({
+      customerId: "cust-1",
+      documentType: "non_gst_invoice",
+      documentDate: "2026-10-31",
+      gstEnabled: false,
+      reverseCharge: false,
+      lines: [notebook],
+      promotionalOffers: [{
+        description: "Juice cases promotion",
+        qualifyingQuantity: "10",
+        freeQuantity: "1",
+        unit: "cases",
+        note: "For this order",
+      }],
+    }, deps);
+    expect(draft.grandTotal).toBe("27.27");
+    expect(draft.promotionalOffers).toEqual([{
+      description: "Juice cases promotion",
+      qualifyingQuantity: "10",
+      freeQuantity: "1",
+      unit: "cases",
+      note: "For this order",
+    }]);
+    expect(await deps.repository.get(draft.id)).toMatchObject({
+      grandTotal: "27.27",
+      promotionalOffers: [{ qualifyingQuantity: "10", freeQuantity: "1", unit: "cases" }],
+    });
+    const issued = await finalizeDocument(draft.id, deps);
+    expect(issued.grandTotal).toBe("27.27");
+    expect(issued.promotionalOffers[0]).toMatchObject({ description: "Juice cases promotion", freeQuantity: "1" });
+  });
+
   it("recalculates a draft and keeps the previous draft when a line is rejected", async () => {
     const db = database();
     await prepare(db);
