@@ -97,7 +97,7 @@ export function getCustomerPaymentActivity(
         amount: event.amount,
         method: event.method,
         reference: event.originalEventId,
-        reason: event.reason,
+        description: event.reason,
       });
     }
   }
