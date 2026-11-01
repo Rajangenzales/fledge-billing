@@ -195,18 +195,38 @@ describe("browser IndexedDB repositories", () => {
     });
     const finalized = await finalizeDocument(draft.id, workspace.documentDeps);
     await setDefaultTemplate(builtInDefault.id, templateDeps);
+    const savedBusiness = await workspace.repositories.businessRepository.get();
+    await workspace.repositories.businessRepository.save({
+      ...savedBusiness,
+      legalName: "Updated Supplier",
+      address: "Updated supplier address",
+    });
+    const savedCustomer = await workspace.repositories.customerRepository.get(workspace.customer.id);
+    await workspace.repositories.customerRepository.update({
+      ...savedCustomer,
+      name: "Updated Customer",
+      billingAddress: "Updated customer address",
+    });
     const rendered = await renderIssuedDocument(finalized.id, {
       documents: workspace.repositories.documentRepository,
       templates: workspace.repositories.templateRepository,
       states: STATE_UTS,
     });
     expect(rendered.templateId).toBe(revised.id);
-    expect(rendered.sections.flatMap((section) => section.fields))
-      .toContainEqual(expect.objectContaining({
-        key: "purchase-order",
-        label: "Purchase order",
-        value: "PO-42",
-      }));
+    const renderedFields = rendered.sections.flatMap((section) => section.fields);
+    expect(renderedFields).toContainEqual(expect.objectContaining({
+      key: "purchase-order",
+      label: "Purchase order",
+      value: "PO-42",
+    }));
+    expect(renderedFields).toContainEqual(expect.objectContaining({
+      key: "supplier_legal_name",
+      value: "Fledge Traders",
+    }));
+    expect(renderedFields).toContainEqual(expect.objectContaining({
+      key: "customer_name",
+      value: "Harbour Stores",
+    }));
 
     workspace.database.close();
     const reopened = await openFledgeDatabase(factory);

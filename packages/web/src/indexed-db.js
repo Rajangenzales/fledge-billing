@@ -1279,6 +1279,11 @@ function createDocumentRepository(database, businessRepository, templateReposito
             stateId: business.stateId,
             gstRegistered: business.gstRegistered,
             gstin: business.gstin,
+            legalName: business.legalName,
+            address: business.address,
+            pinCode: business.pinCode,
+            phone: business.phone,
+            email: business.email,
           }
         : null;
     },
@@ -1297,6 +1302,12 @@ function createDocumentRepository(database, businessRepository, templateReposito
                     stateId: customer.stateId,
                     registrationType: customer.registrationType,
                     gstin: customer.gstin,
+                    name: customer.name,
+                    billingAddress: customer.billingAddress,
+                    shippingAddress: customer.shippingAddress,
+                    pinCode: customer.pinCode,
+                    phone: customer.phone,
+                    email: customer.email,
                   }
                 : null,
             );

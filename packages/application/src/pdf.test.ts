@@ -15,6 +15,8 @@ describe("invoice PDF", () => {
   it("draws the stored total on A4 and continues onto another page", async () => {
     const bytes = await buildInvoicePdf(sampleRender(50));
     const text = extractPdfText(bytes);
+    expect(text).toContain("Date: 2026-10-31");
+    expect(text).not.toMatch(/Generated(?: on)?:/i);
     expect(text).toContain("Total: INR 1,180.00");
     expect(text).toContain("CGST INR 90.00, SGST INR 90.00");
     expect(text).toContain("Page 2 of");
@@ -25,6 +27,23 @@ describe("invoice PDF", () => {
     await expect(buildInvoicePdf(sampleRender(1), Uint8Array.from([0x3c, 0x73, 0x76, 0x67]))).rejects.toThrow(
       TemplateError,
     );
+  });
+
+  it("wraps unbroken descriptions across lines and pages without dropping text", async () => {
+    const render = sampleRender(1);
+    const description = "X".repeat(16000);
+    render.items[0]!.description = description;
+    const bytes = await buildInvoicePdf(render);
+    const text = extractPdfText(bytes);
+    expect(pageCount(bytes)).toBeGreaterThan(1);
+    expect(text.match(/X/g)).toHaveLength(description.length);
+    expect(text).toContain("Total: INR 1,180.00");
+  });
+
+  it("rejects invalid saved document dates instead of substituting a date", async () => {
+    const render = sampleRender(1);
+    render.documentDate = "2026-02-30";
+    await expect(buildInvoicePdf(render)).rejects.toThrow(/invalid saved document date/i);
   });
 });
 
@@ -44,6 +63,7 @@ function sampleRender(itemCount: number): IssuedRender {
         label: "Header",
         fields: [
           { key: "document_number", label: "Number", value: "INV/2026-27/0001" },
+          { key: "document_date", label: "Date", value: "2026-10-31" },
           { key: "tax_components", label: "Tax", value: "CGST 90, SGST 90" },
           { key: "grand_total", label: "Total", value: "1180" },
         ],

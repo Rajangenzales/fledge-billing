@@ -36,6 +36,7 @@ const requiredBrowserExports = [
   "setDefaultTemplate",
   "previewTemplate",
   "renderIssuedDocument",
+  "buildInvoicePdf",
   "restoreTemplate",
   "recordCustomerReceipt",
   "listCustomerReceipts",
@@ -59,6 +60,7 @@ function browserDependencyGuard() {
     generateBundle(_options, bundle) {
       const violations = [];
       let browserContractFound = false;
+      let browserContractFileName;
 
       for (const [fileName, output] of Object.entries(bundle)) {
         if (output.type !== "chunk") continue;
@@ -67,6 +69,7 @@ function browserDependencyGuard() {
           output.facadeModuleId?.replaceAll("\\", "/").endsWith("/src/browser-contract.js")
         ) {
           browserContractFound = true;
+          browserContractFileName = fileName;
           for (const exportName of requiredBrowserExports) {
             if (!output.exports.includes(exportName)) {
               violations.push(
@@ -93,6 +96,9 @@ function browserDependencyGuard() {
 
       if (violations.length > 0) {
         this.error("Fledge browser dependency guard failed:\n- " + violations.join("\n- "));
+      }
+      if (browserContractFileName) {
+        delete bundle[browserContractFileName];
       }
     },
   };

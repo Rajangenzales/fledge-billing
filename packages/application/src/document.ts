@@ -71,6 +71,16 @@ export type DocumentCustomField = CustomFieldSnapshot & {
   id: string;
 };
 
+export type DocumentPartySnapshot = {
+  name: string;
+  address: string;
+  pinCode: string | null;
+  stateId: string;
+  phone: string | null;
+  email: string | null;
+  gstin: string | null;
+};
+
 export type BillingDocument = {
   id: string;
   businessId: string;
@@ -90,6 +100,8 @@ export type BillingDocument = {
   recipientStateId: string;
   recipientRegistrationType: "registered" | "unregistered";
   recipientGstin: string | null;
+  supplierSnapshot?: DocumentPartySnapshot;
+  recipientSnapshot?: DocumentPartySnapshot;
   lines: DocumentLine[];
   charges: DocumentCharge[];
   taxes: DocumentTax[];
@@ -116,6 +128,11 @@ export type BusinessRef = {
   stateId: string;
   gstRegistered: boolean;
   gstin: string | null;
+  legalName?: string;
+  address?: string;
+  pinCode?: string | null;
+  phone?: string | null;
+  email?: string | null;
 };
 
 export type CustomerRef = {
@@ -124,6 +141,12 @@ export type CustomerRef = {
   stateId: string;
   registrationType: "registered" | "unregistered";
   gstin: string | null;
+  name?: string;
+  billingAddress?: string;
+  shippingAddress?: string | null;
+  pinCode?: string | null;
+  phone?: string | null;
+  email?: string | null;
 };
 
 export type ProductRef = {
@@ -511,6 +534,24 @@ function toDocument(
     recipientStateId: calculated.recipientStateId,
     recipientRegistrationType: context.customer.registrationType,
     recipientGstin: context.customer.gstin,
+    supplierSnapshot: {
+      name: context.business.legalName ?? "",
+      address: context.business.address ?? "",
+      pinCode: context.business.pinCode ?? null,
+      stateId: context.business.stateId,
+      phone: context.business.phone ?? null,
+      email: context.business.email ?? null,
+      gstin: context.business.gstin,
+    },
+    recipientSnapshot: {
+      name: context.customer.name ?? "",
+      address: context.customer.billingAddress ?? "",
+      pinCode: context.customer.pinCode ?? null,
+      stateId: context.customer.stateId,
+      phone: context.customer.phone ?? null,
+      email: context.customer.email ?? null,
+      gstin: context.customer.gstin,
+    },
     lines: calculated.lines.map((line, index) => ({ ...line, id: context.lineIds[index]! })),
     charges: calculated.charges.map((charge, index) => ({ ...charge, id: context.chargeIds[index]! })),
     taxes: calculated.taxes.map((tax) => {

@@ -297,6 +297,8 @@ Requirements:
 - Output is legible for realistic short and long invoices.
 - Browser production bundle checks pass.
 
+**Current status:** The browser now renders finalized documents from the canonical issued render model, with print, PDF download and native file-share/fallback download actions. C2 remains in progress: browser output verification for realistic invoices, template font/logo support and supported-platform manual checks are outstanding.
+
 ### M9 — Backup and recovery
 
 **Objective:** Protect business records against accidental loss, browser storage eviction and device migration.

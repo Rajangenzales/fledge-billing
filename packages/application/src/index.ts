@@ -51,6 +51,7 @@ export {
   type DocumentCharge,
   type DocumentDeps,
   type DocumentLine,
+  type DocumentPartySnapshot,
   type DocumentRepository,
   type DocumentStatus,
   type DocumentTax,
