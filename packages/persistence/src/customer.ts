@@ -46,7 +46,7 @@ export function createCustomerRepository(db: SchemaDatabase): CustomerRepository
       return db
         .prepare(
           `SELECT id, business_id, name, phone, email, gstin, registration_type,
-                  billing_address, shipping_address, state_ut_id, pin_code, notes,
+                  billing_address, shipping_address, state_ut_id, pin_code, notes, credit_days,
                   active, created_at, updated_at
            FROM customer
            WHERE business_id = ?
@@ -63,7 +63,7 @@ export function createCustomerRepository(db: SchemaDatabase): CustomerRepository
       const row = db
         .prepare(
           `SELECT id, business_id, name, phone, email, gstin, registration_type,
-                  billing_address, shipping_address, state_ut_id, pin_code, notes,
+                  billing_address, shipping_address, state_ut_id, pin_code, notes, credit_days,
                   active, created_at, updated_at
            FROM customer
            WHERE id = ? AND business_id = ?`,
@@ -99,7 +99,7 @@ function write(db: SchemaDatabase, record: StoredCustomer, updating: boolean): v
         `UPDATE customer SET
           name = ?, phone = ?, email = ?, gstin = ?, registration_type = ?,
           billing_address = ?, shipping_address = ?, state_ut_id = ?, pin_code = ?,
-          notes = ?, active = ?, updated_at = ?
+          notes = ?, credit_days = ?, active = ?, updated_at = ?
          WHERE id = ? AND business_id = ?`,
       ).run(
         record.name,
@@ -112,6 +112,7 @@ function write(db: SchemaDatabase, record: StoredCustomer, updating: boolean): v
         record.stateId,
         record.pinCode,
         record.notes,
+        record.creditDays,
         record.active ? 1 : 0,
         record.updatedAt,
         record.id,
@@ -121,9 +122,9 @@ function write(db: SchemaDatabase, record: StoredCustomer, updating: boolean): v
       db.prepare(
         `INSERT INTO customer (
           id, business_id, name, phone, email, gstin, registration_type,
-          billing_address, shipping_address, state_ut_id, pin_code, notes,
+          billing_address, shipping_address, state_ut_id, pin_code, notes, credit_days,
           active, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         record.id,
         record.businessId,
@@ -137,6 +138,7 @@ function write(db: SchemaDatabase, record: StoredCustomer, updating: boolean): v
         record.stateId,
         record.pinCode,
         record.notes,
+        record.creditDays,
         record.active ? 1 : 0,
         record.createdAt,
         record.updatedAt,
@@ -186,10 +188,21 @@ function toStoredCustomer(row: Record<string, unknown>): StoredCustomer {
     stateId: text(row.state_ut_id, "state_ut_id"),
     pinCode: nullableText(row.pin_code),
     notes: nullableText(row.notes),
+    creditDays: wholeNumber(row.credit_days, "credit_days"),
     active: row.active === 1,
     createdAt: text(row.created_at, "created_at"),
     updatedAt: text(row.updated_at, "updated_at"),
   };
+}
+
+function wholeNumber(value: unknown, column: string): number {
+  if (typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 365) {
+    return value;
+  }
+  if (typeof value === "bigint" && value >= 0n && value <= 365n) {
+    return Number(value);
+  }
+  throw new CustomerError(`Stored customer column ${column} is invalid.`);
 }
 
 function text(value: unknown, column: string): string {
