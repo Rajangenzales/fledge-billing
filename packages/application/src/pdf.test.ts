@@ -19,6 +19,9 @@ describe("invoice PDF", () => {
     expect(text).not.toMatch(/Generated(?: on)?:/i);
     expect(text).toContain("Total: INR 1,180.00");
     expect(text).toContain("CGST INR 90.00, SGST INR 90.00");
+    expect(text).toContain("Promotional offer details");
+    expect(text).toContain("Quarterly distributor promotion: Buy 10 cases, get 1 free");
+    expect(text).toContain("Service: Line 1 with a long description that must stay with its amount");
     expect(text).toContain("Page 2 of");
     expect(pageCount(bytes)).toBeGreaterThan(1);
     expect(pageSize(bytes)).toEqual([595.28, 841.89]);
@@ -69,6 +72,21 @@ function sampleRender(itemCount: number): IssuedRender {
         ],
       },
     ],
+    itemColumnLabels: {
+      description: "Service",
+      quantity: "Hours",
+      unit: "Session",
+      rate: "Fee",
+      amount: "Line total",
+      hsnSac: "HSN/SAC",
+    },
+    promotionalOffers: [{
+      description: "Quarterly distributor promotion",
+      qualifyingQuantity: "10",
+      freeQuantity: "1",
+      unit: "cases",
+      note: "Applicable to this order",
+    }],
     items: Array.from({ length: itemCount }, (_, index) => ({
       description: `Line ${index + 1} with a long description that must stay with its amount`,
       quantity: "1",

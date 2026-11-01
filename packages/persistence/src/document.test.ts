@@ -677,6 +677,13 @@ describe("PDF export", () => {
               taxCategoryId: "taxable",
             },
           ],
+          promotionalOffers: [{
+            description: "Quarterly distributor promotion",
+            qualifyingQuantity: "10",
+            freeQuantity: "1",
+            unit: "cases",
+            note: "Applicable to this order",
+          }],
         },
         deps,
       )).id,
@@ -708,6 +715,9 @@ describe("PDF export", () => {
     expect(printed).toContain("Tax: INR 180.00");
     expect(printed).toContain("Supplier: Fledge Traders");
     expect(printed).toContain("Customer: Meera");
+    expect(printed).toContain("Promotional offer details");
+    expect(printed).toContain("Quarterly distributor promotion: Buy 10 cases, get 1 free");
+    expect(printed).toContain("Total: INR 1,180.00");
     expect(printed).not.toContain("Updated Supplier");
     expect(printed).not.toContain("Updated Customer");
     const directory = mkdtempSync(join(tmpdir(), "fledge-pdf-"));
@@ -727,6 +737,13 @@ describe("PDF export", () => {
       documentNumber: "INV/2026-27/0001",
       grandTotal: "1180",
       taxTotal: "180",
+      promotionalOffers: [{
+        description: "Quarterly distributor promotion",
+        qualifyingQuantity: "10",
+        freeQuantity: "1",
+        unit: "cases",
+        note: "Applicable to this order",
+      }],
     });
   });
   it("snapshots payment details and default invoice notes for historical documents", async () => {

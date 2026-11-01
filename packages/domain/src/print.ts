@@ -47,7 +47,7 @@ export function presentationLines(render: IssuedRender): string[] {
   if (render.promotionalOffers?.length) {
     lines.push("Promotional offer details");
     for (const offer of render.promotionalOffers) {
-      lines.push(`${offer.description}: Buy ${offer.qualifyingQuantity} ${offer.unit}, get ${offer.freeQuantity} ${offer.unit} free`);
+      lines.push(`${offer.description}: Buy ${offer.qualifyingQuantity} ${offer.unit}, get ${offer.freeQuantity} free`);
       if (offer.note) lines.push(`Offer note: ${offer.note}`);
     }
   }
