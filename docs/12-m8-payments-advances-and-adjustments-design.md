@@ -1,6 +1,6 @@
 # Fledge Billing — M8 Payments, Advances & Financial Adjustments Design
 
-**Status:** Product/technical design baseline; M8-02A/B/C payment-event foundations implemented; M8-03 note design documented; statutory/accounting decisions remain open  
+**Status:** Product/technical design baseline; M8-02A/B/C payment-event foundations and M8-04 ordinary receipt print/PDF implemented; M8-03 note design documented; statutory/accounting decisions remain open  
 **Version:** 1.1  
 **Date:** 2026-10-31  
 **Related:** docs/02-prd-v1.md, docs/04-database-design.md, docs/05-gst-compliance-spec.md, docs/06-invoice-template-system.md, docs/08-roadmap-and-cursor-contract.md, docs/10-m5-to-m8-implementation-contract.md

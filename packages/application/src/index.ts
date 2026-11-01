@@ -133,3 +133,11 @@ export {
   type PaymentAdjustmentTotals,
   type PaymentAdjustmentType,
 } from "./payment-adjustment.js";
+
+export {
+  getCustomerPaymentActivity,
+  type CustomerPaymentActivity,
+  type CustomerPaymentActivityDeps,
+  type CustomerPaymentActivityEntry,
+  type CustomerPaymentActivityType,
+} from "./customer-payment-activity.js";
