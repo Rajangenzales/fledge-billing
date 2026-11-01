@@ -21,13 +21,13 @@ export type PaymentAdjustmentTotals = {
 };
 
 export type PaymentAdjustmentRepository = {
-  getBusinessId(): string | null;
-  customerExists(customerId: string, businessId: string): boolean;
-  recordRefund(event: PaymentAdjustmentEvent): PaymentAdjustmentEvent;
-  reverseReceipt(event: PaymentAdjustmentEvent): PaymentAdjustmentEvent;
-  reverseRefund(event: PaymentAdjustmentEvent): PaymentAdjustmentEvent;
-  list(receiptId: string): PaymentAdjustmentEvent[];
-  totals(customerId: string): PaymentAdjustmentTotals;
+  getBusinessId(): Promise<string | null>;
+  customerExists(customerId: string, businessId: string): Promise<boolean>;
+  recordRefund(event: PaymentAdjustmentEvent): Promise<PaymentAdjustmentEvent>;
+  reverseReceipt(event: PaymentAdjustmentEvent): Promise<PaymentAdjustmentEvent>;
+  reverseRefund(event: PaymentAdjustmentEvent): Promise<PaymentAdjustmentEvent>;
+  list(receiptId: string): Promise<PaymentAdjustmentEvent[]>;
+  totals(customerId: string): Promise<PaymentAdjustmentTotals>;
 };
 
 export type PaymentAdjustmentDeps = {
@@ -48,8 +48,8 @@ export class PaymentAdjustmentError extends Error {
 export function recordCustomerRefund(
   input: { receiptId: string; amount: string; paymentDate: string; method: PaymentAdjustmentEvent["method"]; reason: string; idempotencyKey: string },
   deps: PaymentAdjustmentDeps,
-): PaymentAdjustmentEvent {
-  const businessId = requireBusiness(deps);
+): Promise<PaymentAdjustmentEvent> {
+  const businessId = await requireBusiness(deps);
   if (!isDate(input.paymentDate)) throw new PaymentAdjustmentError("Enter a valid refund date.");
   if (!input.method || !["cash", "upi", "bank_transfer", "card", "cheque", "other"].includes(input.method)) {
     throw new PaymentAdjustmentError("Choose a valid refund method.");
@@ -65,8 +65,8 @@ export function recordCustomerRefund(
 export function reverseCustomerReceipt(
   input: { receiptId: string; reason: string; idempotencyKey: string },
   deps: PaymentAdjustmentDeps,
-): PaymentAdjustmentEvent {
-  const businessId = requireBusiness(deps);
+): Promise<PaymentAdjustmentEvent> {
+  const businessId = await requireBusiness(deps);
   return deps.repository.reverseReceipt({
     id: deps.createId(), businessId, customerId: "", receiptId: required(input.receiptId, "Choose the receipt to reverse.", 120),
     eventType: "reverse_receipt", originalEventId: null, amount: "0", paymentDate: null, method: null,
@@ -78,8 +78,8 @@ export function reverseCustomerReceipt(
 export function reverseCustomerRefund(
   input: { refundEventId: string; reason: string; idempotencyKey: string },
   deps: PaymentAdjustmentDeps,
-): PaymentAdjustmentEvent {
-  const businessId = requireBusiness(deps);
+): Promise<PaymentAdjustmentEvent> {
+  const businessId = await requireBusiness(deps);
   return deps.repository.reverseRefund({
     id: deps.createId(), businessId, customerId: "", receiptId: "", eventType: "reverse_refund",
     originalEventId: required(input.refundEventId, "Choose the refund entry to reverse.", 120), amount: "0",
@@ -89,12 +89,12 @@ export function reverseCustomerRefund(
 }
 
 export function listReceiptAdjustments(receiptId: string, deps: PaymentAdjustmentDeps): PaymentAdjustmentEvent[] {
-  requireBusiness(deps);
+  await requireBusiness(deps);
   return deps.repository.list(required(receiptId, "Choose a customer receipt.", 120));
 }
 
-function requireBusiness(deps: PaymentAdjustmentDeps): string {
-  const id = deps.repository.getBusinessId();
+async function requireBusiness(deps: PaymentAdjustmentDeps): Promise<string> {
+  const id = await deps.repository.getBusinessId();
   if (!id) throw new PaymentAdjustmentError("Save the business profile before recording a refund or reversal.");
   return id;
 }
