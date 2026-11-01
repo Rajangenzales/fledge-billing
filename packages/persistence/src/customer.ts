@@ -46,7 +46,8 @@ export function createCustomerRepository(db: SchemaDatabase): CustomerRepository
       return db
         .prepare(
           `SELECT id, business_id, name, phone, email, gstin, registration_type,
-                  billing_address, shipping_address, state_ut_id, pin_code, notes, credit_days,
+                  billing_address, shipping_address, state_ut_id, pin_code, notes,
+                  ${hasCreditDaysColumn(db) ? "credit_days" : "0 AS credit_days"},
                   active, created_at, updated_at
            FROM customer
            WHERE business_id = ?
@@ -63,7 +64,8 @@ export function createCustomerRepository(db: SchemaDatabase): CustomerRepository
       const row = db
         .prepare(
           `SELECT id, business_id, name, phone, email, gstin, registration_type,
-                  billing_address, shipping_address, state_ut_id, pin_code, notes, credit_days,
+                  billing_address, shipping_address, state_ut_id, pin_code, notes,
+                  ${hasCreditDaysColumn(db) ? "credit_days" : "0 AS credit_days"},
                   active, created_at, updated_at
            FROM customer
            WHERE id = ? AND business_id = ?`,
@@ -87,62 +89,49 @@ function write(db: SchemaDatabase, record: StoredCustomer, updating: boolean): v
     if (!businessId || businessId !== record.businessId) {
       throw new CustomerError("Save the business profile before adding a customer.");
     }
+    const hasCreditDays = hasCreditDaysColumn(db);
     if (updating) {
       const existing = db.prepare("SELECT id FROM customer WHERE id = ? AND business_id = ?").get(
-        record.id,
-        businessId,
+        record.id, businessId,
       );
-      if (!existing) {
-        throw new CustomerError("That customer was not found.");
-      }
-      db.prepare(
-        `UPDATE customer SET
-          name = ?, phone = ?, email = ?, gstin = ?, registration_type = ?,
-          billing_address = ?, shipping_address = ?, state_ut_id = ?, pin_code = ?,
-          notes = ?, credit_days = ?, active = ?, updated_at = ?
-         WHERE id = ? AND business_id = ?`,
-      ).run(
-        record.name,
-        record.phone,
-        record.email,
-        record.gstin,
-        record.registrationType,
-        record.billingAddress,
-        record.shippingAddress,
-        record.stateId,
-        record.pinCode,
-        record.notes,
-        record.creditDays,
-        record.active ? 1 : 0,
-        record.updatedAt,
-        record.id,
-        record.businessId,
-      );
+      if (!existing) throw new CustomerError("That customer was not found.");
+      const sql = hasCreditDays
+        ? `UPDATE customer SET
+            name = ?, phone = ?, email = ?, gstin = ?, registration_type = ?,
+            billing_address = ?, shipping_address = ?, state_ut_id = ?, pin_code = ?,
+            notes = ?, credit_days = ?, active = ?, updated_at = ?
+           WHERE id = ? AND business_id = ?`
+        : `UPDATE customer SET
+            name = ?, phone = ?, email = ?, gstin = ?, registration_type = ?,
+            billing_address = ?, shipping_address = ?, state_ut_id = ?, pin_code = ?,
+            notes = ?, active = ?, updated_at = ?
+           WHERE id = ? AND business_id = ?`;
+      const values = [
+        record.name, record.phone, record.email, record.gstin, record.registrationType,
+        record.billingAddress, record.shippingAddress, record.stateId, record.pinCode,
+        record.notes, ...(hasCreditDays ? [record.creditDays] : []),
+        record.active ? 1 : 0, record.updatedAt, record.id, record.businessId,
+      ];
+      db.prepare(sql).run(...values);
     } else {
-      db.prepare(
-        `INSERT INTO customer (
-          id, business_id, name, phone, email, gstin, registration_type,
-          billing_address, shipping_address, state_ut_id, pin_code, notes, credit_days,
-          active, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).run(
-        record.id,
-        record.businessId,
-        record.name,
-        record.phone,
-        record.email,
-        record.gstin,
-        record.registrationType,
-        record.billingAddress,
-        record.shippingAddress,
-        record.stateId,
-        record.pinCode,
-        record.notes,
-        record.creditDays,
-        record.active ? 1 : 0,
-        record.createdAt,
-        record.updatedAt,
-      );
+      const sql = hasCreditDays
+        ? `INSERT INTO customer (
+            id, business_id, name, phone, email, gstin, registration_type,
+            billing_address, shipping_address, state_ut_id, pin_code, notes, credit_days,
+            active, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        : `INSERT INTO customer (
+            id, business_id, name, phone, email, gstin, registration_type,
+            billing_address, shipping_address, state_ut_id, pin_code, notes,
+            active, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const values = [
+        record.id, record.businessId, record.name, record.phone, record.email, record.gstin,
+        record.registrationType, record.billingAddress, record.shippingAddress, record.stateId,
+        record.pinCode, record.notes, ...(hasCreditDays ? [record.creditDays] : []),
+        record.active ? 1 : 0, record.createdAt, record.updatedAt,
+      ];
+      db.prepare(sql).run(...values);
     }
     db.exec("COMMIT");
   } catch (error) {
@@ -195,6 +184,10 @@ function toStoredCustomer(row: Record<string, unknown>): StoredCustomer {
   };
 }
 
+function hasCreditDaysColumn(db: SchemaDatabase): boolean {
+  return db.prepare("PRAGMA table_info(customer)").all()
+    .some((column) => column.name === "credit_days");
+}
 function wholeNumber(value: unknown, column: string): number {
   if (typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 365) {
     return value;
