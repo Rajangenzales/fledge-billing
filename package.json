@@ -7,7 +7,9 @@
     "test": "vitest run",
     "dev": "pnpm --filter @fledge/app run dev",
     "start": "pnpm --filter @fledge/app run start",
-    "typecheck": "pnpm -r run typecheck"
+    "typecheck": "pnpm -r run typecheck",
+    "web:dev": "pnpm --filter @fledge/web run dev",
+    "web:build": "pnpm --filter @fledge/web run build"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",
