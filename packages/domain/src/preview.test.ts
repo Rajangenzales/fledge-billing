@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { GST_RULE_VERSIONS, calculateGstDocument } from "./gst.js";
 import { gstinCheckCharacter } from "./gstin.js";
 import { PREVIEW_NOTICE, renderStoredDocument, renderTemplatePreview } from "./preview.js";
+import { presentationLines } from "./print.js";
 import { STATE_UTS } from "./state-ut.js";
 import { BUILT_IN_TEMPLATES } from "./template.js";
 
@@ -56,6 +57,7 @@ describe("template preview", () => {
     expect(field(preview.sections, "grand_total")?.value).toBe("1180");
     expect(preview.items[0]?.description).toBe("Sample consulting");
     expect(preview.items[0]?.hsnSac).toBe("998314");
+    expect(preview.itemColumnLabels).toMatchObject({ description: "Description", quantity: "Quantity", unit: "Unit", rate: "Rate", amount: "Amount", hsnSac: "HSN/SAC" });
 
     const hiddenPhone = renderTemplatePreview({
       template: {
@@ -63,7 +65,14 @@ describe("template preview", () => {
         id: "tpl:sample",
         version: 1,
         customFields: [],
-        fields: template!.fields.map((item) => (item.key === "customer_phone" ? { ...item, visible: false } : item)),
+        fields: template!.fields.map((item) => {
+          if (item.key === "customer_phone") return { ...item, visible: false };
+          if (item.key === "item_description") return { ...item, label: "Product" };
+          if (item.key === "item_quantity") return { ...item, label: "Cases" };
+          if (item.key === "item_rate") return { ...item, label: "Unit price" };
+          if (item.key === "item_amount") return { ...item, label: "Line total" };
+          return item;
+        }),
         sections: template!.sections.map((section) =>
           section.key === "customer" ? { ...section, label: "Buyer" } : section,
         ),
@@ -81,6 +90,7 @@ describe("template preview", () => {
     expect(hiddenPhone.totals.grandTotal).toBe("1180");
     expect(field(hiddenPhone.sections, "customer_phone")).toBeUndefined();
     expect(hiddenPhone.sections.find((section) => section.key === "customer")?.label).toBe("Buyer");
+    expect(hiddenPhone.itemColumnLabels).toMatchObject({ description: "Product", quantity: "Cases", rate: "Unit price", amount: "Line total" });
   });
 
   it("renders an issued document from stored amounts and the saved field label", () => {
@@ -144,6 +154,10 @@ describe("template preview", () => {
     });
     expect(rendered.items[0]?.description).toContain("stays intact");
     expect(rendered.documentNumber).toBe("INV/2026-27/0001");
+    const customized = { ...rendered, itemColumnLabels: { description: "Product", quantity: "Cases", unit: "Pack", rate: "Unit price", amount: "Line total", hsnSac: "HSN/SAC" } };
+    const lines = presentationLines(customized);
+    expect(lines.some((line) => line.includes("Product: A stored line"))).toBe(true);
+    expect(lines.some((line) => line.includes("Cases: 1") && line.includes("Unit price:"))).toBe(true);
   });
 });
 

@@ -409,13 +409,21 @@ function readTemplate(db: SchemaDatabase, businessId: string, id: string): Invoi
     )
     .all(id)
     .map(toSection);
-  const fields = db
+  const storedFields = db
     .prepare(
       `SELECT id, section_key, field_key, label, sort_order, visible, required, protected
        FROM template_field WHERE template_id = ? ORDER BY sort_order ASC, id ASC`,
     )
     .all(id)
     .map(toField);
+  const builtin = BUILT_IN_TEMPLATES.find((template) => template.key === text(row.builtin_key, "builtin_key"));
+  const itemColumnKeys = new Set(["item_description", "item_quantity", "item_unit", "item_rate", "item_amount"]);
+  const fields: TemplateField[] = [
+    ...storedFields,
+    ...(builtin?.fields ?? [])
+      .filter((field) => itemColumnKeys.has(field.key) && !storedFields.some((stored) => stored.key === field.key))
+      .map((field) => ({ ...field, id: `${id}:${field.key}` })),
+  ].sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id));
   return {
     id: text(row.id, "id"),
     businessId: text(row.business_id, "business_id"),
