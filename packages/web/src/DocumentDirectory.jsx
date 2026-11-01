@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { invoicePdfFilename } from "@fledge/domain";
+import IssuedDocumentOutput from "./IssuedDocumentOutput.jsx";
 import { STATE_UTS } from "@fledge/domain";
 
 const documentTypes = [
@@ -115,6 +117,7 @@ export default function DocumentDirectory({
   onSave,
   onFinalize,
   onCancel,
+  onRenderIssued,
 }) {
   const [form, setForm] = useState(null);
   const [message, setMessage] = useState("");
@@ -124,6 +127,9 @@ export default function DocumentDirectory({
   const [dirty, setDirty] = useState(false);
   const [savedPreview, setSavedPreview] = useState(null);
   const [selectedDocumentId, setSelectedDocumentId] = useState(null);
+  const [selectedRender, setSelectedRender] = useState(null);
+  const [outputBusy, setOutputBusy] = useState(false);
+  const [outputMessage, setOutputMessage] = useState("");
   const activeProducts = products.filter((product) => product.active);
   const activeCustomers = customers.filter((customer) => customer.active);
   const selectedDocument = documents.find((document) => document.id === selectedDocumentId);
@@ -139,6 +145,7 @@ export default function DocumentDirectory({
   function startNew() {
     setForm(defaultForm(business, activeCustomers, templates));
     setSelectedDocumentId(null);
+    setSelectedRender(null);
     setConfirmCancel(false);
     setConfirmFinalize(false);
     setMessage("");
@@ -149,6 +156,7 @@ export default function DocumentDirectory({
   function editDraft(document) {
     setForm(formFromDocument(document));
     setSelectedDocumentId(null);
+    setSelectedRender(null);
     setConfirmCancel(false);
     setConfirmFinalize(false);
     setMessage("");
@@ -265,6 +273,89 @@ export default function DocumentDirectory({
     }
   }
 
+  async function viewDocument(document) {
+    setSelectedDocumentId(document.id);
+    setSelectedRender(null);
+    setOutputMessage("");
+    if (document.status === "cancelled") {
+      return;
+    }
+    setOutputBusy(true);
+    try {
+      setSelectedRender(await onRenderIssued(document.id));
+    } catch (error) {
+      setOutputMessage(error?.userMessage || error?.message || "The document preview could not be loaded.");
+    } finally {
+      setOutputBusy(false);
+    }
+  }
+
+  async function createPdfFile(render) {
+    const { buildInvoicePdf } = await import("@fledge/application/pdf");
+    const bytes = await buildInvoicePdf(render);
+    return new File(
+      [bytes],
+      invoicePdfFilename(render.documentType, render.documentNumber, render.documentDate),
+      { type: "application/pdf" },
+    );
+  }
+
+  function downloadFile(file) {
+    const url = window.URL.createObjectURL(file);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = file.name;
+    anchor.style.display = "none";
+    document.body.append(anchor);
+    try {
+      anchor.click();
+    } finally {
+      anchor.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    }
+  }
+
+  async function downloadDocumentPdf() {
+    setOutputBusy(true);
+    setOutputMessage("");
+    try {
+      downloadFile(await createPdfFile(selectedRender));
+      setOutputMessage("PDF downloaded.");
+    } catch (error) {
+      setOutputMessage(error?.userMessage || error?.message || "The PDF could not be downloaded.");
+    } finally {
+      setOutputBusy(false);
+    }
+  }
+
+  async function shareDocumentPdf() {
+    setOutputBusy(true);
+    setOutputMessage("");
+    try {
+      const file = await createPdfFile(selectedRender);
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: file.name });
+        setOutputMessage("PDF shared.");
+      } else {
+        downloadFile(file);
+        setOutputMessage("File sharing is not available in this browser; the PDF was downloaded instead.");
+      }
+    } catch (error) {
+      setOutputMessage(error?.userMessage || error?.message || "The PDF could not be shared.");
+    } finally {
+      setOutputBusy(false);
+    }
+  }
+
+  function printDocument() {
+    setOutputMessage("");
+    try {
+      window.print();
+    } catch (error) {
+      setOutputMessage(error?.message || "The print dialog could not be opened.");
+    }
+  }
+
   function addProductLine(product) {
     setForm((current) => ({ ...current, lines: [...current.lines, lineFromProduct(product)] }));
     setDirty(true);
@@ -362,10 +453,26 @@ export default function DocumentDirectory({
     </form>}
 
     {selectedDocument && <section className="panel selected-document">
-      <div className="panel-heading"><div><div className="eyebrow">DOCUMENT DETAILS</div><h2>{selectedDocument.documentNumber || "Draft"} · {selectedDocument.documentDate}</h2></div><button className="list-action" onClick={() => setSelectedDocumentId(null)}>Close</button></div>
+      <div className="panel-heading"><div><div className="eyebrow">DOCUMENT DETAILS</div><h2>{selectedDocument.documentNumber || "Draft"} · {selectedDocument.documentDate}</h2></div><button className="list-action" onClick={() => {
+        setSelectedDocumentId(null);
+        setSelectedRender(null);
+      }}>Close</button></div>
       {selectedDocument.dueDate && <p>Due {selectedDocument.dueDate}</p>}
       <p>{selectedDocument.lines.map((line) => line.description).join(", ")}</p>
       <strong>Total {money(selectedDocument.grandTotal)}</strong>
+      {selectedDocument.status === "cancelled"
+        ? <p className="form-message" role="note">This document is cancelled and retained for local history. Customer output is unavailable.</p>
+        : outputBusy && !selectedRender
+        ? <p className="form-message" role="status">Preparing the saved document preview…</p>
+        : selectedRender && <IssuedDocumentOutput
+          render={selectedRender}
+          busy={outputBusy}
+          message={outputMessage}
+          onDownload={downloadDocumentPdf}
+          onPrint={printDocument}
+          onShare={shareDocumentPdf}
+        />}
+      {outputMessage && !selectedRender && <p className="form-message" role="alert">{outputMessage}</p>}
     </section>}
 
     {business && <div className="panel customer-list-panel document-list-panel">
@@ -380,7 +487,7 @@ export default function DocumentDirectory({
             <span className="document-total">{money(document.grandTotal)}</span>
             {document.status === "draft"
               ? <button className="list-action" onClick={() => editDraft(document)}>Edit</button>
-              : <button className="list-action" onClick={() => setSelectedDocumentId(document.id)}>View</button>}
+              : <button className="list-action" onClick={() => void viewDocument(document)}>View</button>}
           </li>;
         })}</ul>}
     </div>}

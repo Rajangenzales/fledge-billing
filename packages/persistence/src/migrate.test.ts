@@ -44,6 +44,7 @@ describe("migrate", () => {
       "payment-refund-reversal-events",
       "receipt-identity-snapshot",
       "document-due-date",
+      "document-party-snapshot",
     ]);
   });
 

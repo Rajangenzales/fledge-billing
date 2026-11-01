@@ -21,6 +21,7 @@ export async function buildInvoicePdf(render: IssuedRender, logo?: Uint8Array): 
   const body = lines.slice(0, -5);
   let page = pdf.addPage(PageSizes.A4);
   let y = page.getHeight() - MARGIN;
+  const width = page.getWidth() - MARGIN * 2;
   if (image) {
     const scale = Math.min(120 / image.width, 48 / image.height);
     const width = image.width * scale;
@@ -28,7 +29,6 @@ export async function buildInvoicePdf(render: IssuedRender, logo?: Uint8Array): 
     page.drawImage(image, { x: MARGIN, y: y - height, width, height });
     y -= height + 12;
   }
-  const width = page.getWidth() - MARGIN * 2;
 
   const nextPage = (): void => {
     page = pdf.addPage(PageSizes.A4);
@@ -36,11 +36,10 @@ export async function buildInvoicePdf(render: IssuedRender, logo?: Uint8Array): 
   };
   const drawLine = (text: string, face: typeof font): void => {
     const wrapped = wrap(text, face, width);
-    const height = wrapped.length * LEADING;
-    if (y - height < BOTTOM) {
-      nextPage();
-    }
     for (const line of wrapped) {
+      if (y - LEADING < BOTTOM) {
+        nextPage();
+      }
       try {
         page.drawText(line, { x: MARGIN, y: y - SIZE, size: SIZE, font: face, color: rgb(0.1, 0.12, 0.16) });
       } catch {
@@ -80,30 +79,77 @@ async function embedLogo(pdf: PDFDocument, logo: Uint8Array): Promise<Awaited<Re
 }
 
 function wrap(text: string, font: Awaited<ReturnType<PDFDocument["embedFont"]>>, width: number): string[] {
-  const words = text.split(" ");
   const lines: string[] = [];
-  let current = "";
-  for (const word of words) {
-    const next = current.length === 0 ? word : `${current} ${word}`;
-    if (font.widthOfTextAtSize(next, SIZE) <= width) {
-      current = next;
+  for (const paragraph of text.split("\n")) {
+    const words = paragraph.split(/\s+/).filter(Boolean);
+    if (words.length === 0) {
+      lines.push("");
       continue;
+    }
+    let current = "";
+    for (const word of words) {
+      const fragments = splitLongWord(word, font, width);
+      for (const fragment of fragments) {
+        const next = current.length === 0 ? fragment : `${current} ${fragment}`;
+        if (font.widthOfTextAtSize(next, SIZE) <= width) {
+          current = next;
+          continue;
+        }
+        if (current.length > 0) {
+          lines.push(current);
+        }
+        current = fragment;
+      }
     }
     if (current.length > 0) {
       lines.push(current);
     }
-    current = word;
-  }
-  if (current.length > 0) {
-    lines.push(current);
   }
   return lines.length > 0 ? lines : [""];
+}
+
+function splitLongWord(
+  word: string,
+  font: Awaited<ReturnType<PDFDocument["embedFont"]>>,
+  width: number,
+): string[] {
+  if (font.widthOfTextAtSize(word, SIZE) <= width) {
+    return [word];
+  }
+  const characters = Array.from(word);
+  const chunks: string[] = [];
+  let start = 0;
+  while (start < characters.length) {
+    let low = start + 1;
+    let high = characters.length;
+    let end = start;
+    while (low <= high) {
+      const middle = Math.floor((low + high) / 2);
+      const candidate = characters.slice(start, middle).join("");
+      if (font.widthOfTextAtSize(candidate, SIZE) <= width) {
+        end = middle;
+        low = middle + 1;
+      } else {
+        high = middle - 1;
+      }
+    }
+    if (end === start) {
+      throw new TemplateError("This invoice contains a character that cannot fit on the page.");
+    }
+    chunks.push(characters.slice(start, end).join(""));
+    start = end;
+  }
+  return chunks;
 }
 
 function documentDate(value: string): Date {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) {
-    return new Date(Date.UTC(2026, 0, 1));
+    throw new TemplateError("This invoice has an invalid saved document date.");
   }
-  return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  if (date.toISOString().slice(0, 10) !== value) {
+    throw new TemplateError("This invoice has an invalid saved document date.");
+  }
+  return date;
 }

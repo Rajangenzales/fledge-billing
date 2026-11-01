@@ -2,8 +2,8 @@
  * Curated browser entry point.
  *
  * Keep this surface limited to application workflows whose complete import
- * graph is browser-safe. Node configuration, logging, PDF generation and
- * persistence adapters belong to the server entry points.
+ * graph is browser-safe. Node configuration, logging and filesystem adapters
+ * belong to the server entry points.
  */
 export {
   getBusinessProfile,

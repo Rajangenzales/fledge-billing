@@ -651,9 +651,29 @@ describe("PDF export", () => {
       templates: createTemplateRepository(db),
       states: listStateUts(db),
     };
+    const businessRepository = createBusinessRepository(db);
+    const changedBusiness = await businessRepository.get();
+    expect(changedBusiness).not.toBeNull();
+    await businessRepository.save({
+      ...changedBusiness!,
+      legalName: "Updated Supplier",
+      address: "Updated supplier address",
+    });
+    const customerRepository = createCustomerRepository(db);
+    const changedCustomer = await customerRepository.get("cust-1");
+    expect(changedCustomer).not.toBeNull();
+    await customerRepository.update({
+      ...changedCustomer!,
+      name: "Updated Customer",
+      billingAddress: "Updated customer address",
+    });
     const printed = await printInvoice(issued.id, renderDeps);
     expect(printed).toContain("Total: INR 1,180.00");
     expect(printed).toContain("Tax: INR 180.00");
+    expect(printed).toContain("Supplier: Fledge Traders");
+    expect(printed).toContain("Customer: Meera");
+    expect(printed).not.toContain("Updated Supplier");
+    expect(printed).not.toContain("Updated Customer");
     const directory = mkdtempSync(join(tmpdir(), "fledge-pdf-"));
     try {
       const saved = await exportInvoicePdf(issued.id, directory, renderDeps);

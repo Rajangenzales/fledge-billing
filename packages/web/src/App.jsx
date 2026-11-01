@@ -23,6 +23,7 @@ import {
   releaseReceiptAllocation,
   reverseCustomerReceipt,
   reverseCustomerRefund,
+  renderIssuedDocument,
   updateProduct,
   updateSavedGstRate,
   updateDocument,
@@ -437,6 +438,14 @@ export default function App() {
     return document;
   }
 
+  async function handleRenderIssuedDocument(id) {
+    return renderIssuedDocument(id, {
+      documents: repositories.documentRepository,
+      templates: repositories.templateRepository,
+      states: STATE_UTS,
+    });
+  }
+
   async function handleCancelDocument(id) {
     const document = await cancelDocument(id, documentDeps);
     setDocuments(await listDocuments(documentDeps));
@@ -541,6 +550,7 @@ export default function App() {
           onSave={handleSaveDocument}
           onFinalize={handleFinalizeDocument}
           onCancel={handleCancelDocument}
+          onRenderIssued={handleRenderIssuedDocument}
         />}
         {status === "ready" && !["overview", "settings", "customers", "products", "payments", "invoices", "templates"].includes(active) && <Placeholder section={active} onBack={() => setActive("overview")} />}
       </div>

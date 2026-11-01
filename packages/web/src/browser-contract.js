@@ -48,3 +48,4 @@ export {
   renderCustomerReceipt,
   customerReceiptPrintLines,
 } from "@fledge/application/browser";
+export { buildInvoicePdf } from "@fledge/application/pdf";

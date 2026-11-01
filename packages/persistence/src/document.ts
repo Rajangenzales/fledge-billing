@@ -6,6 +6,7 @@ import {
   type DocumentCharge,
   type DocumentCustomField,
   type DocumentLine,
+  type DocumentPartySnapshot,
   type DocumentRepository,
   type DocumentStatus,
   type DocumentTax,
@@ -424,6 +425,8 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
     record.roundingResidual,
     record.cessTotal,
     record.notices.join("\n"),
+    record.supplierSnapshot ? JSON.stringify(record.supplierSnapshot) : null,
+    record.recipientSnapshot ? JSON.stringify(record.recipientSnapshot) : null,
   ];
   if (updating) {
     db.prepare(
@@ -435,7 +438,7 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
         supplier_state_id = ?, supplier_gst_registered = ?, supplier_gstin = ?,
         recipient_state_id = ?, recipient_registration_type = ?, recipient_gstin = ?,
         reverse_charge = ?, exempt_total = ?, non_gst_total = ?, rounding_residual = ?,
-        cess_total = ?, calculation_notes = ?
+        cess_total = ?, calculation_notes = ?, supplier_snapshot = ?, recipient_snapshot = ?
        WHERE id = ? AND business_id = ?`,
     ).run(...values, record.id, record.businessId);
   } else {
@@ -447,8 +450,9 @@ function writeDocument(db: SchemaDatabase, record: BillingDocument, updating: bo
         finalized_at, updated_at, supplier_state_id, supplier_gst_registered, supplier_gstin,
         recipient_state_id, recipient_registration_type, recipient_gstin, reverse_charge,
         exempt_total, non_gst_total, rounding_residual, cess_total, calculation_notes,
+        supplier_snapshot, recipient_snapshot,
         id, business_id, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(...values, record.id, record.businessId, record.createdAt);
   }
   const insertLine = db.prepare(
@@ -557,7 +561,8 @@ function readDocument(db: SchemaDatabase, id: string): BillingDocument {
               grand_total, created_at, finalized_at, updated_at, supplier_state_id,
               supplier_gst_registered, supplier_gstin, recipient_state_id,
               recipient_registration_type, recipient_gstin, reverse_charge, exempt_total,
-              non_gst_total, rounding_residual, cess_total, calculation_notes
+              non_gst_total, rounding_residual, cess_total, calculation_notes,
+              supplier_snapshot, recipient_snapshot
        FROM document WHERE id = ?`,
     )
     .get(id);
@@ -617,6 +622,8 @@ function readDocument(db: SchemaDatabase, id: string): BillingDocument {
     recipientStateId: text(row.recipient_state_id, "recipient_state_id"),
     recipientRegistrationType: registration,
     recipientGstin: nullableText(row.recipient_gstin),
+    supplierSnapshot: documentPartySnapshot(row.supplier_snapshot),
+    recipientSnapshot: documentPartySnapshot(row.recipient_snapshot),
     lines,
     charges,
     taxes,
@@ -914,7 +921,7 @@ function recalculate(db: SchemaDatabase, stored: BillingDocument): BillingDocume
 
 function readBusinessRef(db: SchemaDatabase): BusinessRef | null {
   const row = db
-    .prepare("SELECT id, state_id, gst_registered, gstin FROM business")
+    .prepare("SELECT id, legal_name, address, state_id, pin_code, gst_registered, gstin, phone, email FROM business")
     .get();
   if (!row || typeof row.id !== "string") {
     return null;
@@ -924,13 +931,19 @@ function readBusinessRef(db: SchemaDatabase): BusinessRef | null {
     stateId: text(row.state_id, "state_id"),
     gstRegistered: row.gst_registered === 1,
     gstin: nullableText(row.gstin),
+    legalName: text(row.legal_name, "legal_name"),
+    address: text(row.address, "address"),
+    pinCode: nullableText(row.pin_code),
+    phone: nullableText(row.phone),
+    email: nullableText(row.email),
   };
 }
 
 function readCustomerRef(db: SchemaDatabase, id: string, businessId: string): CustomerRef | null {
   const row = db
     .prepare(
-      `SELECT id, active, state_ut_id, registration_type, gstin
+      `SELECT id, active, state_ut_id, registration_type, gstin, name, billing_address,
+              shipping_address, pin_code, phone, email
        FROM customer WHERE id = ? AND business_id = ?`,
     )
     .get(id, businessId);
@@ -947,6 +960,12 @@ function readCustomerRef(db: SchemaDatabase, id: string, businessId: string): Cu
     stateId: text(row.state_ut_id, "state_ut_id"),
     registrationType: registration,
     gstin: nullableText(row.gstin),
+    name: text(row.name, "name"),
+    billingAddress: text(row.billing_address, "billing_address"),
+    shippingAddress: nullableText(row.shipping_address),
+    pinCode: nullableText(row.pin_code),
+    phone: nullableText(row.phone),
+    email: nullableText(row.email),
   };
 }
 
@@ -1122,6 +1141,37 @@ function nullableText(value: unknown): string | null {
     throw new BillingError("A stored document field is invalid.");
   }
   return value.length === 0 ? null : value;
+}
+
+function documentPartySnapshot(value: unknown): DocumentPartySnapshot | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "string") {
+    throw new BillingError("A stored document party snapshot is invalid.");
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new BillingError("A stored document party snapshot is invalid.");
+  }
+  if (!isRecord(parsed)) {
+    throw new BillingError("A stored document party snapshot is invalid.");
+  }
+  return {
+    name: text(parsed.name, "party_snapshot.name"),
+    address: text(parsed.address, "party_snapshot.address"),
+    pinCode: nullableText(parsed.pinCode),
+    stateId: text(parsed.stateId, "party_snapshot.stateId"),
+    phone: nullableText(parsed.phone),
+    email: nullableText(parsed.email),
+    gstin: nullableText(parsed.gstin),
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function wholeNumber(value: unknown, column: string): number {
