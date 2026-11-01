@@ -297,6 +297,12 @@ const SECTOR_PRESETS: readonly {
   },
 ];
 
+export const BUSINESS_SECTOR_PRESETS = SECTOR_PRESETS.map(({ key, name, purpose }) => ({
+  key,
+  name,
+  purpose,
+}));
+
 function buildSectorPresets(): BuiltInTemplate[] {
   return SECTOR_PRESETS.flatMap((preset) =>
     (["tax_invoice", "non_gst_invoice"] as const).map((documentType) => {

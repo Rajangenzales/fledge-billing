@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { invoicePdfFilename, TAX_CATEGORIES } from "@fledge/domain";
+import { BUSINESS_SECTOR_PRESETS, invoicePdfFilename, TAX_CATEGORIES } from "@fledge/domain";
 import IssuedDocumentOutput from "./IssuedDocumentOutput.jsx";
 import { STATE_UTS } from "@fledge/domain";
 
@@ -21,11 +21,21 @@ export function dueDateForCustomer(documentDate, customer) {
   return creditDays > 0 ? addCalendarDays(documentDate, creditDays) : "";
 }
 
-function defaultForm(business, customers, templates) {
-  const documentType = business?.gstRegistered ? "tax_invoice" : "non_gst_invoice";
-  const defaultTemplate = templates.find((template) =>
+export function defaultTemplateForBusiness(business, templates, documentType) {
+  const sectorPreset = BUSINESS_SECTOR_PRESETS.find((preset) => preset.name === business?.businessType);
+  const sectorTemplate = sectorPreset
+    ? templates.find((template) =>
+      template.key === `sector:${sectorPreset.key}:${documentType}` && template.active,
+    )
+    : null;
+  return sectorTemplate ?? templates.find((template) =>
     template.documentType === documentType && template.isDefault && template.active,
   );
+}
+
+function defaultForm(business, customers, templates) {
+  const documentType = business?.gstRegistered ? "tax_invoice" : "non_gst_invoice";
+  const defaultTemplate = defaultTemplateForBusiness(business, templates, documentType);
   const customer = customers.find((item) => item.active);
   const documentDate = new Date().toISOString().slice(0, 10);
   return {
@@ -216,9 +226,7 @@ export default function DocumentDirectory({
   }
 
   function changeDocumentType(documentType) {
-    const defaultTemplate = templates.find((template) =>
-      template.documentType === documentType && template.isDefault && template.active,
-    );
+    const defaultTemplate = defaultTemplateForBusiness(business, templates, documentType);
     setForm((current) => ({
       ...current,
       documentType,

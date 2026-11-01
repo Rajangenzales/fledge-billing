@@ -29,7 +29,7 @@ import {
   updateSavedGstRate,
   updateDocument,
 } from "@fledge/application/browser";
-import { GST_RULE_VERSIONS, STATE_UTS, assertInvoiceLogo } from "@fledge/domain";
+import { BUSINESS_SECTOR_PRESETS, GST_RULE_VERSIONS, STATE_UTS, assertInvoiceLogo } from "@fledge/domain";
 import DocumentDirectory from "./DocumentDirectory.jsx";
 import ProductDirectory from "./ProductDirectory.jsx";
 import TemplateDirectory from "./TemplateDirectory.jsx";
@@ -99,7 +99,7 @@ function Overview({ business, customers, products, documents, outstandingBalance
     <section className="content-grid">
       <article className="panel setup-panel">
         <div className="panel-heading"><div><div className="eyebrow">GET STARTED</div><h2>Set up your workspace</h2></div><span className="step-count">{setupCount} of 3</span></div>
-        <p className="panel-copy">{business && customers.length ? "Your business profile and customer list are saved in this browser." : "Complete the setup steps to create your local workspace."}</p>
+        <p className="panel-copy">{business && customers.length && products.length ? "Your business profile, customer list and product catalog are saved in this browser." : "Complete the setup steps to create your local workspace."}</p>
         <div className="setup-list">
           <button className="setup-item" onClick={() => onNavigate("settings")}><span className="setup-number">01</span><span className="setup-text"><strong>{business ? "Business details saved" : "Add your business details"}</strong><small>Business name, address and GST registration</small></span><Icon name="arrow" /></button>
           <button className="setup-item" onClick={() => onNavigate("customers")}><span className="setup-number">02</span><span className="setup-text"><strong>{customers.length ? `${customers.length} customer${customers.length === 1 ? "" : "s"} saved` : "Add your first customer"}</strong><small>Keep customer and billing details together</small></span><Icon name="arrow" /></button>
@@ -206,7 +206,8 @@ export function BusinessSettings({ business, onSave, logoPreview }) {
         <label>PIN code<input inputMode="numeric" autoComplete="postal-code" maxLength={6} value={values.pinCode} onChange={(event) => update("pinCode", event.target.value)} /></label>
         <label>Phone<input autoComplete="tel" value={values.phone} onChange={(event) => update("phone", event.target.value)} /></label>
         <label>Email<input type="email" autoComplete="email" value={values.email} onChange={(event) => update("email", event.target.value)} /></label>
-        <label>Business type<input maxLength={80} placeholder="Retail, wholesale, manufacturing…" value={values.businessType} onChange={(event) => update("businessType", event.target.value)} /></label>
+        <label>Business type<select value={BUSINESS_SECTOR_PRESETS.some((preset) => preset.name === values.businessType) ? values.businessType : "other"} onChange={(event) => update("businessType", event.target.value === "other" ? "" : event.target.value)}><option value="other">Other / custom</option>{BUSINESS_SECTOR_PRESETS.map((preset) => <option key={preset.key} value={preset.name}>{preset.name}</option>)}</select></label>
+        {!BUSINESS_SECTOR_PRESETS.some((preset) => preset.name === values.businessType) && <label>Custom business type<input maxLength={80} placeholder="Enter your business type" value={values.businessType} onChange={(event) => update("businessType", event.target.value)} /></label>}
         <div className="form-span logo-upload-field">
           <label>Business logo<input type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" onChange={chooseLogo} /></label>
           <small>PNG or JPEG only. Maximum file size: 1 MB.</small>

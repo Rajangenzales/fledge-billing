@@ -160,7 +160,7 @@ export default function ProductDirectory({
       />}
       <div className="panel customer-list-panel">
         <div className="panel-heading"><div><div className="eyebrow">PRODUCT CATALOG</div><h2>{products.length ? `${products.length} saved` : "Your products and services"}</h2></div></div>
-        {products.length === 0 ? <div className="empty-list"><div className="placeholder-icon">□</div><h3>No products or services yet</h3><p>Create a catalog item to reuse its default price and tax configuration when billing workflows are added.</p><button className="secondary-button" onClick={() => setEditingProduct(null)}>Add first product</button></div> :
+        {products.length === 0 ? <div className="empty-list"><div className="placeholder-icon">□</div><h3>No products or services yet</h3><p>Create catalog items to reuse prices and tax settings when preparing invoices.</p><button className="secondary-button" onClick={() => setEditingProduct(null)}>Add first product</button></div> :
           <ul className="customer-list">{products.map((product) => <li key={product.id}>
             <span className="customer-avatar">{product.name.slice(0, 1).toUpperCase()}</span>
             <span className="customer-list-main"><strong>{product.name}{!product.active && <span className="inactive-badge">Inactive</span>}</strong><small>{product.type === "goods" ? "Goods" : "Service"} · {product.taxCategory.name}{product.savedGstRate ? ` · ${product.savedGstRate.percentage}%` : ""}</small></span>

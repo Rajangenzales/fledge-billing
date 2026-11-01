@@ -26,6 +26,22 @@ describe("business settings form", () => {
     expect(html).toContain("Default invoice notes and preferences");
     expect(html).toContain("Payment due within 30 days");
   });
+  it("offers the seven ready-to-bill business sectors", () => {
+    const html = renderToStaticMarkup(React.createElement(BusinessSettings, {
+      business: {
+        legalName: "Taxi Services",
+        address: "Market Road",
+        stateId: "IN-KL",
+        gstRegistered: false,
+        businessType: "Taxi / Cab Operator",
+      },
+      onSave: () => undefined,
+    }));
+
+    expect(html).toContain("Taxi / Cab Operator");
+    expect(html).toContain("Goods Transport Agency");
+    expect(html).toContain("Other / custom");
+  });
 });
 
 describe("Fledge browser shell", () => {
