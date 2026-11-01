@@ -195,7 +195,8 @@ These decisions require later evidence and must not be smuggled into W1A.
 - [x] Implement the first business-profile/customer async migration (W1B, PR #38).
 - [ ] Run the repository test, typecheck and build commands in a pnpm-enabled environment.
 - [x] Implement the product/saved GST rate async migration (W1D, PR #40 merged).
-- [x] Implement the invoice/document async migration (W1E, PR #41 pending review).
+- [x] Implement the invoice/document async migration (W1E, PR #41 merged).
+- [x] Implement the template repository and rendering async migration (W1F, PR #42 pending review).
 
 ## 11. Source files inspected
 
