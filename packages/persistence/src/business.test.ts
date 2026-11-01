@@ -15,9 +15,7 @@ const openDatabases: SchemaDatabase[] = [];
 const keralaGstin = `32AABCU9603R1Z${gstinCheckCharacter("32AABCU9603R1Z")}`;
 
 afterEach(() => {
-  for (const db of openDatabases.splice(0)) {
-    db.close();
-  }
+  for (const db of openDatabases.splice(0)) db.close();
 });
 
 function setup(): BusinessProfileDeps & { db: SchemaDatabase } {
@@ -34,11 +32,11 @@ function setup(): BusinessProfileDeps & { db: SchemaDatabase } {
 }
 
 describe("business profile repository", () => {
-  it("saves and updates the local business without changing its id", () => {
+  it("saves and updates the local business without changing its id", async () => {
     const deps = setup();
-    expect(getBusinessProfile(deps)).toBeNull();
+    await expect(getBusinessProfile(deps)).resolves.toBeNull();
 
-    const created = saveBusinessProfile(
+    const created = await saveBusinessProfile(
       {
         legalName: "Fledge Traders",
         address: "12 Market Road, Kochi",
@@ -51,7 +49,7 @@ describe("business profile repository", () => {
       },
       { ...deps, now: () => "2026-10-30T15:00:00.000Z" },
     );
-    const updated = saveBusinessProfile(
+    const updated = await saveBusinessProfile(
       {
         legalName: "Fledge Traders LLP",
         displayName: "Fledge",
@@ -77,12 +75,12 @@ describe("business profile repository", () => {
       updatedAt: "2026-10-30T16:00:00.000Z",
     });
     expect(updated.stateUt).toMatchObject({ id: "IN-KL", gstStateCode: "32" });
-    expect(getBusinessProfile(deps)).toEqual(updated);
+    await expect(getBusinessProfile(deps)).resolves.toEqual(updated);
   });
 
-  it("rejects an invalid GSTIN without replacing the saved profile", () => {
+  it("rejects an invalid GSTIN without replacing the saved profile", async () => {
     const deps = setup();
-    saveBusinessProfile(
+    await saveBusinessProfile(
       {
         legalName: "Fledge Traders",
         address: "12 Market Road, Kochi",
@@ -92,43 +90,66 @@ describe("business profile repository", () => {
       deps,
     );
 
-    expect(() =>
-      saveBusinessProfile(
-        {
-          legalName: "Renamed",
-          address: "12 Market Road, Kochi",
-          stateId: "IN-KL",
-          gstRegistered: true,
-          gstin: "27AAACR5055K1Z7",
-        },
-        deps,
-      ),
-    ).toThrow(BusinessProfileError);
-    expect(getBusinessProfile(deps)?.legalName).toBe("Fledge Traders");
+    await expect(saveBusinessProfile(
+      {
+        legalName: "Renamed",
+        address: "12 Market Road, Kochi",
+        stateId: "IN-KL",
+        gstRegistered: true,
+        gstin: "27AAACR5055K1Z7",
+      },
+      deps,
+    )).rejects.toBeInstanceOf(BusinessProfileError);
+    await expect(getBusinessProfile(deps)).resolves.toMatchObject({ legalName: "Fledge Traders" });
   });
 
-  it("rejects a state that is not in the master", () => {
+  it("rejects a state that is not in the master and rolls back", async () => {
     const deps = setup();
-    expect(() =>
-      deps.repository.save({
-        id: "biz-x",
-        legalName: "Fledge Traders",
-        displayName: "Fledge Traders",
-        address: "12 Market Road",
-        stateId: "IN-NOPE",
-        pinCode: null,
-        gstRegistered: false,
-        gstin: null,
-        businessType: null,
-        phone: null,
-        email: null,
-        logoReference: null,
-        paymentDetails: null,
-        invoicePreferences: null,
-        createdAt: "2026-10-30T15:00:00.000Z",
-        updatedAt: "2026-10-30T15:00:00.000Z",
-      }),
-    ).toThrow();
-    expect(getBusinessProfile(deps)).toBeNull();
+    await expect(deps.repository.save({
+      id: "biz-x",
+      legalName: "Fledge Traders",
+      displayName: "Fledge Traders",
+      address: "12 Market Road",
+      stateId: "IN-NOPE",
+      pinCode: null,
+      gstRegistered: false,
+      gstin: null,
+      businessType: null,
+      phone: null,
+      email: null,
+      logoReference: null,
+      paymentDetails: null,
+      invoicePreferences: null,
+      createdAt: "2026-10-30T15:00:00.000Z",
+      updatedAt: "2026-10-30T15:00:00.000Z",
+    })).rejects.toThrow();
+    await expect(getBusinessProfile(deps)).resolves.toBeNull();
+  });
+
+  it("waits for asynchronous repository completion and propagates rejection", async () => {
+    const deps = setup();
+    let completed = false;
+    const delayed: BusinessProfileDeps = {
+      ...deps,
+      repository: {
+        async get() {
+          await Promise.resolve();
+          completed = true;
+          return null;
+        },
+        async save() {
+          await Promise.resolve();
+          throw new Error("storage unavailable");
+        },
+      },
+    };
+    await expect(getBusinessProfile(delayed)).resolves.toBeNull();
+    expect(completed).toBe(true);
+    await expect(saveBusinessProfile({
+      legalName: "Fledge Traders",
+      address: "12 Market Road, Kochi",
+      stateId: "IN-KL",
+      gstRegistered: false,
+    }, delayed)).rejects.toThrow("storage unavailable");
   });
 });
