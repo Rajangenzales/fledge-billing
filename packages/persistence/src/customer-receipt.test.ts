@@ -49,7 +49,7 @@ describe("customer receipts", () => {
   });
 
   it("records a customer receipt before any invoice exists and derives advance balance", async () => {
-    const { customer, deps } = setup();
+    const { customer, deps } = await setup();
     const receipt = recordCustomerReceipt({
       customerId: customer.id, amount: "1250.50", paymentDate: "2026-10-30",
       method: "upi", reference: "UPI-REF-1", idempotencyKey: "req-001",
@@ -67,7 +67,7 @@ describe("customer receipts", () => {
   });
 
   it("makes retries idempotent and rejects reuse of a key for different details", async () => {
-    const { customer, deps } = setup();
+    const { customer, deps } = await setup();
     const input = {
       customerId: customer.id, amount: "100", paymentDate: "2026-10-30",
       method: "cash" as const, idempotencyKey: "retry-1",
@@ -95,7 +95,7 @@ describe("customer receipts", () => {
   });
 
   it("prints a payment acknowledgement from the saved identity snapshot and original payment date", async () => {
-    const { customer, deps } = setup();
+    const { customer, deps } = await setup();
     const receipt = recordCustomerReceipt({
       customerId: customer.id, amount: "1250.50", paymentDate: "2026-10-30",
       method: "upi", reference: "UPI-REF-1", notes: "Advance for order", idempotencyKey: "print-001",
@@ -122,7 +122,7 @@ describe("customer receipts", () => {
   });
 
   it("rejects invalid dates, zero amounts, and fractions of a paisa", async () => {
-    const { customer, deps } = setup();
+    const { customer, deps } = await setup();
     const base = { customerId: customer.id, method: "cash" as const, idempotencyKey: "invalid" };
     expect(() => recordCustomerReceipt({ ...base, amount: "0", paymentDate: "2026-10-31" }, deps)).toThrow();
     expect(() => recordCustomerReceipt({ ...base, amount: "1.001", paymentDate: "2026-10-31" }, deps)).toThrow();
