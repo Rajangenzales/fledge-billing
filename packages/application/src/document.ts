@@ -324,7 +324,7 @@ export async function saveNumberSeries(input: SaveNumberSeriesInput, deps: Docum
   return record;
 }
 
-export function normalizePromotionalOffers(offers: readonly PromotionalOffer[]): PromotionalOffer[] {
+function normalizePromotionalOffers(offers: readonly PromotionalOffer[]): PromotionalOffer[] {
   if (!Array.isArray(offers) || offers.length > 20) throw new BillingError("Add no more than 20 promotional offers to one document.");
   return offers.map((offer) => {
     const description = typeof offer.description === "string" ? offer.description.trim() : "";
@@ -339,7 +339,7 @@ export function normalizePromotionalOffers(offers: readonly PromotionalOffer[]):
   });
 }
 
-function seriesId(
+export function seriesId(
   businessId: string,
   documentType: BillingDocument["documentType"],
   financialYear: string,
