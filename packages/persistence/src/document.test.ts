@@ -152,7 +152,7 @@ describe("billing documents", () => {
 
   it("recalculates a draft and keeps the previous draft when a line is rejected", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const deps = documentDeps(db);
     const draft = createDocument(
       {
@@ -201,7 +201,7 @@ describe("billing documents", () => {
 
   it("assigns the next number only when a draft is finalized", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const deps = documentDeps(db);
     const first = createDocument(
       {
@@ -352,7 +352,7 @@ describe("billing documents", () => {
 
   it("starts a series at a chosen number and refuses to move backward after issue", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const deps = documentDeps(db);
     saveNumberSeries(
       {
@@ -420,7 +420,7 @@ describe("billing documents", () => {
 
   it("stores IGST when the place of supply is in another state", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const deps = documentDeps(db);
     const issued = finalizeDocument(
       createDocument(
@@ -519,7 +519,7 @@ describe("billing documents", () => {
 
   it("keeps a finalized tax snapshot when a later rule version becomes effective", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const deps = documentDeps(db);
     const issued = finalizeDocument(
       createDocument(
@@ -600,7 +600,7 @@ describe("billing documents", () => {
 describe("PDF export", () => {
   it("saves a local PDF and print sheet without changing the issued invoice", async () => {
     const db = database();
-    prepare(db);
+    await prepare(db);
     const deps = documentDeps(db);
     const issued = finalizeDocument(
       createDocument(
