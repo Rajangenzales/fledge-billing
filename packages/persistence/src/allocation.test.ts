@@ -94,7 +94,7 @@ describe("payment allocations", () => {
   });
 
   it("releases an allocation as a compensating event without deleting history", async () => {
-    const { receipt, invoice, allocationDeps, receiptDeps } = setup();
+    const { receipt, invoice, allocationDeps, receiptDeps } = await setup();
     const allocation = allocateReceiptToInvoice({
       receiptId: receipt.id, invoiceId: invoice.id, amount: "60", idempotencyKey: "alloc-release-1",
     }, allocationDeps);
