@@ -140,6 +140,62 @@ export default function TemplateDirectory({ business, templates, deps, onRefresh
     }
   }
 
+  async function applyTerminologyToAllTemplates() {
+    if (!selected) return;
+    setSaving(true);
+    setMessage("");
+    let updated = 0;
+    try {
+      const sourceSections = sections.filter((section) => editableSectionLabels.has(section.key));
+      const sourceFields = fields.filter((field) => editableFieldLabels.has(field.key));
+      const ownSectionChanges = sourceSections
+        .filter((source) => selected.sections.find((item) => item.key === source.key)?.label !== source.label)
+        .map(({ key, label }) => ({ key, label }));
+      const ownFieldChanges = sourceFields
+        .filter((source) => selected.fields.find((item) => item.key === source.key)?.label !== source.label)
+        .map(({ key, label }) => ({ key, label }));
+
+      if (ownSectionChanges.length || ownFieldChanges.length) {
+        await reviseTemplate(selected.id, { sections: ownSectionChanges, fields: ownFieldChanges }, deps);
+        updated += 1;
+      }
+
+      const targets = templates.filter((template) => template.active && template.id !== selected.id);
+
+      for (const target of targets) {
+        const sectionChanges = sourceSections
+          .filter((source) => {
+            const current = target.sections.find((item) => item.key === source.key);
+            return current && current.label !== source.label;
+          })
+          .map(({ key, label }) => ({ key, label }));
+        const fieldChanges = sourceFields
+          .filter((source) => {
+            const current = target.fields.find((item) => item.key === source.key);
+            return current && current.label !== source.label;
+          })
+          .map(({ key, label }) => ({ key, label }));
+
+        if (sectionChanges.length === 0 && fieldChanges.length === 0) continue;
+        await reviseTemplate(target.id, { sections: sectionChanges, fields: fieldChanges }, deps);
+        updated += 1;
+      }
+
+      await onRefresh();
+      setMessage(updated === 0
+        ? "These terminology labels already match the other templates."
+        : `Terminology applied to ${updated} template${updated === 1 ? "" : "s"}. Earlier invoice revisions remain unchanged.`);
+    } catch (error) {
+      await onRefresh();
+      const reason = error?.userMessage || error?.message || "An unexpected error occurred.";
+      setMessage(updated > 0
+        ? `Applied terminology to ${updated} template${updated === 1 ? "" : "s"} before stopping. Please review the templates and retry: ${reason}`
+        : reason);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function showPreview() {
     setMessage("");
     try {
@@ -162,6 +218,7 @@ export default function TemplateDirectory({ business, templates, deps, onRefresh
         </select></label>
         {selected && <div className="button-row">
           {!selected.isDefault && <button className="secondary-button" type="button" disabled={saving} onClick={chooseDefault}>Make default</button>}
+          <button className="secondary-button" type="button" disabled={saving} onClick={applyTerminologyToAllTemplates}>Apply labels to all templates</button>
           <button className="secondary-button" type="button" onClick={showPreview}>Preview</button>
           <button className="primary-button" type="button" disabled={!hasChanges || saving} onClick={save}>{saving ? "Saving…" : "Save revision"}</button>
         </div>}
