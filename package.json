@@ -9,7 +9,7 @@
     "start": "pnpm --filter @fledge/app run start",
     "typecheck": "pnpm build:packages && pnpm -r --sort run typecheck",
     "web:dev": "pnpm --filter @fledge/web run dev",
-    "web:build": "pnpm --filter @fledge/web... run build",
+    "web:build": "pnpm --filter @fledge/web run build",
     "build:packages": "pnpm -r --filter '@fledge/app...' --sort run build"
   },
   "devDependencies": {
