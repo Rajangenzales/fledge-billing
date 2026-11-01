@@ -81,7 +81,7 @@ The production browser guard runs as part of `pnpm web:build`. The implementatio
 
 ## 7. Acceptance criteria
 
-- The browser application imports use cases only through `@fledge/application/browser`.
+- The retained browser contract entry imports use cases only through `@fledge/application/browser`.
 - The package root entry remains unchanged for existing Node consumers.
 - The browser entry contains only the currently approved async business-profile/customer workflows.
 - The web package declares its application workspace dependency and lockfile importer.
