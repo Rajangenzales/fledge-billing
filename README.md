@@ -28,6 +28,7 @@ The approved product and engineering baseline is maintained in [`docs/`](./docs/
 18. [M8-04A Receipt-Time Identity Snapshots](./docs/18-m8-04a-receipt-identity-snapshots.md)
 19. [M8-04B Payment Receipt Print and PDF](./docs/19-m8-04b-payment-receipt-print-pdf.md)
 20. [M8 Customer Payment Activity Statement](./docs/20-m8-customer-payment-activity-statement.md)
+21. [PWA Frontend Foundation Plan](./docs/21-pwa-frontend-foundation-plan.md)
 
 These documents are the source of truth. Implementation must not silently expand V1 scope or introduce GST rules in UI code.
 
@@ -35,7 +36,7 @@ These documents are the source of truth. Implementation must not silently expand
 
 **Current implementation snapshot (main, after PR #32):** M0–M5 are implemented; M6 template functionality and M7 PDF/print functionality are partially implemented. The GST engine calculates CGST, SGST, UTGST and IGST from an explicitly supplied rate and place of supply, but it does not yet provide HSN/SAC rate lookup or determine every statutory place-of-supply scenario. Template snapshots, safe label/visibility edits, custom-field snapshots, preview and historical rendering are present; section reordering and complete brand customization remain outstanding. Issued documents can be exported as local PDFs and printable text, but a full customer-facing print/share workflow is not complete. M8-02A customer receipt persistence, M8-02B allocation history/derived invoice settlement, and M8-02C refund plus receipt/refund reversal foundations are merged (PRs #24–26). M8-03 credit/debit note domain design is documented; statutory treatment and customer-balance effects remain gated on owner decisions and qualified GST-practitioner review. M8-04 ordinary payment receipt generation is specified in docs/17. M8-04A receipt-time identity snapshots and migration 12 are merged (PR #29). M8-04B ordinary payment receipt print/PDF is merged (PR #30). The read-only customer payment activity statement is merged (PR #32); it summarizes existing receipt, allocation, refund and reversal events without acting as a full accounting ledger.
 
-**Important product status:** The current app is still a CLI/local HTTP health shell backed by SQLite. It is not yet the customer-facing PWA, and authentication, IndexedDB, offline browser billing, cloud backup/sync, subscriptions and the Admin Control Centre are not implemented. See the [Roadmap](./docs/08-roadmap-and-cursor-contract.md), [M5–M8 contract](./docs/10-m5-to-m8-implementation-contract.md) and [PWA/platform contract](./docs/11-pwa-offline-sync-and-platform-operations.md).
+**Important product status:** The current app is still a CLI/local HTTP health shell backed by SQLite. It is not yet the customer-facing PWA, and authentication, IndexedDB, offline browser billing, cloud backup/sync, subscriptions and the Admin Control Centre are not implemented. See the [Roadmap](./docs/08-roadmap-and-cursor-contract.md), [M5–M8 contract](./docs/10-m5-to-m8-implementation-contract.md), [PWA/platform contract](./docs/11-pwa-offline-sync-and-platform-operations.md) and proposed [PWA frontend foundation plan](./docs/21-pwa-frontend-foundation-plan.md).
 
 ## Quick start
 
