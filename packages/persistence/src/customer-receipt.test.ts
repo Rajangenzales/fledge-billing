@@ -76,7 +76,7 @@ describe("customer receipts", () => {
     const retry = await recordCustomerReceipt(input, deps);
     expect(retry.id).toBe(first.id);
     expect((await getCustomerAdvance(customer.id, deps)).unallocatedAmount).toBe("100");
-    expect(() => recordCustomerReceipt({ ...input, amount: "101" }, deps)).toThrow();
+    await expect(recordCustomerReceipt({ ...input, amount: "101" }, deps)).rejects.toThrow();
   });
 
   it("keeps receipt identity unchanged when business and customer masters later change", async () => {
