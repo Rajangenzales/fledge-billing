@@ -85,10 +85,10 @@ export const invoiceTemplate: Migration = {
 
 export function createTemplateRepository(db: SchemaDatabase): TemplateRepository {
   return {
-    getBusinessId() {
+    async getBusinessId() {
       return readBusinessId(db);
     },
-    getBusiness() {
+    async getBusiness() {
       const businessId = readBusinessId(db);
       if (!businessId) {
         return null;
@@ -106,16 +106,16 @@ export function createTemplateRepository(db: SchemaDatabase): TemplateRepository
         gstin: row.gstin === null ? null : text(row.gstin, "gstin"),
       };
     },
-    ensureBuiltIns(businessId, now) {
+    async ensureBuiltIns(businessId, now) {
       ensureBuiltInTemplates(db, businessId, now);
     },
-    list(businessId) {
+    async list(businessId) {
       return listTemplates(db, businessId);
     },
-    get(businessId, id) {
+    async get(businessId, id) {
       return readTemplate(db, businessId, id);
     },
-    setDefault(businessId, id, now) {
+    async setDefault(businessId, id, now) {
       db.exec("BEGIN IMMEDIATE");
       try {
         const template = readTemplate(db, businessId, id);
@@ -136,7 +136,7 @@ export function createTemplateRepository(db: SchemaDatabase): TemplateRepository
         throw error;
       }
     },
-    saveRevision(businessId, sourceId, sections, fields, customFields, now) {
+    async saveRevision(businessId, sourceId, sections, fields, customFields, now) {
       db.exec("BEGIN IMMEDIATE");
       try {
         const revisedId = insertRevision(db, businessId, sourceId, sections, fields, customFields, now);
