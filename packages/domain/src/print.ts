@@ -44,6 +44,13 @@ export function presentationLines(render: IssuedRender): string[] {
       lines.push(columns.join(" | "));
     }
   }
+  if (render.promotionalOffers?.length) {
+    lines.push("Promotional offer details");
+    for (const offer of render.promotionalOffers) {
+      lines.push(`${offer.description}: Buy ${offer.qualifyingQuantity} ${offer.unit}, get ${offer.freeQuantity} ${offer.unit} free`);
+      if (offer.note) lines.push(`Offer note: ${offer.note}`);
+    }
+  }
   if (render.charges.length > 0) {
     lines.push("Charges");
     for (const charge of render.charges) {

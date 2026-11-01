@@ -35,6 +35,9 @@ export type PreviewCharge = {
   description: string;
   amount: string;
 };
+export type PreviewPromotionalOffer = {
+  description: string; qualifyingQuantity: string; freeQuantity: string; unit: string; note: string | null;
+};
 
 export type ItemColumnLabels = {
   description: string;
@@ -80,6 +83,7 @@ export type TemplatePreview = {
   itemColumnLabels: ItemColumnLabels;
   items: PreviewItem[];
   charges: PreviewCharge[];
+  promotionalOffers: PreviewPromotionalOffer[];
   totals: {
     subtotal: string;
     discountTotal: string;
@@ -159,6 +163,7 @@ export function renderTemplatePreview(input: {
     itemColumnLabels: resolveItemColumnLabels(input.template.fields),
     items,
     charges,
+    promotionalOffers: [],
     totals: {
       subtotal: input.calculation.subtotal,
       discountTotal: input.calculation.discountTotal,
@@ -217,6 +222,7 @@ export type IssuedRender = {
   itemColumnLabels?: ItemColumnLabels;
   items: PreviewItem[];
   charges: PreviewCharge[];
+  promotionalOffers?: PreviewPromotionalOffer[];
   totals: {
     subtotal: string;
     discountTotal: string;
@@ -238,6 +244,7 @@ export type StoredDocumentRender = {
   customerEmail: string | null;
   paymentDetails?: string | null;
   invoicePreferences?: string | null;
+  promotionalOffers?: readonly PreviewPromotionalOffer[];
   placeOfSupplyName: string;
   notes: string;
   reverseCharge: boolean;
@@ -316,6 +323,7 @@ export function renderStoredDocument(input: {
     itemColumnLabels: resolveItemColumnLabels(template?.fields ?? []),
     items,
     charges,
+    promotionalOffers: [...(input.document.promotionalOffers ?? [])],
     totals: {
       subtotal: input.document.subtotal,
       discountTotal: input.document.discountTotal,

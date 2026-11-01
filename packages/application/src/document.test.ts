@@ -92,6 +92,7 @@ describe("async document application workflows", () => {
       notices: [],
       templateId: "old-invoice-template",
       customFields: [],
+      promotionalOffers: [],
       createdAt: "2026-11-01T00:00:00.000Z",
       finalizedAt: null,
       updatedAt: "2026-11-01T00:00:00.000Z",

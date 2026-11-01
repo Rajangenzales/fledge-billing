@@ -44,6 +44,7 @@ function defaultForm(business, customers, templates) {
     reverseCharge: false,
     lines: [],
     charges: [],
+    promotionalOffers: [],
   };
 }
 
@@ -60,6 +61,7 @@ function formFromDocument(document) {
     placeOfSupplyStateId: document.placeOfSupplyStateId ?? "",
     quotationGstEnabled: document.documentType === "quotation" && document.gstEnabled,
     reverseCharge: document.reverseCharge,
+    promotionalOffers: (document.promotionalOffers ?? []).map((offer) => ({ ...offer })),
     charges: (document.charges ?? []).map((charge) => ({
       description: charge.description,
       amount: charge.amount,
@@ -117,6 +119,10 @@ function documentInput(form) {
       taxable: gstEnabled && charge.taxCategoryId === "taxable",
       taxCategoryId: gstEnabled ? charge.taxCategoryId : "non-gst",
       gstRatePercent: gstEnabled && charge.taxCategoryId === "taxable" ? charge.gstRatePercent || null : null,
+    })),
+    promotionalOffers: (form.promotionalOffers ?? []).map((offer) => ({
+      description: offer.description, qualifyingQuantity: offer.qualifyingQuantity,
+      freeQuantity: offer.freeQuantity, unit: offer.unit, note: offer.note || null,
     })),
     lines: form.lines.map((line) => ({
       ...line,
@@ -401,6 +407,21 @@ export default function DocumentDirectory({
     setConfirmFinalize(false);
   }
 
+  function addPromotionalOffer() {
+    setForm((current) => ({ ...current, promotionalOffers: [...(current.promotionalOffers ?? []), {
+      description: "", qualifyingQuantity: "", freeQuantity: "", unit: "cases", note: "",
+    }] }));
+    setDirty(true); setSavedPreview(null); setMessage(""); setConfirmFinalize(false);
+  }
+  function updatePromotionalOffer(index, field, value) {
+    setForm((current) => ({ ...current, promotionalOffers: current.promotionalOffers.map((offer, i) =>
+      i === index ? { ...offer, [field]: value } : offer) }));
+    setDirty(true); setSavedPreview(null); setMessage(""); setConfirmFinalize(false);
+  }
+  function removePromotionalOffer(index) {
+    setForm((current) => ({ ...current, promotionalOffers: current.promotionalOffers.filter((_, i) => i !== index) }));
+    setDirty(true); setSavedPreview(null); setMessage(""); setConfirmFinalize(false);
+  }
   function addCharge() {
     setForm((current) => ({
       ...current,
@@ -512,6 +533,19 @@ export default function DocumentDirectory({
           <button className="list-action" type="button" onClick={() => removeLine(index)}>Remove</button>
         </fieldset>)}
       </div>}
+      <section className="document-charges" aria-label="Promotional offer details">
+        <div className="document-lines-heading"><h3>Promotional offers</h3><button className="secondary-button" type="button" onClick={addPromotionalOffer}>Add offer</button></div>
+        <p className="empty-line-note">Record promotional quantities separately. These details do not change invoice line amounts, totals, or GST calculations.</p>
+        {(form.promotionalOffers ?? []).map((offer, index) => <fieldset className="document-line" key={index}>
+          <legend>Offer {index + 1}</legend>
+          <label>Offer description<input required maxLength={160} value={offer.description} onChange={(event) => updatePromotionalOffer(index, "description", event.target.value)} placeholder="Juice cases promotion" /></label>
+          <label>Qualifying quantity<input required inputMode="decimal" value={offer.qualifyingQuantity} onChange={(event) => updatePromotionalOffer(index, "qualifyingQuantity", event.target.value)} placeholder="10" /></label>
+          <label>Free quantity<input required inputMode="decimal" value={offer.freeQuantity} onChange={(event) => updatePromotionalOffer(index, "freeQuantity", event.target.value)} placeholder="1" /></label>
+          <label>Unit<input required maxLength={24} value={offer.unit} onChange={(event) => updatePromotionalOffer(index, "unit", event.target.value)} placeholder="cases" /></label>
+          <label>Offer note<input maxLength={240} value={offer.note ?? ""} onChange={(event) => updatePromotionalOffer(index, "note", event.target.value)} placeholder="Applicable to this order only" /></label>
+          <button className="list-action" type="button" onClick={() => removePromotionalOffer(index)}>Remove offer</button>
+        </fieldset>)}
+      </section>
       <section className="document-charges" aria-label="Additional charges">
         <div className="document-lines-heading">
           <h3>Additional charges</h3>

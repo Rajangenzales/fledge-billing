@@ -112,6 +112,7 @@ describe("template preview", () => {
         placeOfSupplyName: "Kerala",
         notes: "",
         reverseCharge: false,
+        promotionalOffers: [{ description: "Juice cases promotion", qualifyingQuantity: "10", freeQuantity: "1", unit: "cases", note: "For this order" }],
         lines: [
           {
             description: "A stored line that stays intact even when it is much longer than a sample.",
@@ -154,6 +155,8 @@ describe("template preview", () => {
     });
     expect(rendered.items[0]?.description).toContain("stays intact");
     expect(rendered.documentNumber).toBe("INV/2026-27/0001");
+    expect(presentationLines(rendered).join("\n")).toContain("Juice cases promotion: Buy 10 cases, get 1 cases free");
+    expect(rendered.totals.grandTotal).toBe("100");
     const customized = { ...rendered, itemColumnLabels: { description: "Product", quantity: "Cases", unit: "Pack", rate: "Unit price", amount: "Line total", hsnSac: "HSN/SAC" } };
     const lines = presentationLines(customized);
     expect(lines.some((line) => line.includes("Product: A stored line"))).toBe(true);

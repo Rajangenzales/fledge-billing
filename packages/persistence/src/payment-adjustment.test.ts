@@ -46,7 +46,7 @@ describe("customer refunds and receipt reversals", () => {
     const db = openDatabase(":memory:");
     databases.push(db);
     migrate(db, migrations.slice(0, 10));
-    expect(migrate(db, migrations)).toMatchObject({ fromVersion: 10, toVersion: 16, appliedVersions: [11, 12, 13, 14, 15, 16] });
+    expect(migrate(db, migrations)).toMatchObject({ fromVersion: 10, toVersion: 17, appliedVersions: [11, 12, 13, 14, 15, 16, 17] });
     expect(db.prepare("SELECT name FROM schema_migration WHERE version = 11").get()).toEqual({ name: "payment-refund-reversal-events" });
   });
 
