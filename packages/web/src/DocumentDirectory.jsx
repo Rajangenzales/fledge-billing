@@ -16,7 +16,7 @@ function addCalendarDays(dateValue, days) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
 }
 
-function dueDateForCustomer(documentDate, customer) {
+export function dueDateForCustomer(documentDate, customer) {
   const creditDays = Number.isInteger(customer?.creditDays) ? customer.creditDays : 0;
   return creditDays > 0 ? addCalendarDays(documentDate, creditDays) : "";
 }
