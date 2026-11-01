@@ -38,6 +38,10 @@ The approved product and engineering baseline is maintained in [`docs/`](./docs/
 28. [W1G Async Payment Repositories](./docs/28-w1g-async-payment-repositories.md)
 29. [W1H Final Async Boundary Audit](./docs/29-w1h-final-async-boundary-audit.md)
 30. [W2 IndexedDB Foundation & Local Setup](./docs/30-w2-indexeddb-foundation-and-local-setup.md)
+31. [Product Completion PRD V1.1](./docs/31-product-completion-prd-v1.1.md)
+32. [V1 Implementation Milestones & GitHub Issue Backlog](./docs/32-implementation-milestones-and-issues-v1.0.md)
+33. [M9 Backup & Recovery](./docs/32-m9-backup-recovery.md)
+34. [M10 PWA Lifecycle & Release Contract](./docs/33-m10-pwa-lifecycle.md)
 
 These documents are the source of truth. Implementation must not silently expand V1 scope or introduce GST rules in UI code.
 

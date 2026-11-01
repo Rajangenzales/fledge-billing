@@ -49,9 +49,9 @@ Calculation tests, lifecycle tests, migration tests, rendering tests, offline te
 ### M12 — V1 Release
 PWA deployment, production hosting, documentation, release checklist, account/payment service configuration, support/monitoring and production validation.
 
-## 2.1 Verified implementation snapshot — main after PR #44 and current browser foundation work (1 November 2026)
+## 2.1 Historical implementation snapshot — main after PR #44 (1 November 2026)
 
-This snapshot records merged repository work as of 1 November 2026. A merged milestone label does not mean every legal scenario, user workflow or release criterion in that milestone is complete.
+This section is retained as a historical record of the repository before the later browser workflow PRs. Its status table and next-focus paragraph are superseded by [Product Completion PRD V1.1](./31-product-completion-prd-v1.1.md), [V1 Implementation Milestones & GitHub Issue Backlog](./32-implementation-milestones-and-issues-v1.0.md), and the current M9/M10 implementation records. Use those newer documents for current implementation status. A merged milestone label does not mean every legal scenario, user workflow or release criterion is complete.
 
 | Area | Repository status | Verified scope and remaining boundary |
 | --- | --- | --- |
