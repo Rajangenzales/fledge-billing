@@ -15,6 +15,9 @@ const DOCUMENT_TITLES: Record<IssuedRender["documentType"], string> = {
 };
 
 const MONEY_FIELDS = new Set(["taxable_value", "grand_total"]);
+const DEFAULT_ITEM_COLUMN_LABELS = {
+  description: "Description", quantity: "Quantity", unit: "Unit", rate: "Rate", amount: "Amount", hsnSac: "HSN/SAC",
+};
 
 export function presentationLines(render: IssuedRender): string[] {
   const lines = [DOCUMENT_TITLES[render.documentType]];
@@ -25,7 +28,7 @@ export function presentationLines(render: IssuedRender): string[] {
     }
   }
   if (render.items.length > 0) {
-    const labels = render.itemColumnLabels;
+    const labels = render.itemColumnLabels ?? DEFAULT_ITEM_COLUMN_LABELS;
     lines.push("Items");
     lines.push([labels.description, labels.quantity, labels.unit, labels.rate, labels.amount,
       ...(render.items.some((item) => item.hsnSac) ? [labels.hsnSac] : [])].join(" | "));

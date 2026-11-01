@@ -77,7 +77,7 @@ export type TemplatePreview = {
   fontFamily: TemplateFontFamily;
   density: TemplateDensity;
   sections: PreviewSection[];
-  itemColumnLabels: ItemColumnLabels;
+  itemColumnLabels?: ItemColumnLabels;
   items: PreviewItem[];
   charges: PreviewCharge[];
   totals: {
@@ -183,7 +183,7 @@ function fieldsForSection(
   },
 ): PreviewField[] {
   const builtIn = input.template.fields
-    .filter((field) => field.sectionKey === sectionKey && field.visible)
+    .filter((field) => field.sectionKey === sectionKey && field.visible && !isItemColumnKey(field.key))
     .sort((left, right) => left.sortOrder - right.sortOrder)
     .map((field) => ({
       key: field.key,
