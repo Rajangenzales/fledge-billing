@@ -369,7 +369,7 @@ describe("invoice templates", () => {
     const series = db.prepare("SELECT COUNT(*) AS count FROM number_series").get();
     expect(Number(documents?.count)).toBe(0);
     expect(Number(series?.count)).toBe(0);
-    expect(await listTemplates(templates).filter((template) => template.key === "gst:tax_invoice")).toHaveLength(1);
+    expect((await listTemplates(templates)).filter((template) => template.key === "gst:tax_invoice")).toHaveLength(1);
 
     const renamed = await reviseTemplate(
       "tpl:biz-1:gst:tax_invoice:1",
