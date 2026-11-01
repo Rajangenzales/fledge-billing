@@ -254,7 +254,7 @@ function CustomerDirectory({ business, customers, onSave, onNavigate }) {
     {business && <div className="panel customer-list-panel">
       <div className="panel-heading"><div><div className="eyebrow">CUSTOMER DIRECTORY</div><h2>{customers.length ? `${customers.length} saved` : "Your customer list"}</h2></div></div>
       {customers.length === 0 ? <div className="empty-list"><div className="placeholder-icon"><Icon name="users" /></div><h3>No customers yet</h3><p>Add your first customer. The record will remain on this device.</p><button className="secondary-button" onClick={() => setShowForm(true)}>Add first customer</button></div> :
-        <ul className="customer-list">{customers.map((customer) => <li key={customer.id}><span className="customer-avatar">{customer.name.slice(0, 1).toUpperCase()}</span><span className="customer-list-main"><strong>{customer.name}</strong><small>{customer.stateUt.name} · {customer.registrationType === "registered" ? "GST registered" : "Unregistered"}</small></span><span className="customer-contact">{customer.phone || customer.email || customer.billingAddress}</span><button className="list-action" onClick={() => { setEditingCustomer(customer); setValues({ name: customer.name, billingAddress: customer.billingAddress, shippingAddress: customer.shippingAddress ?? "", stateId: customer.stateId, pinCode: customer.pinCode ?? "", phone: customer.phone ?? "", email: customer.email ?? "", registrationType: customer.registrationType, gstin: customer.gstin ?? "", notes: customer.notes ?? "", active: customer.active }); setShowForm(true); setMessage(""); setSaved(false); }}>Edit</button></li>)}</ul>}
+        <ul className="customer-list">{customers.map((customer) => <li key={customer.id}><span className="customer-avatar">{customer.name.slice(0, 1).toUpperCase()}</span><span className="customer-list-main"><strong>{customer.name}{!customer.active && <span className="inactive-badge">Inactive</span>}</strong><small>{customer.stateUt.name} · {customer.registrationType === "registered" ? "GST registered" : "Unregistered"}</small></span><span className="customer-contact">{customer.phone || customer.email || customer.billingAddress}</span><button className="list-action" onClick={() => { setEditingCustomer(customer); setValues({ name: customer.name, billingAddress: customer.billingAddress, shippingAddress: customer.shippingAddress ?? "", stateId: customer.stateId, pinCode: customer.pinCode ?? "", phone: customer.phone ?? "", email: customer.email ?? "", registrationType: customer.registrationType, gstin: customer.gstin ?? "", notes: customer.notes ?? "", active: customer.active }); setShowForm(true); setMessage(""); setSaved(false); }}>Edit</button></li>)}</ul>}
     </div>}
     {saved && <p className="form-message success-message" role="status">Customer saved on this device.</p>}
   </section>;
@@ -359,7 +359,7 @@ export default function App() {
         const documentDeps = { repository: nextRepositories.documentRepository, states: STATE_UTS };
         const [profile, customerList, productList, savedRates, categories, documentList] = await Promise.all([
           getBusinessProfile(deps),
-          listCustomers(customerDeps),
+          listCustomers(customerDeps, { includeInactive: true }),
           listProducts(productDeps, { includeInactive: true }),
           listSavedGstRates(productDeps, { includeInactive: true }),
           listTaxCategories(productDeps),
@@ -456,7 +456,7 @@ export default function App() {
     } else {
       await createCustomer(input, customerDeps);
     }
-    setCustomers(await listCustomers(customerDeps));
+    setCustomers(await listCustomers(customerDeps, { includeInactive: true }));
   }
 
   async function handleSaveProduct(input, id) {
@@ -554,7 +554,7 @@ export default function App() {
     await restoreEncryptedBackup(database, contents, passphrase);
     const [profile, customerList, productList, savedRates, categories, documentList] = await Promise.all([
       getBusinessProfile({ repository: repositories.businessRepository, states: STATE_UTS }),
-      listCustomers({ repository: repositories.customerRepository, states: STATE_UTS }),
+      listCustomers({ repository: repositories.customerRepository, states: STATE_UTS }, { includeInactive: true }),
       listProducts({ repository: repositories.productRepository }, { includeInactive: true }),
       listSavedGstRates({ repository: repositories.productRepository }, { includeInactive: true }),
       listTaxCategories({ repository: repositories.productRepository }),
