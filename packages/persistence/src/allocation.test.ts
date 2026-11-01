@@ -50,13 +50,13 @@ async function setup() {
     now: () => "2026-10-31T08:03:00.000Z",
     createId: () => `doc-${++documentSequence}`,
   };
-  const draft = createDocument({
+  const draft = await createDocument({
     customerId: customer.id, documentType: "non_gst_invoice", documentDate: "2026-10-31",
     gstEnabled: false, reverseCharge: false,
     lines: [{ description: "Services", quantity: "1", unit: "nos", rate: "100",
       discountType: "none", taxInclusive: false, taxCategoryId: "non-gst" }],
   }, documentDeps);
-  const invoice = finalizeDocument(draft.id, documentDeps);
+  const invoice = await finalizeDocument(draft.id, documentDeps);
   const allocationDeps = {
     repository: createAllocationRepository(db),
     now: () => "2026-10-31T08:04:00.000Z",
@@ -114,7 +114,7 @@ describe("payment allocations", () => {
 
   it("rejects draft invoices and over-allocation", async () => {
     const { receipt, customer, documentDeps, allocationDeps } = await setup();
-    const draft = createDocument({
+    const draft = await createDocument({
       customerId: customer.id, documentType: "non_gst_invoice", documentDate: "2026-10-31",
       gstEnabled: false, reverseCharge: false,
       lines: [{ description: "Goods", quantity: "1", unit: "nos", rate: "100",
@@ -124,7 +124,7 @@ describe("payment allocations", () => {
       receiptId: receipt.id, invoiceId: draft.id, amount: "10", idempotencyKey: "draft-alloc",
     }, allocationDeps)).toThrow(/finalized/);
 
-    const invoice = finalizeDocument(draft.id, documentDeps);
+    const invoice = await finalizeDocument(draft.id, documentDeps);
     allocateReceiptToInvoice({
       receiptId: receipt.id, invoiceId: invoice.id, amount: "100", idempotencyKey: "full-alloc",
     }, allocationDeps);
