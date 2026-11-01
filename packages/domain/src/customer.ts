@@ -33,6 +33,7 @@ export type SaveCustomerInput = {
   registrationType: CustomerRegistrationType;
   gstin?: string | null;
   notes?: string | null;
+  creditDays?: number;
 };
 
 export type NormalizedCustomerInput = {
@@ -46,6 +47,7 @@ export type NormalizedCustomerInput = {
   registrationType: CustomerRegistrationType;
   gstin: string | null;
   notes: string | null;
+  creditDays: number;
 };
 
 const fail = (message: string): never => {
@@ -64,6 +66,11 @@ export function validateCustomerInput(
   }
   if (!isRegistrationType(input.registrationType)) {
     throw new CustomerError("Choose whether the customer is GST-registered.");
+  }
+
+  const creditDays = input.creditDays ?? 0;
+  if (!Number.isInteger(creditDays) || creditDays < 0 || creditDays > 365) {
+    throw new CustomerError("Credit period must be a whole number from 0 to 365 days.");
   }
 
   const gstin = normalizeGstin(input.gstin, fail);
@@ -87,6 +94,7 @@ export function validateCustomerInput(
     registrationType: input.registrationType,
     gstin,
     notes: optionalText(input.notes, 2000, fail),
+    creditDays,
   };
 }
 
