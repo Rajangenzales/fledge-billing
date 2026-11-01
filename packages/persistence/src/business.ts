@@ -43,10 +43,10 @@ export const businessProfile: Migration = {
 
 export function createBusinessRepository(db: SchemaDatabase): BusinessRepository {
   return {
-    get() {
+    async get() {
       return readBusiness(db);
     },
-    save(record) {
+    async save(record) {
       db.exec("BEGIN IMMEDIATE");
       try {
         const existing = readBusiness(db);
