@@ -260,11 +260,15 @@ export default function TemplateDirectory({ business, templates, deps, onRefresh
           </fieldset>)}
           {message && <p className="form-message" role="status">{message}</p>}
         </div>
-        <div className="panel template-preview">
+        <div className="panel template-preview" style={{
+          "--template-brand-color": preview?.brandColor ?? "#1f4b99",
+          "--template-font-family": preview?.fontFamily === "source-sans" ? '"Source Sans 3", "Segoe UI", sans-serif' : 'system-ui, -apple-system, "Segoe UI", sans-serif',
+          "--template-density": preview?.density === "compact" ? "0.2rem" : "0.45rem",
+        }}>
           <div className="eyebrow">REPRESENTATIVE PREVIEW</div>
           {preview ? <>
             <p className="template-preview-notice">{preview.notice}</p>
-            <h2 style={{ color: preview.brandColor }}>{selected.name} · v{preview.version}</h2>
+            <h2>{selected.name} · v{preview.version}</h2>
             {preview.sections.filter((section) => section.fields.length).map((section) => <section key={section.key}><h3>{section.label}</h3>{section.fields.map((field) => <p key={field.key}><strong>{field.label}:</strong> {field.value}</p>)}</section>)}
             {preview.items.length > 0 && <p className="template-item-column-headings">{Object.values(preview.itemColumnLabels).filter((label) => label !== preview.itemColumnLabels.hsnSac || preview.items.some((item) => item.hsnSac)).join(" | ")}</p>}
             {preview.items.map((item, index) => <p key={`${item.description}-${index}`}>{preview.itemColumnLabels.description}: {item.description} · {preview.itemColumnLabels.quantity}: {item.quantity} · {preview.itemColumnLabels.unit}: {item.unit} · {preview.itemColumnLabels.rate}: ₹{item.rate} · {preview.itemColumnLabels.amount}: ₹{item.amount}{item.hsnSac ? ` · ${preview.itemColumnLabels.hsnSac}: ${item.hsnSac}` : ""}</p>)}
