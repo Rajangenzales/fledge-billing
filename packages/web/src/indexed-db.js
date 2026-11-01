@@ -158,7 +158,7 @@ export function getBusinessIdForAssets(businessRepository) {
   return businessRepository.get().then((business) => business?.id ?? null);
 }
 
-function createBrowserRepositories(database) {
+export function createBrowserRepositories(database) {
   const businessRepository = {
     get() {
       return transact(database, [BUSINESS_STORE], "readonly", (transaction, set, fail) => {

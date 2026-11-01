@@ -161,7 +161,7 @@ export async function renderIssuedDocument(id: string, deps: IssuedRenderDeps): 
   }
   const logoBytes = logo ? new Uint8Array(logo.bytes) : undefined;
   const logoDataUrl = logo
-    ? `data:${logo.mimeType};base64,${encodeLogoBase64(logoBytes)}`
+    ? `data:${logo.mimeType};base64,${encodeLogoBase64(new Uint8Array(logo.bytes))}`
     : undefined;
   return { ...rendered, logoBytes, logoMimeType: logo?.mimeType, logoDataUrl };
 }

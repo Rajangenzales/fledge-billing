@@ -184,6 +184,8 @@ export function BusinessSettings({ business, onSave, logoPreview }) {
     setSaved(false);
     try {
       await onSave(values, { selectedLogo, removeLogo });
+      setSelectedLogo(null);
+      setRemoveLogo(false);
       setSaved(true);
     } catch (error) {
       setMessage(userMessage(error));
