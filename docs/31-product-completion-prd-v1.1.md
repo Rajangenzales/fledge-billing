@@ -41,7 +41,7 @@ The following is a planning snapshot of the repository as reviewed on 1 November
 | Application foundation and shell | Implemented | Stabilize the development/build workflow, CI, error handling and supported browser contract. |
 | Business setup | Implemented foundation | Verify complete create, edit, validation, persistence and reload workflows in the browser. |
 | Customer management | Implemented foundation | Verify complete browser CRUD, business scoping, validation and persistence. |
-| Products and saved GST rates | Application/domain foundations implemented | Complete browser persistence and user workflows, including ownership and saved-rate behaviour. |
+| Products and saved GST rates | Application/domain foundations and initial browser persistence/catalog workflow implemented | Verify complete browser workflows, ownership, referenced-rate behaviour and persistence on supported browsers. |
 | Billing/document engine | Application/domain foundations implemented | Complete browser draft, edit, finalization, retrieval, numbering and lifecycle workflows. |
 | GST engine | Core calculations implemented | Close verified compliance gaps and expand scenario coverage before claiming full GST readiness. |
 | Invoice templates | Implemented foundation | Complete vendor-safe customization, persistence, preview and historical rendering workflows. |
@@ -56,7 +56,7 @@ The following is a planning snapshot of the repository as reviewed on 1 November
 | Automated CI and release gates | Not established as a complete pipeline | Add reproducible automated checks and enforce release gates. |
 | Production release | Not ready | Complete all mandatory scope, QA, security, operational and release criteria. |
 
-The current browser IndexedDB implementation is limited to business profiles and customer records. It does not establish that browser-based billing, payments, backup, sync or offline first-load are complete. Existing SQLite support and its migration history must be preserved while browser persistence is extended.
+The current browser IndexedDB implementation supports business profiles, customers, products and saved GST rates. It does not establish that browser-based billing documents, payments, backup, sync or offline first-load are complete. Existing SQLite support and its migration history must be preserved while browser persistence is extended.
 
 Refer to [W2 IndexedDB Foundation](./30-w2-indexeddb-foundation-and-local-setup.md), [W1H Audit](./29-w1h-final-async-boundary-audit.md), and the original roadmap for detailed implementation boundaries.
 

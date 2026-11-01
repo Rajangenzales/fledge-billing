@@ -1,6 +1,6 @@
 # Fledge Billing — PWA Frontend Foundation Plan
 
-**Status:** W0–W1G merged (PRs #35–43); W1H audit and verification complete; W2/W3 initial IndexedDB business/customer slice implemented in the current worktree
+**Status:** W0–W1G merged (PRs #35–43); W1H audit and verification complete; W2/W3 IndexedDB business, customer, product and saved-rate slices implemented
 **Scope:** First customer-facing browser application foundation  
 **Depends on:** docs/01–03, docs/08–11 and the existing domain/application/persistence packages
 
@@ -8,7 +8,7 @@
 
 The current repository is a TypeScript pnpm monorepo. The `@fledge/app` package is a Node.js CLI and local HTTP health shell. Its HTTP server currently exposes only `/` and `/health`; it does not serve a browser UI.
 
-The existing SQLite adapter uses Node.js 22 `node:sqlite` and is isolated in `@fledge/persistence`. The current package scripts build, typecheck and test the monorepo. React/Vite is present in `packages/web`; the shell now opens a versioned IndexedDB database and supports local business-profile and customer workflows. No service worker or installable PWA lifecycle is present.
+The existing SQLite adapter uses Node.js 22 `node:sqlite` and is isolated in `@fledge/persistence`. The current package scripts build, typecheck and test the monorepo. React/Vite is present in `packages/web`; the shell opens a versioned IndexedDB database and supports local business-profile, customer, product and saved-rate workflows. No service worker or installable PWA lifecycle is present.
 
 The domain/application separation and repository interfaces are reusable architectural foundations, but browser compatibility of every transitive import and application dependency must be audited before bundling them into a browser application. The existing Node SQLite adapter cannot be imported into an ordinary browser runtime.
 
@@ -102,7 +102,7 @@ W1A is documented in [docs/23](./23-w1a-async-repository-and-transaction-contrac
 
 ### W2 — IndexedDB foundation
 
-The first W2 slice is implemented in [docs/30](./30-w2-indexeddb-foundation-and-local-setup.md). It uses native IndexedDB without a wrapper and includes only the business-profile and customer repositories. Other repositories remain gated behind their own vertical slices.
+The W2 browser slices are documented in [docs/30](./30-w2-indexeddb-foundation-and-local-setup.md). They use native IndexedDB without a wrapper for business profiles, customers, products and saved GST rates. Document, template and payment repositories remain gated behind their own vertical slices.
 
 - Preserve business scoping, stable IDs and transaction invariants.
 - Resolve writes only after the IndexedDB transaction completes; reject aborted/error transactions.
