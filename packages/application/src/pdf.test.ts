@@ -27,6 +27,9 @@ describe("invoice PDF", () => {
     expect(pageSize(bytes)).toEqual([595.28, 841.89]);
     const withLogo = await buildInvoicePdf(sampleRender(1), png);
     expect(extractPdfText(withLogo)).toContain("Total: INR 1,180.00");
+    const styled = await buildInvoicePdf({ ...sampleRender(1), brandColor: "#0F6E56", density: "compact" });
+    const comfortable = await buildInvoicePdf({ ...sampleRender(1), brandColor: "#0F6E56", density: "comfortable" });
+    expect(styled).not.toEqual(comfortable);
     await expect(buildInvoicePdf(sampleRender(1), Uint8Array.from([0x3c, 0x73, 0x76, 0x67]))).rejects.toThrow(
       TemplateError,
     );
