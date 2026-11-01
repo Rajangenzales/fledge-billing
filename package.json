@@ -9,7 +9,7 @@
     "start": "pnpm --filter @fledge/app run start",
     "typecheck": "pnpm -r run typecheck",
     "web:dev": "pnpm --filter @fledge/web run dev",
-    "web:build": "pnpm --filter @fledge/web run build"
+    "web:build": "pnpm --filter @fledge/web... run build"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",
