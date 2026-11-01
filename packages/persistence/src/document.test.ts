@@ -402,7 +402,7 @@ describe("billing documents", () => {
       },
       deps,
     );
-    expect(await finalizeDocument(draft.id, deps).documentNumber).toBe("INV/2026-27/0010");
+    expect((await finalizeDocument(draft.id, deps)).documentNumber).toBe("INV/2026-27/0010");
     expect((await getDocument(draft.id, deps))?.lines[0]?.productId).toBe("item-1");
     await expect(
       saveNumberSeries(
