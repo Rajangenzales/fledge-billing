@@ -10,21 +10,35 @@ const documentTypes = [
   ["quotation", "Quotation"],
 ];
 
+function addCalendarDays(dateValue, days) {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
+function dueDateForCustomer(documentDate, customer) {
+  const creditDays = Number.isInteger(customer?.creditDays) ? customer.creditDays : 0;
+  return creditDays > 0 ? addCalendarDays(documentDate, creditDays) : "";
+}
+
 function defaultForm(business, customers, templates) {
   const documentType = business?.gstRegistered ? "tax_invoice" : "non_gst_invoice";
   const defaultTemplate = templates.find((template) =>
     template.documentType === documentType && template.isDefault && template.active,
   );
+  const customer = customers.find((item) => item.active);
+  const documentDate = new Date().toISOString().slice(0, 10);
   return {
     id: null,
-    customerId: customers.find((customer) => customer.active)?.id ?? "",
+    customerId: customer?.id ?? "",
     documentType,
     templateId: defaultTemplate?.id ?? "",
     customFieldValues: Object.fromEntries(
       (defaultTemplate?.customFields ?? []).map((field) => [field.key, field.defaultValue ?? ""]),
     ),
-    documentDate: new Date().toISOString().slice(0, 10),
-    dueDate: "",
+    documentDate,
+    dueDate: dueDateForCustomer(documentDate, customer),
+    dueDateManuallySet: false,
     placeOfSupplyStateId: business?.stateId ?? "",
     quotationGstEnabled: false,
     reverseCharge: false,
@@ -41,6 +55,7 @@ function formFromDocument(document) {
     customFieldValues: Object.fromEntries(document.customFields.map((field) => [field.key, field.value ?? ""])),
     documentDate: document.documentDate,
     dueDate: document.dueDate ?? "",
+    dueDateManuallySet: Boolean(document.dueDate),
     placeOfSupplyStateId: document.placeOfSupplyStateId ?? "",
     quotationGstEnabled: document.documentType === "quotation" && document.gstEnabled,
     reverseCharge: document.reverseCharge,
@@ -165,7 +180,15 @@ export default function DocumentDirectory({
   }
 
   function updateForm(field, value) {
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((current) => {
+      const next = { ...current, [field]: value };
+      if (field === "dueDate") next.dueDateManuallySet = Boolean(value);
+      if (field === "documentDate" && !current.dueDateManuallySet) {
+        const customer = customers.find((item) => item.id === current.customerId);
+        next.dueDate = dueDateForCustomer(value, customer);
+      }
+      return next;
+    });
     setMessage("");
     setDirty(true);
     setSavedPreview(null);
@@ -395,8 +418,12 @@ export default function DocumentDirectory({
         }}>{documentTypes.filter(([type]) => type !== "tax_invoice" || business.gstRegistered).map(([type, label]) => <option key={type} value={type}>{label}</option>)}</select></label>
         <label>Template<select required value={form.templateId} onChange={(event) => changeTemplate(event.target.value)}><option value="">Choose template</option>{applicableTemplates.map((template) => <option key={template.id} value={template.id}>{template.name} · v{template.version}{template.isDefault ? " · default" : ""}</option>)}</select></label>
         <label>Document date<input required type="date" value={form.documentDate} onChange={(event) => updateForm("documentDate", event.target.value)} /></label>
-        <label>Due date (optional)<input type="date" min={form.documentDate} value={form.dueDate} onChange={(event) => updateForm("dueDate", event.target.value)} /></label>
-        <label>Customer<select required value={form.customerId} onChange={(event) => updateForm("customerId", event.target.value)}><option value="">Choose customer</option>{activeCustomers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
+        <label>Due date<input type="date" min={form.documentDate} value={form.dueDate} onChange={(event) => updateForm("dueDate", event.target.value)} /><small>{form.dueDateManuallySet ? "Custom due date. You can edit it anytime while this is a draft." : "Suggested from the customer credit period. You can change it."}</small></label>
+        <label>Customer<select required value={form.customerId} onChange={(event) => {
+          const customerId = event.target.value;
+          setForm((current) => ({ ...current, customerId, ...(!current.dueDateManuallySet ? { dueDate: dueDateForCustomer(current.documentDate, customers.find((item) => item.id === customerId)) } : {}) }));
+          setMessage(""); setDirty(true); setSavedPreview(null); setConfirmFinalize(false);
+        }}><option value="">Choose customer</option>{activeCustomers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
         {gstEnabled && <label>Place of supply<select required value={form.placeOfSupplyStateId} onChange={(event) => updateForm("placeOfSupplyStateId", event.target.value)}><option value="">Choose State / UT</option>{STATE_UTS.filter((state) => state.active).map((state) => <option key={state.id} value={state.id}>{state.name}</option>)}</select></label>}
         {form.documentType === "quotation" && business.gstRegistered && <label className="checkbox-field"><input type="checkbox" checked={form.quotationGstEnabled} onChange={(event) => updateForm("quotationGstEnabled", event.target.checked)} /> Calculate GST on this quotation</label>}
         {gstEnabled && <label className="checkbox-field"><input type="checkbox" checked={form.reverseCharge} onChange={(event) => updateForm("reverseCharge", event.target.checked)} /> Reverse charge applies</label>}
