@@ -45,7 +45,7 @@ import {
 
 const navigation = [
   { id: "overview", label: "Overview", icon: "grid" },
-  { id: "invoices", label: "Invoices", icon: "file" },
+  { id: "invoices", label: "Billing", icon: "file" },
   { id: "customers", label: "Customers", icon: "users" },
   { id: "products", label: "Products & services", icon: "box" },
   { id: "templates", label: "Document templates", icon: "file" },
@@ -84,7 +84,7 @@ function Overview({ business, customers, products, documents, outstandingBalance
   return <>
     <section className="welcome-row">
       <div><div className="eyebrow">YOUR BUSINESS, IN GOOD ORDER</div><h1>Good morning.</h1><p>{business ? `Welcome to ${business.displayName}.` : "Set up your business workspace to get started."}</p></div>
-      <button className="primary-button" onClick={() => onNavigate(business ? "invoices" : "settings")}><Icon name="plus" size={17} /> {business ? "View invoices" : "Set up business"}</button>
+      <button className="primary-button" onClick={() => onNavigate(business ? "invoices" : "settings")}><Icon name="plus" size={17} /> {business ? "Create a bill" : "Set up business"}</button>
     </section>
     <section className="metrics-grid">
       <Metric label="Total invoices" value={String(documents.filter((document) =>
