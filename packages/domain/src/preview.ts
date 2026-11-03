@@ -221,6 +221,7 @@ export type IssuedRender = {
   logoBytes?: Uint8Array;
   logoMimeType?: "image/png" | "image/jpeg";
   logoDataUrl?: string;
+  businessHeader?: { name: string; address: string; pinCode: string | null; state: string; phone: string | null; email: string | null; gstin: string | null };
   sections: PreviewSection[];
   itemColumnLabels?: ItemColumnLabels;
   items: PreviewItem[];
@@ -242,6 +243,7 @@ export type StoredDocumentRender = {
   documentDate: string;
   supplierLegalName: string;
   supplierGstin: string | null;
+  supplierSnapshot?: { name: string; address: string; pinCode: string | null; state: string; phone: string | null; email: string | null; gstin: string | null } | null;
   customerName: string;
   customerPhone: string | null;
   customerEmail: string | null;
@@ -322,6 +324,15 @@ export function renderStoredDocument(input: {
     documentNumber: input.document.documentNumber,
     documentDate: input.document.documentDate,
     documentType: input.document.documentType,
+    businessHeader: input.document.supplierSnapshot ? {
+      name: input.document.supplierSnapshot.name || input.document.supplierLegalName,
+      address: input.document.supplierSnapshot.address,
+      pinCode: input.document.supplierSnapshot.pinCode,
+      state: input.document.supplierSnapshot.state,
+      phone: input.document.supplierSnapshot.phone,
+      email: input.document.supplierSnapshot.email,
+      gstin: input.document.supplierSnapshot.gstin ?? input.document.supplierGstin,
+    } : { name: input.document.supplierLegalName, address: "", pinCode: null, state: "", phone: null, email: null, gstin: input.document.supplierGstin },
     brandColor: template?.brandColor,
     fontFamily: template?.fontFamily,
     density: template?.density,
