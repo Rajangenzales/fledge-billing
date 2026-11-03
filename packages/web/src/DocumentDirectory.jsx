@@ -154,11 +154,11 @@ function money(value) {
 }
 
 export default function DocumentDirectory({
-  business,
-  customers,
-  products,
-  templates,
-  documents,
+  business = null,
+  customers = [],
+  products = [],
+  templates = [],
+  documents = [],
   onNavigate,
   onSave,
   onFinalize,

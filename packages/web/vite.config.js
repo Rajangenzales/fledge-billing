@@ -114,10 +114,21 @@ function versionedServiceWorker() {
     name: "fledge-versioned-service-worker",
     writeBundle(outputOptions) {
       const outputDirectory = outputOptions.dir ?? resolve(packageRoot, "dist");
+      const assetsDirectory = resolve(outputDirectory, "assets");
+      const assetFiles = readdirSync(assetsDirectory, { withFileTypes: true })
+        .filter((entry) => entry.isFile() && /\.(?:css|js)$/.test(entry.name))
+        .map((entry) => "assets/" + entry.name);
+      const artifactFiles = ["index.html", ...assetFiles].sort();
+      const buildFingerprint = createHash("sha256");
+      for (const fileName of artifactFiles) {
+        buildFingerprint.update(fileName);
+        buildFingerprint.update(readFileSync(resolve(outputDirectory, fileName)));
+      }
+      const buildVersion = releaseManifest.version + "-" + buildFingerprint.digest("hex").slice(0, 16);
       const workerSource = readFileSync(resolve(packageRoot, "public/sw.js"), "utf8");
       const versionedWorker = workerSource.replace(
         '"__FLEDGE_BUILD_VERSION__"',
-        JSON.stringify(releaseManifest.version),
+        JSON.stringify(buildVersion),
       );
       if (versionedWorker === workerSource) {
         this.error("The service-worker build version placeholder was not found.");
@@ -125,11 +136,6 @@ function versionedServiceWorker() {
       writeFileSync(resolve(outputDirectory, "sw.js"), versionedWorker);
       const release = structuredClone(releaseManifest);
       release.integrity.sha256 = createHash("sha256").update(versionedWorker).digest("hex");
-      const assetsDirectory = resolve(outputDirectory, "assets");
-      const assetFiles = readdirSync(assetsDirectory, { withFileTypes: true })
-        .filter((entry) => entry.isFile() && /\.(?:css|js)$/.test(entry.name))
-        .map((entry) => "assets/" + entry.name);
-      const artifactFiles = ["index.html", ...assetFiles];
       release.integrity.artifacts = artifactFiles.map((fileName) => ({
         url: "/" + fileName,
         sha256: createHash("sha256").update(readFileSync(resolve(outputDirectory, fileName))).digest("hex"),

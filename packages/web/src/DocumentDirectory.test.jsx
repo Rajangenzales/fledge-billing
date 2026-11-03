@@ -57,6 +57,16 @@ describe("business sector template defaults", () => {
 });
 
 describe("browser document directory", () => {
+  it("safely defaults missing document collections to empty lists", () => {
+    const html = renderToStaticMarkup(React.createElement(DocumentDirectory, {
+      business: null,
+      ...callbacks,
+    }));
+
+    expect(html).toContain("Set up your business first");
+    expect(html).toContain("<h1>Billing</h1>");
+  });
+
   it("requires a business profile before showing document actions", () => {
     const html = renderToStaticMarkup(React.createElement(DocumentDirectory, {
       business: null,
