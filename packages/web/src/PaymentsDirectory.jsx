@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { localDateInputValue } from "./local-date.js";
 
 const methods = [
@@ -94,6 +94,7 @@ export default function PaymentsDirectory({
     reason: "",
     key: requestKey(),
   }));
+  const refreshRequestId = useRef(0);
   const customer = customers.find((item) => item.id === customerId);
   const customerDocuments = documents.filter((document) =>
     document.customerId === customerId &&
@@ -112,10 +113,12 @@ export default function PaymentsDirectory({
     ));
 
   async function refresh(nextCustomerId = customerId) {
+    const requestId = ++refreshRequestId.current;
     if (!nextCustomerId || !business) {
       setActivity(null);
       setReceipts([]);
       setSettlements([]);
+      setLoading(false);
       return true;
     }
     setLoading(true);
@@ -134,20 +137,24 @@ export default function PaymentsDirectory({
           )
           .map((document) => onGetInvoiceSettlement(document.id))),
       ]);
+      if (requestId !== refreshRequestId.current) return false;
       setActivity(data.activity);
       setReceipts(data.receipts);
       setSettlements(nextSettlements);
       return true;
     } catch (error) {
-      setMessage(errorText(error));
+      if (requestId === refreshRequestId.current) setMessage(errorText(error));
       return false;
     } finally {
-      setLoading(false);
+      if (requestId === refreshRequestId.current) setLoading(false);
     }
   }
 
   useEffect(() => {
     void refresh(customerId);
+    return () => {
+      refreshRequestId.current += 1;
+    };
   }, [customerId, documents]);
 
   async function submit(action, input, successMessage) {
