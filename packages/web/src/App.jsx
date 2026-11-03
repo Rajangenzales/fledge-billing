@@ -643,7 +643,7 @@ export default function App() {
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand-lockup"><div className="brand-symbol">f</div><div><div className="brand-name">fledge</div><div className="brand-subtitle">BILLING</div></div></div>
-      <div className="workspace-switcher"><div className="workspace-avatar">{business?.displayName?.slice(0, 1).toUpperCase() || "B"}</div><div className="workspace-meta"><strong>{business?.displayName || "My business"}</strong><span>Local workspace</span></div><span className="switcher-chevron">⌄</span></div>
+      <div className="workspace-switcher"><div className="workspace-avatar">{businessLogo ? <img src={businessLogo} alt="" /> : (business?.displayName?.slice(0, 1).toUpperCase() || "B")}</div><div className="workspace-meta"><strong>{business?.displayName || business?.legalName || "My business"}</strong><span>{business?.gstin ? `GSTIN ${business.gstin}` : business?.address || "Local workspace"}</span></div><span className="switcher-chevron">⌄</span></div>
       <div className="nav-caption">WORKSPACE</div>
       <nav className="main-nav" aria-label="Main navigation">
         {navigation.map((item) => <button key={item.id} className={active === item.id ? "nav-item active" : "nav-item"} onClick={() => setActive(item.id)}><Icon name={item.icon} /><span>{item.label}</span></button>)}
@@ -652,7 +652,7 @@ export default function App() {
       <div className="sidebar-footer"><span className={status === "ready" ? "footer-dot" : "footer-dot pending"} /> {status === "ready" ? "Local database" : status === "loading" ? "Connecting" : "Storage issue"} <span className="version-label">v0.2</span></div>
     </aside>
     <main className="main-area">
-      <header className="topbar"><div className="breadcrumb">Workspace <span>/</span> {selected?.label || (active === "settings" ? "Settings" : "Overview")}</div><div className="topbar-right"><span className={status === "ready" ? "offline-pill" : "offline-pill status-pending"}><span /> {status === "ready" ? "Saved locally" : status === "loading" ? "Opening local storage" : "Storage unavailable"}</span><div className="profile-avatar">{business?.displayName?.slice(0, 1).toUpperCase() || "B"}</div></div></header>
+      <header className="topbar"><div className="breadcrumb">Workspace <span>/</span> {selected?.label || (active === "settings" ? "Settings" : "Overview")}</div><div className="topbar-right"><span className={status === "ready" ? "offline-pill" : "offline-pill status-pending"}><span /> {status === "ready" ? "Saved locally" : status === "loading" ? "Opening local storage" : "Storage unavailable"}</span><div className="profile-avatar" aria-label="Business identity">{businessLogo ? <img src={businessLogo} alt="" /> : (business?.displayName?.slice(0, 1).toUpperCase() || "B")}</div></div></header>
       <div className="page-content">
         {status === "ready" && durabilityWarning && <p className="storage-warning" role="status">{durabilityWarning}</p>}
         {status === "loading" && <section className="placeholder-panel" role="status"><div className="placeholder-icon"><Icon name="shield" /></div><h1>Opening your local workspace</h1><p>Connecting to this browser's IndexedDB database. Your records stay on this device.</p></section>}
