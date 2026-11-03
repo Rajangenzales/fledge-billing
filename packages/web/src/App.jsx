@@ -695,6 +695,7 @@ export default function App() {
           business={business}
           customers={customers}
           products={products}
+          templates={templates}
           documents={documents}
           onNavigate={setActive}
           onSave={handleSaveDocument}
