@@ -10,6 +10,7 @@ button{font:inherit;cursor:pointer}
 .brand-subtitle{font-size:9px;letter-spacing:2.2px;font-weight:700;color:#8c9a95;margin-top:4px}
 .workspace-switcher{height:62px;border:1px solid #e9edf0;border-radius:12px;padding:10px;display:flex;align-items:center;gap:10px;margin:0 2px 30px}
 .workspace-avatar,.profile-avatar{width:34px;height:34px;border-radius:10px;background:#e8f0ec;color:#1d5a49;display:grid;place-items:center;font-weight:700}
+.workspace-avatar{overflow:hidden;flex:0 0 auto}.workspace-avatar img,.profile-avatar img{width:100%;height:100%;object-fit:contain;padding:3px}.workspace-meta strong,.workspace-meta span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.workspace-meta span{max-width:145px}.profile-avatar{overflow:hidden;flex:0 0 auto}
 .workspace-meta{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
 .workspace-meta strong{font-size:12px;font-weight:700}
 .workspace-meta span{font-size:10px;color:#87938f}
