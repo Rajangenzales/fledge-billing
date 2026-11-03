@@ -31,6 +31,24 @@ describe("PWA service worker", () => {
     ]));
   });
 
+  it("uses a distinct application cache for each generated build fingerprint", async () => {
+    const first = serviceWorkerHarness();
+    const second = serviceWorkerHarness();
+    runInNewContext(serviceWorkerSource.replace("test-version", "test-version-build-a"), first.context);
+    runInNewContext(serviceWorkerSource.replace("test-version", "test-version-build-b"), second.context);
+
+    let firstInstall;
+    first.listeners.get("install")({ waitUntil: (promise) => { firstInstall = promise; } });
+    await firstInstall;
+    let secondInstall;
+    second.listeners.get("install")({ waitUntil: (promise) => { secondInstall = promise; } });
+    await secondInstall;
+
+    expect(first.openedCacheNames[0]).toBe("fledge-app-shell-test-version-build-a");
+    expect(second.openedCacheNames[0]).toBe("fledge-app-shell-test-version-build-b");
+    expect(first.openedCacheNames[0]).not.toBe(second.openedCacheNames[0]);
+  });
+
   it("serves the previously cached app shell for offline navigation after first load", async () => {
     const harness = serviceWorkerHarness();
     runInNewContext(serviceWorkerSource, harness.context);
@@ -136,6 +154,7 @@ describe("PWA service worker", () => {
 function serviceWorkerHarness(cacheNames = ["fledge-app-shell-test-version"]) {
   const listeners = new Map();
   const cached = new Map();
+  const openedCacheNames = [];
   const cache = {
     put: vi.fn(async (key, response) => cached.set(String(key), response)),
     match: async (key) => cached.get(String(key))?.clone(),
@@ -165,11 +184,11 @@ function serviceWorkerHarness(cacheNames = ["fledge-app-shell-test-version"]) {
       addEventListener: (name, listener) => listeners.set(name, listener),
     },
     caches: {
-      open: async () => cache,
+      open: async (name) => { openedCacheNames.push(name); return cache; },
       keys: async () => cacheNames,
       delete: cacheDelete,
       match: cache.match,
     },
   };
-  return { context, listeners, cached, networkFetch, skipWaiting, clientsClaim, cacheDelete };
+  return { context, listeners, cached, networkFetch, skipWaiting, clientsClaim, cacheDelete, openedCacheNames };
 }
