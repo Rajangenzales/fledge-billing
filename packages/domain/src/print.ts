@@ -21,6 +21,16 @@ const DEFAULT_ITEM_COLUMN_LABELS = {
 
 export function presentationLines(render: IssuedRender): string[] {
   const lines = [DOCUMENT_TITLES[render.documentType]];
+  if (render.businessHeader) {
+    const header = render.businessHeader;
+    if (header.name) lines.push(header.name);
+    if (header.address) lines.push(header.address);
+    const locality = [header.pinCode, header.state].filter(Boolean).join(", ");
+    if (locality) lines.push(locality);
+    if (header.phone) lines.push(`Phone: ${header.phone}`);
+    if (header.email) lines.push(`Email: ${header.email}`);
+    if (header.gstin) lines.push(`GSTIN: ${header.gstin}`);
+  }
   for (const section of render.sections) {
     lines.push(section.label);
     for (const field of section.fields) {
