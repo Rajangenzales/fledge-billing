@@ -59,7 +59,7 @@ function defaultForm(business, customers, templates) {
   };
 }
 
-function formFromDocument(document) {
+export function formFromDocument(document) {
   return {
     id: document.id,
     customerId: document.customerId,
@@ -91,11 +91,12 @@ function formFromDocument(document) {
       taxInclusive: line.taxInclusive,
       gstRatePercent: line.gstRatePercent ?? "",
       taxCategoryId: line.taxCategoryId,
+      supplyNature: line.supplyNature ?? null,
     })),
   };
 }
 
-function lineFromProduct(product) {
+export function lineFromProduct(product) {
   return {
     productId: product.id,
     description: product.description || product.name,
@@ -108,10 +109,11 @@ function lineFromProduct(product) {
     taxInclusive: product.taxInclusive,
     gstRatePercent: product.savedGstRate?.percentage ?? "",
     taxCategoryId: product.taxCategoryId,
+    supplyNature: product.type ?? null,
   };
 }
 
-function documentInput(form) {
+export function documentInput(form) {
   const gstEnabled = form.documentType === "tax_invoice" ||
     (form.documentType === "quotation" && form.quotationGstEnabled);
   return {
@@ -140,7 +142,7 @@ function documentInput(form) {
       hsnSac: line.hsnSac || null,
       discountValue: line.discountType === "none" ? null : line.discountValue,
       gstRatePercent: line.gstRatePercent || null,
-      supplyNature: null,
+      supplyNature: line.supplyNature ?? null,
     })),
   };
 }
