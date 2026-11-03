@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { BUSINESS_SECTOR_PRESETS, invoicePdfFilename, TAX_CATEGORIES } from "@fledge/domain";
 import IssuedDocumentOutput from "./IssuedDocumentOutput.jsx";
 import { localDateInputValue } from "./local-date.js";
@@ -176,6 +176,7 @@ export default function DocumentDirectory({
   const [selectedRender, setSelectedRender] = useState(null);
   const [outputBusy, setOutputBusy] = useState(false);
   const [outputMessage, setOutputMessage] = useState("");
+  const renderRequestId = useRef(0);
   const activeProducts = products.filter((product) => product.active);
   const activeCustomers = customers.filter((customer) => customer.active);
   const selectedDocument = documents.find((document) => document.id === selectedDocumentId);
@@ -189,6 +190,8 @@ export default function DocumentDirectory({
   );
 
   function startNew() {
+    renderRequestId.current += 1;
+    setOutputBusy(false);
     setForm(defaultForm(business, activeCustomers, templates));
     setSelectedDocumentId(null);
     setSelectedRender(null);
@@ -200,6 +203,8 @@ export default function DocumentDirectory({
   }
 
   function editDraft(document) {
+    renderRequestId.current += 1;
+    setOutputBusy(false);
     setForm(formFromDocument(document));
     setSelectedDocumentId(null);
     setSelectedRender(null);
@@ -326,19 +331,24 @@ export default function DocumentDirectory({
   }
 
   async function viewDocument(document) {
+    const requestId = ++renderRequestId.current;
     setSelectedDocumentId(document.id);
     setSelectedRender(null);
     setOutputMessage("");
     if (document.status === "cancelled") {
+      setOutputBusy(false);
       return;
     }
     setOutputBusy(true);
     try {
-      setSelectedRender(await onRenderIssued(document.id));
+      const rendered = await onRenderIssued(document.id);
+      if (requestId === renderRequestId.current) setSelectedRender(rendered);
     } catch (error) {
-      setOutputMessage(error?.userMessage || error?.message || "The document preview could not be loaded.");
+      if (requestId === renderRequestId.current) {
+        setOutputMessage(error?.userMessage || error?.message || "The document preview could not be loaded.");
+      }
     } finally {
-      setOutputBusy(false);
+      if (requestId === renderRequestId.current) setOutputBusy(false);
     }
   }
 
@@ -590,6 +600,8 @@ export default function DocumentDirectory({
 
     {selectedDocument && <section className="panel selected-document">
       <div className="panel-heading"><div><div className="eyebrow">DOCUMENT DETAILS</div><h2>{selectedDocument.documentNumber || "Draft"} · {selectedDocument.documentDate}</h2></div><button className="list-action" onClick={() => {
+        renderRequestId.current += 1;
+        setOutputBusy(false);
         setSelectedDocumentId(null);
         setSelectedRender(null);
       }}>Close</button></div>
