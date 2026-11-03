@@ -1,7 +1,7 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import DocumentDirectory, { defaultTemplateForBusiness, dueDateForCustomer } from "./DocumentDirectory.jsx";
+import DocumentDirectory, { defaultTemplateForBusiness, dueDateForCustomer, documentInput, formFromDocument, lineFromProduct } from "./DocumentDirectory.jsx";
 
 const callbacks = {
   onNavigate: () => undefined,
@@ -109,5 +109,81 @@ describe("browser document directory", () => {
     expect(html).toContain("Fledge does not verify rates against HSN/SAC");
     expect(html).toContain("determine place of supply or reverse-charge applicability");
     expect(html).not.toContain("No documents yet");
+  });
+});
+
+
+describe("product supply nature on billing documents", () => {
+  it("copies the catalog goods or service type into a new invoice line", () => {
+    expect(lineFromProduct({
+      id: "service-1",
+      type: "service",
+      name: "Consulting",
+      unit: "hrs",
+      defaultPrice: "1000",
+      defaultDiscount: "0",
+      taxInclusive: false,
+      taxCategoryId: "taxable",
+      savedGstRate: { percentage: "18" },
+    })).toMatchObject({ productId: "service-1", supplyNature: "service" });
+  });
+
+  it("restores supply nature when reopening a saved draft", () => {
+    const form = formFromDocument({
+      id: "draft-1",
+      customerId: "customer-1",
+      documentType: "tax_invoice",
+      customFields: [],
+      documentDate: "2026-11-03",
+      dueDate: null,
+      placeOfSupplyStateId: "IN-KL",
+      gstEnabled: true,
+      reverseCharge: false,
+      promotionalOffers: [],
+      charges: [],
+      lines: [{
+        productId: "service-1",
+        description: "Consulting",
+        quantity: "1",
+        unit: "hrs",
+        rate: "1000",
+        discountType: "none",
+        discountValue: "0",
+        taxInclusive: false,
+        gstRatePercent: "18",
+        taxCategoryId: "taxable",
+        supplyNature: "service",
+      }],
+    });
+
+    expect(form.lines[0].supplyNature).toBe("service");
+  });
+
+  it("passes the retained supply nature into the application document command", () => {
+    const input = documentInput({
+      documentType: "tax_invoice",
+      customFieldValues: {},
+      documentDate: "2026-11-03",
+      dueDate: "",
+      placeOfSupplyStateId: "IN-KL",
+      reverseCharge: false,
+      charges: [],
+      promotionalOffers: [],
+      lines: [{
+        productId: "service-1",
+        description: "Consulting",
+        quantity: "1",
+        unit: "hrs",
+        rate: "1000",
+        discountType: "none",
+        discountValue: "0",
+        taxInclusive: false,
+        gstRatePercent: "18",
+        taxCategoryId: "taxable",
+        supplyNature: "service",
+      }],
+    });
+
+    expect(input.lines[0].supplyNature).toBe("service");
   });
 });
